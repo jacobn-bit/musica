@@ -35,18 +35,18 @@ exports.handler = async function(event) {
       }
     );
 
-    let data;
+const rawText = await searchRes.text();
 
+let data;
 try {
-  data = await searchRes.json();
+  data = JSON.parse(rawText);
 } catch (e) {
-  const text = await searchRes.text();
   return {
     statusCode: 500,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       error: "Spotify returned non-JSON",
-      rawResponse: text
+      rawResponse: rawText
     })
   };
 }
