@@ -1,0 +1,8 @@
+{
+  "name": "Musica",
+  "short_name": "Musica",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0f0f12",
+  "theme_color": "#0f0f12"
+}
