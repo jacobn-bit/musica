@@ -35,7 +35,21 @@ exports.handler = async function(event) {
       }
     );
 
-    const data = await searchRes.json();
+    let data;
+
+try {
+  data = await searchRes.json();
+} catch (e) {
+  const text = await searchRes.text();
+  return {
+    statusCode: 500,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      error: "Spotify returned non-JSON",
+      rawResponse: text
+    })
+  };
+}
 
     if (!data.albums || !data.albums.items) {
       return {
