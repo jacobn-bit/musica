@@ -25,7 +25,16 @@ exports.handler = async function(event) {
 
   const data = await searchRes.json();
 
-  const albums = data.albums.items.map(a => ({
+  if (!data.albums || !data.albums.items) {
+  return {
+    statusCode: 500,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      error: "Spotify API failed",
+      spotifyResponse: data
+    })
+  };
+}
     title: a.name,
     artist: a.artists.map(x => x.name).join(", "),
     year: a.release_date ? a.release_date.slice(0, 4) : "",
