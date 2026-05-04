@@ -27,7 +27,7 @@ exports.handler = async function(event) {
     }
 
     const searchRes = await fetch(
-      "https://api.spotify.com/v1/search?type=album&limit=12&q=" + encodeURIComponent(q),
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=album&limit=10`,
       {
         headers: {
           "Authorization": "Bearer " + tokenData.access_token
