@@ -577,3 +577,40 @@ body.light .closeNav {
 .fallbackCover {
   display: none;
 }
+
+/* Fix album cards only */
+.card .cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Keep detail/list images from exploding */
+.detail .cover img {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  display: block;
+}
+
+.listCover img {
+  width: 52px !important;
+  height: 52px !important;
+  object-fit: cover;
+  display: block;
+}
+
+.spotifyResult img {
+  width: 72px !important;
+  height: 72px !important;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+/* Hide fallback text only when image exists */
+.card .cover img + .fallbackCover,
+.detail .cover img + .fallbackCover {
+  display: none;
+}
