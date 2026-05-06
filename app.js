@@ -36,6 +36,7 @@ function cover(a){
     </div>
   `;
 }
+}
 function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
 function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();return(state.genre==="All"||x.genre===state.genre)&&(`${x.title} ${x.artist} ${x.genre||""}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
 function card(a){return`<article class="card" onclick="openAlbum('${a.id}')">${cover(a)}<div class="cardBody"><div class="row"><div><div class="title">${a.title}</div><div class="artist">${a.artist} · ${a.year||""}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${a.genre||"Album"}</span></div></article>`}
