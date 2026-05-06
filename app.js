@@ -32,7 +32,7 @@ function cover(a){
 
   return `
     <div class="cover">
-      <img src="${a.cover_url}" alt="${a.title || ""}">
+      <img src="${a.cover_url}" alt="">
     </div>
   `;
 }
