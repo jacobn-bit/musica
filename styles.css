@@ -561,3 +561,19 @@ body.light .closeNav {
   background: #f2eee5 !important;
   color: #111827 !important;
 }
+
+.cover {
+  position: relative;
+  overflow: hidden;
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fallbackCover {
+  display: none;
+}
