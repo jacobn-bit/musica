@@ -26,12 +26,15 @@ function displayScore(a){return score(a)>0?score(a).toFixed(1):"—"}
 function coverText(a){return(a.title||"?").split(" ").slice(0,2).map(w=>w[0]).join("")}
 function fallback(a){return `<div class="fallbackCover"><strong>${coverText(a)}</strong><span>${a.title}</span></div>`}
 function cover(a){
-  if(!a.cover_url) return `<div class="cover">${fallback(a)}</div>`;
-  return `<div class="cover"><img src="${a.cover_url}" onerror="this.parentElement.innerHTML=\`${fallback(a)}\`;" alt=""></div>`
-}
-function listCover(a){
-  if(!a.cover_url) return `<div class="listCover">${coverText(a)}</div>`;
-  return `<div class="listCover"><img src="${a.cover_url}" onerror="this.parentElement.textContent='${coverText(a)}';this.remove();" alt=""></div>`
+  if(!a.cover_url){
+    return `<div class="cover">${fallback(a)}</div>`;
+  }
+
+  return `
+    <div class="cover">
+      <img src="${a.cover_url}" alt="${a.title || ""}">
+    </div>
+  `;
 }
 function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
 function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();return(state.genre==="All"||x.genre===state.genre)&&(`${x.title} ${x.artist} ${x.genre||""}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
