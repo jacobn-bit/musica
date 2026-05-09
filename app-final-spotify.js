@@ -17,6 +17,7 @@ if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const escapeJsString=value=>String(value??"").replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+function spotifyAlbumSummary(a){const year=a.year||String(a.release_date||"").slice(0,4);const trackCount=Number(a.total_tracks||0);const type=(a.album_type||"album").replace(/_/g," ");let parts=[];if(year)parts.push(`released in ${year}`);if(trackCount)parts.push(`${trackCount} track${trackCount===1?"":"s"}`);const detail=parts.length?` This ${type} was ${parts.join(" with ")}.`:"";return `${a.title} by ${a.artist} was added from Spotify.${detail}`}
 function localAlbums(){return JSON.parse(localStorage.getItem("musicaLocalAlbums")||"[]")}
 function saveLocalAlbums(a){localStorage.setItem("musicaLocalAlbums",JSON.stringify(a))}
 function localRatings(){return JSON.parse(localStorage.getItem("musicaLocalRatings")||"{}")}
@@ -331,7 +332,7 @@ async function searchSpotify(){
     $("#spotifyStatus").textContent=e.message;
   }
 }
-window.addSpotifyAlbum=async function(a){let album={title:a.title,artist:a.artist,year:a.year,genre:"",cover_url:a.cover_url,spotify_url:a.spotify_url,summary:"Added from Spotify.",spotify_id:a.spotify_id||""};let duplicate=existingAlbumMatch(album);if(duplicate){alert(`"${duplicate.title}" by ${duplicate.artist} is already in Musica.`);return}if(db){let {error}=await db.from("albums").insert(album);if(error){alert(error.message);return}}else{let arr=localAlbums();arr.push({...album,id:"local-"+Date.now(),avg_rating:0,ratings_count:0});saveLocalAlbums(arr)}$("#addModal").classList.add("hidden");await loadData()}
+window.addSpotifyAlbum=async function(a){let album={title:a.title,artist:a.artist,year:a.year,genre:"",cover_url:a.cover_url,spotify_url:a.spotify_url,summary:spotifyAlbumSummary(a),spotify_id:a.spotify_id||""};let duplicate=existingAlbumMatch(album);if(duplicate){alert(`"${duplicate.title}" by ${duplicate.artist} is already in Musica.`);return}if(db){let {error}=await db.from("albums").insert(album);if(error){alert(error.message);return}}else{let arr=localAlbums();arr.push({...album,id:"local-"+Date.now(),avg_rating:0,ratings_count:0});saveLocalAlbums(arr)}$("#addModal").classList.add("hidden");await loadData()}
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
 $("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>$("#addModal").classList.remove("hidden");$("#navAddAlbum").onclick=()=>{$("#addModal").classList.remove("hidden");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
 $("#closeAlbumModal").onclick=()=>$("#albumModal").classList.add("hidden");$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")$("#albumModal").classList.add("hidden")};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};
