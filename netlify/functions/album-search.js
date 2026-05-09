@@ -63,6 +63,7 @@ try {
     }
 
     const albums = data.albums.items.map(a => ({
+      spotify_id: a.id,
       title: a.name,
       artist: a.artists.map(x => x.name).join(", "),
       year: a.release_date ? a.release_date.slice(0, 4) : "",
