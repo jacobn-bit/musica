@@ -104,15 +104,11 @@ create policy "Anyone can update track ratings" on track_ratings for update usin
 
 
 
--- Delete support for accidental duplicate albums
+-- Public delete is disabled. Delete albums manually in Supabase, or add an admin-only flow later.
+
 drop policy if exists "Anyone can delete albums" on albums;
-create policy "Anyone can delete albums" on albums for delete using (true);
-
 drop policy if exists "Anyone can delete album comments" on album_comments;
-create policy "Anyone can delete album comments" on album_comments for delete using (true);
-
 drop policy if exists "Anyone can delete track ratings" on track_ratings;
-create policy "Anyone can delete track ratings" on track_ratings for delete using (true);
 
 
 -- Per-song comments
@@ -136,4 +132,4 @@ drop policy if exists "Anyone can add track comments" on track_comments;
 create policy "Anyone can add track comments" on track_comments for insert with check (true);
 
 drop policy if exists "Anyone can delete track comments" on track_comments;
-create policy "Anyone can delete track comments" on track_comments for delete using (true);
+
