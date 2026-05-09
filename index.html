@@ -1,24 +1,24 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Musica — Find Music Worth Listening To</title>
+  <title>Musica - Find Music Worth Listening To</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <button id="menuBtn" class="menuBtn">☰</button>
+      <button id="menuBtn" class="menuBtn">&#9776;</button>
       <div class="brandWrap">
         <div class="brand">Musica</div>
-        <div class="tagline">Know what’s worth listening to.</div>
+        <div class="tagline">Know what's worth listening to.</div>
       </div>
-      <button id="themeToggle" class="ghost">☾</button>
+      <button id="themeToggle" class="ghost">&#9790;</button>
     </header>
 
     <aside id="sideNav" class="sideNav">
-      <button id="closeNav" class="closeNav">×</button>
+      <button id="closeNav" class="closeNav">&times;</button>
       <div class="navBrand">Musica</div>
       <button class="navItem active" data-view="rankings">Top Rankings</button>
       <button class="navItem" data-view="discover">Discover</button>
@@ -37,9 +37,9 @@
         <button id="addAlbumBtn" class="bigBtn">+ Add album from Spotify</button>
       </div>
       <div class="heroCard">
-        <div class="scoreBig" id="heroScore">—</div>
+        <div class="scoreBig" id="heroScore">-</div>
         <div class="muted">Top-rated album</div>
-        <strong id="heroTitle">Loading…</strong>
+        <strong id="heroTitle">Loading...</strong>
       </div>
     </section>
 
@@ -48,7 +48,7 @@
     </div>
 
     <div class="controls">
-      <input id="searchInput" placeholder="Search albums, artists, genres…" />
+      <input id="searchInput" placeholder="Search albums, artists, genres..." />
       <select id="genreFilter"><option value="All">All genres</option></select>
       <select id="sortSelect">
         <option value="score">Highest score</option>
@@ -70,14 +70,14 @@
 
   <div id="albumModal" class="modal hidden">
     <div class="modalPanel">
-      <button id="closeAlbumModal" class="close">×</button>
+      <button id="closeAlbumModal" class="close">&times;</button>
       <div id="albumModalContent"></div>
     </div>
   </div>
 
   <div id="addModal" class="modal hidden">
     <div class="modalPanel">
-      <button id="closeAddModal" class="close">×</button>
+      <button id="closeAddModal" class="close">&times;</button>
       <h2>Add album from Spotify</h2>
       <p class="muted">Search an album and artist. Choose the correct result and Musica pulls the cover, year, and Spotify link automatically.</p>
       <div class="addSearch">
@@ -91,6 +91,12 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=final2"></script>
+  <script src="app-final-spotify.js?v=final11"></script>
 </body>
 </html>
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-/* Musica v4 clean original design */
+﻿/* Musica v4 clean original design */
 :root{
   --bg:#0b0b0f;
   --panel:#14141b;
@@ -610,3 +610,86 @@ body.light .closeNav {
 .cover .fallbackCover {
   display: none !important;
 }
+.cover .fallbackCover {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.cover img + .fallbackCover {
+  display: none !important;
+}
+
+.cover img[hidden] + .fallbackCover {
+  display: flex !important;
+}
+
+.listCover span {
+  display: block;
+}
+
+.listCover img + span {
+  display: none;
+}
+
+.listCover img[hidden] + span {
+  display: block;
+}
+
+
+
+/* Album comments and song ratings */
+.albumExtras{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+.extraPanel{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:14px}
+.sectionTitle.compact{margin:0 0 10px}.sectionTitle.compact h3{margin:0;font-size:18px}
+.trackRatings,.commentsList{display:grid;gap:10px}
+.trackItem{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:10px}
+.trackItem:first-child{border-top:0;padding-top:0}
+.trackName{display:flex;gap:9px;align-items:center}.trackName span{color:var(--muted);font-weight:900;min-width:24px}.trackName strong{font-size:14px}
+.songRatingBar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}.songRateBtn{width:22px;border:0;background:transparent;color:var(--muted);border-radius:0;padding:0;font-size:11px;font-weight:850;display:inline-flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;line-height:1;cursor:pointer}.songRateBtn:hover{color:var(--text)}.songRateNumber{display:block}.songRateCircle{width:10px;height:10px;border:1.5px solid var(--muted);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:transparent}.songRateBtn:hover .songRateCircle{border-color:var(--accent)}.songRateBtn.selected{color:var(--accent)}.songRateBtn.selected .songRateCircle{border-color:var(--accent)}.songRateBtn.selected .songRateCircle::after{content:"";width:4px;height:4px;border-radius:50%;background:var(--accent);display:block}
+.commentForm{display:grid;gap:8px;margin-bottom:12px}.commentForm input,.commentForm textarea{width:100%;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:12px;padding:10px}.commentForm textarea{min-height:76px;resize:vertical}.commentForm .bigBtn{justify-self:start;padding:10px 14px}
+.commentItem{border-top:1px solid var(--line);padding-top:10px}.commentItem:first-child{border-top:0}.commentItem p{margin:5px 0 0;color:var(--muted);line-height:1.45}.emptyMini{color:var(--muted);font-size:14px;padding:8px 0}
+body.light .extraPanel{background:#ffffff!important;border:1px solid #e5e1d8!important;color:#111827!important}body.light .commentForm input,body.light .commentForm textarea{background:#ffffff!important;color:#111827!important;border:1px solid #e1ddd4!important}body.light .songRateBtn{background:transparent!important;color:#6b7280!important;border:0!important}body.light .songRateBtn:hover,body.light .songRateBtn.selected{color:#a87800!important}body.light .songRateCircle{border-color:#8a9099!important}body.light .songRateBtn:hover .songRateCircle,body.light .songRateBtn.selected .songRateCircle{border-color:#d9a51a!important}body.light .songRateBtn.selected .songRateCircle::after{background:#d9a51a!important}body.light .commentItem p,body.light .emptyMini{color:#6b7280!important}
+@media(max-width:850px){.albumExtras{grid-template-columns:1fr}.songRateBtn{width:24px;padding:0}}
+
+
+/* Delete albums and duplicate controls */
+.albumActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.dangerBtn{border:1px solid rgba(220,38,38,.45);background:rgba(220,38,38,.12);color:#ffb4b4;font-weight:900;border-radius:14px;padding:12px 14px;cursor:pointer}
+.dangerBtn:hover{background:rgba(220,38,38,.22)}
+body.light .dangerBtn{background:#fff1f1!important;color:#b91c1c!important;border-color:#fecaca!important}
+
+
+
+
+/* Cleaner song rating flow */
+.trackItem{grid-template-columns:1fr auto;align-items:center}
+.trackRateOpen{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap}
+.trackRateOpen:hover{border-color:var(--accent);color:var(--accent)}
+.trackRatingPopup{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:90}
+.trackRatingPopup.hidden{display:none}
+.trackRatingPanel{width:min(390px,100%);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:var(--shadow);position:relative}
+.trackRatingPanel h3{margin:4px 42px 16px 0;font-size:20px}
+.popupChoices{gap:12px;justify-content:center}
+.popupChoices .songRateBtn{width:24px}
+.popupChoices .songRateCircle{width:12px;height:12px}
+.popupChoices .songRateBtn.selected .songRateCircle::after{width:5px;height:5px}
+body.light .trackRateOpen{background:#ffffff!important;color:#111827!important;border-color:#e1ddd4!important}
+body.light .trackRateOpen:hover{color:#a87800!important;border-color:#d9a51a!important}
+body.light .trackRatingPanel{background:#ffffff!important;border-color:#e5e1d8!important;color:#111827!important}
+
+
+/* Song comment popup */
+.trackActions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.trackCommentOpen{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap}
+.trackCommentOpen:hover{border-color:var(--accent);color:var(--accent)}
+.trackCommentPopup{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:91}
+.trackCommentPopup.hidden{display:none}
+.trackCommentPanel{width:min(520px,100%);max-height:86vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:var(--shadow);position:relative}
+.trackCommentPanel h3{margin:4px 42px 16px 0;font-size:20px}
+body.light .trackCommentOpen{color:#6b7280!important;border-color:#e1ddd4!important}
+body.light .trackCommentOpen:hover{color:#a87800!important;border-color:#d9a51a!important}
+body.light .trackCommentPanel{background:#ffffff!important;border-color:#e5e1d8!important;color:#111827!important}
