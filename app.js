@@ -25,8 +25,8 @@ function userScore(a){return state.ratingMap[a.id]||localRatings()[a.id]||null}
 function displayScore(a){return score(a)>0?score(a).toFixed(1):"—"}
 function coverText(a){return(a.title||"?").split(" ").slice(0,2).map(w=>w[0]).join("")}
 function fallback(a){return `<div class="fallbackCover"><strong>${coverText(a)}</strong><span>${a.title}</span></div>`}
-function cover(a) {
-  if (!a.cover_url) {
+function cover(a){
+  if(!a.cover_url){
     return '<div class="cover">' + fallback(a) + '</div>';
   }
 
