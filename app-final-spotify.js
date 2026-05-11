@@ -362,24 +362,46 @@ function renderMyLibraryDraft(){
   const host=$("#myLibraryDraft");
   if(!host)return;
   const items=sortedLibraryItems(myLibraryItems());
-  host.innerHTML=items.length?items.map(item=>'<div class="libraryDraftItem"><span>'+escapeHtml(item.title||"Untitled")+'<em>'+escapeHtml(item.artist||"")+'</em></span><button onclick="removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>').join(""):'<div class="emptyMini">Add albums one by one, then publish your library.</div>';
+  host.innerHTML=items.length?items.map(item=>'<div class="libraryDraftCard">'+libraryAlbumCard(item)+'<button class="draftRemove" onclick="event.stopPropagation();removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>').join(""):'<div class="emptyMini">Add albums to build your public library.</div>';
 }
-function addAlbumToMyLibrary(album){
+async function syncMyLibrary(){
+  const username=currentUsername()||ratingName();
+  if(!username)return false;
+  const items=sortedLibraryItems(myLibraryItems());
+  if(!items.length)return false;
+  const title=($("#libraryTitle")?.value||(username+"'s Library")).trim()||(username+"'s Library");
+  const payload={device_id:state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
+  if(db){
+    const {error}=await db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
+    if(error){alert(error.message);return false}
+  }else{
+    const libraries=localLibraries().filter(l=>l.device_id!==state.deviceId);
+    libraries.unshift({...payload,id:"local-library-"+state.deviceId,followers_count:0});
+    saveLocalLibraries(libraries);
+  }
+  await loadLibraries();
+  return true;
+}
+async function addAlbumToMyLibrary(album){
   const items=myLibraryItems();
   if(items.some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))){alert('That album is already in your library.');return false}
   items.push(albumToLibraryItem(album));
   saveMyLibraryItems(items);
   renderMyLibraryDraft();
+  await syncMyLibrary();
   return true;
 }
-window.addCurrentAlbumToLibrary=function(albumId){
+window.addCurrentAlbumToLibrary=async function(albumId){
   const album=state.albums.find(a=>String(a.id)===String(albumId));
   if(!album)return;
-  if(addAlbumToMyLibrary(album))alert('Added to your library.');
+  const added=await addAlbumToMyLibrary(album);
+  if(added){alert('Added to your public library.');render()}
 }
-window.removeFromMyLibrary=function(albumId){
+window.removeFromMyLibrary=async function(albumId){
   saveMyLibraryItems(myLibraryItems().filter(item=>String(item.id)!==String(albumId)));
   renderMyLibraryDraft();
+  await syncMyLibrary();
+  render();
 }
 async function loadLibraries(){
   if(db){
@@ -390,21 +412,8 @@ async function loadLibraries(){
   return extras.libraries;
 }
 async function publishMyLibrary(){
-  const username=currentUsername()||ratingName();
-  if(!username)return;
-  const items=sortedLibraryItems(myLibraryItems());
-  if(!items.length){alert("Add at least one album to your library before publishing.");return}
-  const title=($("#libraryTitle")?.value||(username+"'s Library")).trim()||(username+"'s Library");
-  const payload={device_id:state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
-  if(db){
-    const {error}=await db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
-    if(error){alert(error.message);return}
-  }else{
-    const libraries=localLibraries().filter(l=>l.device_id!==state.deviceId);
-    libraries.unshift({...payload,id:"local-library-"+state.deviceId,followers_count:0});
-    saveLocalLibraries(libraries);
-  }
-  await loadLibraries();
+  const saved=await syncMyLibrary();
+  if(!saved){alert("Add at least one album to your library first.");return}
   render();
 }
 async function followLibrary(libraryId){
@@ -449,7 +458,7 @@ if(state.view==="rankings")content.innerHTML=`<div class="sectionTitle"><h2>Top 
 if(state.view==="discover"){let hidden=state.albums.slice().sort((a,b)=>count(a)-count(b)).slice(0,6);let newer=state.albums.slice().sort((a,b)=>(b.year||0)-(a.year||0)).slice(0,6);content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="list">${hidden.map(row).join("")}</div><div class="sectionTitle"><h2>Newer Albums</h2></div><div class="list">${newer.map(row).join("")}</div>`}
 if(state.view==="artists"){let artists=[...new Set(state.albums.map(a=>a.artist))].sort();content.innerHTML=`<div class="sectionTitle"><h2>Artists</h2></div><div class="artistGrid">${artists.map(artistBlock).join("")}</div>`}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
-if(state.view==="libraries"){content.innerHTML=`<div class="sectionTitle"><h2>Libraries</h2><span class="muted">${extras.libraries.length} public libraries</span></div><div class="libraryCreator"><input id="libraryTitle" placeholder="Library name" value="${escapeHtml(currentUsername()?currentUsername()+"'s Library":"My Library")}"><button class="bigBtn" onclick="openLibrarySpotifyAdd()">+ Add album</button><button class="bigBtn" onclick="publishMyLibrary()">Publish library</button></div><div id="myLibraryDraft" class="myLibraryDraft"></div><div class="libraryGrid">${extras.libraries.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>`;renderMyLibraryDraft()}}
+if(state.view==="libraries"){content.innerHTML=`<div class="sectionTitle"><h2>Libraries</h2></div><div class="libraryCreator"><input id="libraryTitle" placeholder="Library name" value="${escapeHtml(currentUsername()?currentUsername()+"'s Library":"My Library")}"><button class="bigBtn" onclick="openLibrarySpotifyAdd()">+ Add album</button></div><div id="myLibraryDraft" class="myLibraryDraft"></div><div class="libraryGrid">${extras.libraries.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>`;renderMyLibraryDraft()}}
 function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let avg=(d.reduce((s,a)=>s+score(a),0)/d.length).toFixed(1);return`<div class="artistBlock"><div class="row"><h3 style="margin:0">${escapeHtml(name)}</h3><div class="score">${avg}</div></div><div class="list" style="margin-top:12px">${d.map((a,i)=>row(a,i)).join("")}</div></div>`}
 window.openAlbum=function(id){let a=state.albums.find(x=>String(x.id)===String(id));if(!a)return;let my=userScore(a);extras.currentAlbumId=albumRef(a.id);$("#albumModalContent").innerHTML=`<div class="detail">${cover(a)}<div><p class="eyebrow">${escapeHtml(a.genre||"Album")} - ${escapeHtml(a.year||"")}</p><h2 style="font-size:34px;margin:0 0 6px">${escapeHtml(a.title)}</h2><div class="artist" style="font-size:18px">${escapeHtml(a.artist)}</div><div style="margin:18px 0"><div class="scoreBig">${displayScore(a)}</div><div class="muted">Musica Score - ${count(a).toLocaleString()} ratings</div></div><p>${escapeHtml(cleanAlbumSummary(a))}</p><strong>Your rating</strong><div class="ratingBar">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="rateBtn ${my==n?"selected":""}" onclick="rateAlbum('${escapeJsString(a.id)}',${n})">${n}</button>`).join("")}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('albumRatingDetails',this)">See ratings</button><div id="albumRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div><div class="albumActions"><button class="btn" onclick="addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">Add to my library</button><a class="btn" target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}">Open in Spotify</a></div></div></div><section class="albumExtras"><div class="extraPanel"><div class="sectionTitle compact"><h3>Song Ratings</h3></div><div id="trackRatingsList" class="trackRatings"><div class="emptyMini">Loading tracks...</div></div></div><div class="extraPanel"><div class="sectionTitle compact"><h3>Comments</h3></div><div class="commentForm"><input id="commentName" maxlength="40" placeholder="Your name"><textarea id="commentText" maxlength="500" placeholder="Leave a comment"></textarea><button class="bigBtn" onclick="addAlbumComment('${escapeJsString(a.id)}')">Post</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div></section>`;$("#albumModal").classList.remove("hidden");loadAlbumExtras(a)}
 
@@ -541,8 +550,8 @@ window.addSpotifyAlbum=async function(a){
     savedAlbum=state.albums.find(x=>String(x.spotify_id||"")&&String(x.spotify_id)===String(album.spotify_id||""))||existingAlbumMatch(album)||savedAlbum;
   }
   if(extras.spotifyTarget==="library"){
-    const added=addAlbumToMyLibrary(savedAlbum);
-    if(added)alert(duplicate?'Added the existing Musica album to your library.':'Added to Musica and your library.');
+    const added=await addAlbumToMyLibrary(savedAlbum);
+    if(added)alert(duplicate?'Added the existing Musica album to your public library.':'Added to Musica and your public library.');
     $("#addModal").classList.add("hidden");
     render();
     return;

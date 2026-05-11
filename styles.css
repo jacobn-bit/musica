@@ -758,3 +758,9 @@ body.light .libraryCreator input{background:#ffffff!important;color:#111827!impo
 .libraryDraftItem button:hover{border-color:var(--accent);color:var(--accent)}
 body.light .libraryDraftItem{background:#ffffff!important;border-color:#e5e1d8!important}
 body.light .libraryDraftItem button{color:#6b7280!important;border-color:#e1ddd4!important}
+
+.libraryDraftCard{position:relative}
+.libraryDraftCard .card{height:100%}
+.draftRemove{position:absolute;right:12px;top:12px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;cursor:pointer;z-index:2;box-shadow:var(--shadow)}
+.draftRemove:hover{border-color:var(--accent);color:var(--accent)}
+body.light .draftRemove{background:#ffffff!important;color:#6b7280!important;border-color:#e1ddd4!important}
