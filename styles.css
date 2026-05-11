@@ -727,7 +727,7 @@ body.light .linkBtn:hover{color:#a87800!important;border-color:#d9a51a!important
 .navUserBox{border:1px solid var(--line);background:var(--panel2);border-radius:16px;padding:12px;margin:-10px 0 16px;display:grid;gap:8px}
 .navUserBox span{font-weight:900;color:var(--text)}
 .navTinyBtn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:850;cursor:pointer}
-.libraryCreator{display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:16px}
+.libraryCreator{display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-bottom:16px}
 .libraryCreator input{width:100%;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:14px;padding:13px}
 .libraryGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .libraryCard{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;display:grid;gap:12px}
@@ -747,3 +747,14 @@ body.light .libraryCreator input{background:#ffffff!important;color:#111827!impo
 .libraryAlbumCard .cover{aspect-ratio:1/1}
 .libraryAlbumCard .score{white-space:nowrap}
 @media(max-width:850px){.libraryAlbums{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}}
+
+
+/* Curated personal library builder */
+.myLibraryDraft{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:-4px 0 18px}
+.libraryDraftItem{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:11px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.libraryDraftItem span{font-weight:900;min-width:0}
+.libraryDraftItem em{display:block;color:var(--muted);font-size:12px;font-style:normal;font-weight:750;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.libraryDraftItem button{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;cursor:pointer}
+.libraryDraftItem button:hover{border-color:var(--accent);color:var(--accent)}
+body.light .libraryDraftItem{background:#ffffff!important;border-color:#e5e1d8!important}
+body.light .libraryDraftItem button{color:#6b7280!important;border-color:#e1ddd4!important}

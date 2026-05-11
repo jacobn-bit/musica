@@ -21,7 +21,7 @@
       <button id="closeNav" class="closeNav">&times;</button>
       <div class="navBrand">Musica</div>
       <div class="navUserBox"><span id="navUsername">Not signed in</span><button id="navSetUsername" class="navTinyBtn">Set username</button></div>
-      <button class="navItem active" data-view="rankings">Top Rankings</button>
+      <button class="navItem active" data-view="rankings">Homepage</button>
       <button class="navItem" data-view="discover">Discover</button>
       <button class="navItem" data-view="artists">Artists</button>
       <button class="navItem" data-view="myratings">My Ratings</button>
@@ -80,8 +80,8 @@
   <div id="addModal" class="modal hidden">
     <div class="modalPanel">
       <button id="closeAddModal" class="close">&times;</button>
-      <h2>Add album from Spotify</h2>
-      <p class="muted">Search an album and artist. Choose the correct result and Musica pulls the cover, year, and Spotify link automatically.</p>
+      <h2 id="addModalTitle">Add album from Spotify</h2>
+      <p id="addModalCopy" class="muted">Search an album and artist. Choose the correct result and Musica pulls the cover, year, and Spotify link automatically.</p>
       <div class="addSearch">
         <input id="spotifyQuery" placeholder="Example: Abbey Road The Beatles">
         <button id="spotifySearchBtn" class="bigBtn">Search</button>
@@ -93,7 +93,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=final22"></script>
+  <script src="app-final-spotify.js?v=final23"></script>
 </body>
 </html>
 

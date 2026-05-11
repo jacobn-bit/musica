@@ -11,7 +11,7 @@ const cfg=window.MUSICA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.includes("PASTE_")&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_ANON_KEY.includes("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
 const state={view:"rankings",search:"",genre:"All",sort:"score",albums:[],ratingMap:{},theme:localStorage.getItem("musicaTheme")||"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID()};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},libraries:[],currentAlbumId:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},libraries:[],currentAlbumId:null,spotifyTarget:"musica"};
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -343,16 +343,43 @@ function setLibraryUsername(){
 }
 function localLibraries(){return JSON.parse(localStorage.getItem("musicaPublicLibraries")||"[]")}
 function saveLocalLibraries(libraries){localStorage.setItem("musicaPublicLibraries",JSON.stringify(libraries))}
-function libraryItemsFromRatings(){
-  return state.albums.filter(a=>userScore(a)).map(a=>({
-    id:String(a.id),
-    title:a.title,
-    artist:a.artist,
-    year:a.year||"",
-    cover_url:a.cover_url||"",
-    spotify_url:a.spotify_url||"",
-    rating:Number(userScore(a))
-  })).sort((a,b)=>b.rating-a.rating||a.title.localeCompare(b.title));
+function myLibraryItems(){return JSON.parse(localStorage.getItem("musicaMyLibraryItems")||"[]")}
+function saveMyLibraryItems(items){localStorage.setItem("musicaMyLibraryItems",JSON.stringify(items))}
+function albumToLibraryItem(a){return {
+  id:String(a.id),
+  title:a.title,
+  artist:a.artist,
+  year:a.year||"",
+  genre:a.genre||"Album",
+  cover_url:a.cover_url||"",
+  spotify_url:a.spotify_url||"",
+  summary:a.summary||"",
+  rating:userScore(a)?Number(userScore(a)):displayScore(a)
+}}
+function sortedLibraryItems(items){return items.slice().sort((a,b)=>Number(b.rating||0)-Number(a.rating||0)||String(a.title||"").localeCompare(String(b.title||"")))}
+function libraryHasAlbum(album){return myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))}
+function renderMyLibraryDraft(){
+  const host=$("#myLibraryDraft");
+  if(!host)return;
+  const items=sortedLibraryItems(myLibraryItems());
+  host.innerHTML=items.length?items.map(item=>'<div class="libraryDraftItem"><span>'+escapeHtml(item.title||"Untitled")+'<em>'+escapeHtml(item.artist||"")+'</em></span><button onclick="removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>').join(""):'<div class="emptyMini">Add albums one by one, then publish your library.</div>';
+}
+function addAlbumToMyLibrary(album){
+  const items=myLibraryItems();
+  if(items.some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))){alert('That album is already in your library.');return false}
+  items.push(albumToLibraryItem(album));
+  saveMyLibraryItems(items);
+  renderMyLibraryDraft();
+  return true;
+}
+window.addCurrentAlbumToLibrary=function(albumId){
+  const album=state.albums.find(a=>String(a.id)===String(albumId));
+  if(!album)return;
+  if(addAlbumToMyLibrary(album))alert('Added to your library.');
+}
+window.removeFromMyLibrary=function(albumId){
+  saveMyLibraryItems(myLibraryItems().filter(item=>String(item.id)!==String(albumId)));
+  renderMyLibraryDraft();
 }
 async function loadLibraries(){
   if(db){
@@ -365,8 +392,8 @@ async function loadLibraries(){
 async function publishMyLibrary(){
   const username=currentUsername()||ratingName();
   if(!username)return;
-  const items=libraryItemsFromRatings();
-  if(!items.length){alert("Rate at least one album before publishing a library.");return}
+  const items=sortedLibraryItems(myLibraryItems());
+  if(!items.length){alert("Add at least one album to your library before publishing.");return}
   const title=($("#libraryTitle")?.value||(username+"'s Library")).trim()||(username+"'s Library");
   const payload={device_id:state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
   if(db){
@@ -392,7 +419,7 @@ async function followLibrary(libraryId){
   render();
 }
 function ensureLibraryAlbum(item){
-  let existing=state.albums.find(a=>String(a.id)===String(item.id));
+  let existing=state.albums.find(a=>String(a.id)===String(item.id))||existingAlbumMatch(item);
   if(existing)return existing;
   const album={id:String(item.id),title:item.title,artist:item.artist,year:item.year||"",genre:item.genre||"Album",cover_url:item.cover_url||"",spotify_url:item.spotify_url||"",summary:item.summary||"",avg_rating:Number(item.rating||0),ratings_count:1};
   state.albums.push(album);
@@ -422,9 +449,9 @@ if(state.view==="rankings")content.innerHTML=`<div class="sectionTitle"><h2>Top 
 if(state.view==="discover"){let hidden=state.albums.slice().sort((a,b)=>count(a)-count(b)).slice(0,6);let newer=state.albums.slice().sort((a,b)=>(b.year||0)-(a.year||0)).slice(0,6);content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="list">${hidden.map(row).join("")}</div><div class="sectionTitle"><h2>Newer Albums</h2></div><div class="list">${newer.map(row).join("")}</div>`}
 if(state.view==="artists"){let artists=[...new Set(state.albums.map(a=>a.artist))].sort();content.innerHTML=`<div class="sectionTitle"><h2>Artists</h2></div><div class="artistGrid">${artists.map(artistBlock).join("")}</div>`}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
-if(state.view==="libraries"){content.innerHTML=`<div class="sectionTitle"><h2>Libraries</h2><span class="muted">${extras.libraries.length} public libraries</span></div><div class="libraryCreator"><input id="libraryTitle" placeholder="Library name" value="${escapeHtml(currentUsername()?currentUsername()+"'s Library":"My Library")}"><button class="bigBtn" onclick="publishMyLibrary()">Publish my rated albums</button></div><div class="libraryGrid">${extras.libraries.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>`}}
+if(state.view==="libraries"){content.innerHTML=`<div class="sectionTitle"><h2>Libraries</h2><span class="muted">${extras.libraries.length} public libraries</span></div><div class="libraryCreator"><input id="libraryTitle" placeholder="Library name" value="${escapeHtml(currentUsername()?currentUsername()+"'s Library":"My Library")}"><button class="bigBtn" onclick="openLibrarySpotifyAdd()">+ Add album</button><button class="bigBtn" onclick="publishMyLibrary()">Publish library</button></div><div id="myLibraryDraft" class="myLibraryDraft"></div><div class="libraryGrid">${extras.libraries.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>`;renderMyLibraryDraft()}}
 function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let avg=(d.reduce((s,a)=>s+score(a),0)/d.length).toFixed(1);return`<div class="artistBlock"><div class="row"><h3 style="margin:0">${escapeHtml(name)}</h3><div class="score">${avg}</div></div><div class="list" style="margin-top:12px">${d.map((a,i)=>row(a,i)).join("")}</div></div>`}
-window.openAlbum=function(id){let a=state.albums.find(x=>String(x.id)===String(id));if(!a)return;let my=userScore(a);extras.currentAlbumId=albumRef(a.id);$("#albumModalContent").innerHTML=`<div class="detail">${cover(a)}<div><p class="eyebrow">${escapeHtml(a.genre||"Album")} - ${escapeHtml(a.year||"")}</p><h2 style="font-size:34px;margin:0 0 6px">${escapeHtml(a.title)}</h2><div class="artist" style="font-size:18px">${escapeHtml(a.artist)}</div><div style="margin:18px 0"><div class="scoreBig">${displayScore(a)}</div><div class="muted">Musica Score - ${count(a).toLocaleString()} ratings</div></div><p>${escapeHtml(cleanAlbumSummary(a))}</p><strong>Your rating</strong><div class="ratingBar">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="rateBtn ${my==n?"selected":""}" onclick="rateAlbum('${escapeJsString(a.id)}',${n})">${n}</button>`).join("")}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('albumRatingDetails',this)">See ratings</button><div id="albumRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div><div class="albumActions"><a class="btn" target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}">Open in Spotify</a></div></div></div><section class="albumExtras"><div class="extraPanel"><div class="sectionTitle compact"><h3>Song Ratings</h3></div><div id="trackRatingsList" class="trackRatings"><div class="emptyMini">Loading tracks...</div></div></div><div class="extraPanel"><div class="sectionTitle compact"><h3>Comments</h3></div><div class="commentForm"><input id="commentName" maxlength="40" placeholder="Your name"><textarea id="commentText" maxlength="500" placeholder="Leave a comment"></textarea><button class="bigBtn" onclick="addAlbumComment('${escapeJsString(a.id)}')">Post</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div></section>`;$("#albumModal").classList.remove("hidden");loadAlbumExtras(a)}
+window.openAlbum=function(id){let a=state.albums.find(x=>String(x.id)===String(id));if(!a)return;let my=userScore(a);extras.currentAlbumId=albumRef(a.id);$("#albumModalContent").innerHTML=`<div class="detail">${cover(a)}<div><p class="eyebrow">${escapeHtml(a.genre||"Album")} - ${escapeHtml(a.year||"")}</p><h2 style="font-size:34px;margin:0 0 6px">${escapeHtml(a.title)}</h2><div class="artist" style="font-size:18px">${escapeHtml(a.artist)}</div><div style="margin:18px 0"><div class="scoreBig">${displayScore(a)}</div><div class="muted">Musica Score - ${count(a).toLocaleString()} ratings</div></div><p>${escapeHtml(cleanAlbumSummary(a))}</p><strong>Your rating</strong><div class="ratingBar">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="rateBtn ${my==n?"selected":""}" onclick="rateAlbum('${escapeJsString(a.id)}',${n})">${n}</button>`).join("")}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('albumRatingDetails',this)">See ratings</button><div id="albumRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div><div class="albumActions"><button class="btn" onclick="addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">Add to my library</button><a class="btn" target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}">Open in Spotify</a></div></div></div><section class="albumExtras"><div class="extraPanel"><div class="sectionTitle compact"><h3>Song Ratings</h3></div><div id="trackRatingsList" class="trackRatings"><div class="emptyMini">Loading tracks...</div></div></div><div class="extraPanel"><div class="sectionTitle compact"><h3>Comments</h3></div><div class="commentForm"><input id="commentName" maxlength="40" placeholder="Your name"><textarea id="commentText" maxlength="500" placeholder="Leave a comment"></textarea><button class="bigBtn" onclick="addAlbumComment('${escapeJsString(a.id)}')">Post</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div></section>`;$("#albumModal").classList.remove("hidden");loadAlbumExtras(a)}
 
 window.deleteAlbum=async function(albumId){
   const album=state.albums.find(a=>String(a.id)===String(albumId));
@@ -456,6 +483,19 @@ window.deleteAlbum=async function(albumId){
 
 window.rateAlbum=async function(albumId,value){const username=ratingName();let r=localRatings();r[albumId]=value;saveLocalRatings(r);state.ratingMap=r;if(db&&!String(albumId).startsWith("seed-")){let {error}=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,rating:value},{onConflict:"album_id,device_id"});if(error){alert(error.message);return}await loadData();openAlbum(albumId)}else{render();openAlbum(albumId)}}
 async function loadData(){if(!db){$("#setupWarning").classList.remove("hidden");state.albums=[...seedAlbums.filter(a=>!hiddenSeedAlbums().includes(a.id)),...localAlbums()];state.ratingMap=localRatings();applyCachedCovers();render();hydrateMissingCovers();return}let {data:albums,error}=await db.from("album_scores").select("*").order("avg_rating",{ascending:false});if(error){alert(error.message);state.albums=seedAlbums}else{state.albums=[...seedAlbums,...(albums||[])]}if(!state.albums.length){state.albums=seedAlbums}let {data:ratings,error:ratingsError}=await db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId);state.ratingMap=ratingsError?localRatings():Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));applyCachedCovers();render();hydrateMissingCovers()}
+function openSpotifyAdd(target){
+  extras.spotifyTarget=target||"musica";
+  const title=$("#addModalTitle");
+  const copy=$("#addModalCopy");
+  if(title)title.textContent=extras.spotifyTarget==="library"?"Add album to your library":"Add album from Spotify";
+  if(copy)copy.textContent=extras.spotifyTarget==="library"?"Search Spotify. If the album is already in Musica, it will be added from the existing main page album. If not, Musica adds it once first.":"Search an album and artist. Choose the correct result and Musica pulls the cover, year, and Spotify link automatically.";
+  const status=$("#spotifyStatus");
+  const results=$("#spotifyResults");
+  if(status)status.textContent="";
+  if(results)results.innerHTML="";
+  $("#addModal").classList.remove("hidden");
+}
+window.openLibrarySpotifyAdd=function(){openSpotifyAdd("library")}
 async function searchSpotify(){
   const q=$("#spotifyQuery").value.trim();
   if(!q)return;
@@ -476,7 +516,7 @@ async function searchSpotify(){
           <strong>${escapeHtml(a.title)}</strong>
           <div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div>
         </div>
-        <button class="bigBtn" data-index="${i}">Add</button>
+        <button class="bigBtn" data-index="${i}">${extras.spotifyTarget==="library"?"Add to library":"Add"}</button>
       </div>
     `).join("");
     document.querySelectorAll("#spotifyResults .bigBtn").forEach(button=>{button.onclick=()=>addSpotifyAlbum(albums[Number(button.dataset.index)])});
@@ -484,9 +524,35 @@ async function searchSpotify(){
     $("#spotifyStatus").textContent=e.message;
   }
 }
-window.addSpotifyAlbum=async function(a){let album={title:a.title,artist:a.artist,year:a.year,genre:"",cover_url:a.cover_url,spotify_url:a.spotify_url,summary:spotifyAlbumSummary(a),spotify_id:a.spotify_id||""};let duplicate=existingAlbumMatch(album);if(duplicate){alert(`"${duplicate.title}" by ${duplicate.artist} is already in Musica.`);return}if(db){let {error}=await db.from("albums").insert(album);if(error){alert(error.message);return}}else{let arr=localAlbums();arr.push({...album,id:"local-"+Date.now(),avg_rating:0,ratings_count:0});saveLocalAlbums(arr)}$("#addModal").classList.add("hidden");await loadData()}
+window.addSpotifyAlbum=async function(a){
+  let album={title:a.title,artist:a.artist,year:a.year,genre:"",cover_url:a.cover_url,spotify_url:a.spotify_url,summary:spotifyAlbumSummary(a),spotify_id:a.spotify_id||""};
+  let duplicate=existingAlbumMatch(album);
+  let savedAlbum=duplicate;
+  if(!savedAlbum){
+    if(db){
+      let {data,error}=await db.from("albums").insert(album).select("*").single();
+      if(error){alert(error.message);return}
+      savedAlbum=data||album;
+    }else{
+      savedAlbum={...album,id:"local-"+Date.now(),avg_rating:0,ratings_count:0};
+      let arr=localAlbums();arr.push(savedAlbum);saveLocalAlbums(arr);
+    }
+    await loadData();
+    savedAlbum=state.albums.find(x=>String(x.spotify_id||"")&&String(x.spotify_id)===String(album.spotify_id||""))||existingAlbumMatch(album)||savedAlbum;
+  }
+  if(extras.spotifyTarget==="library"){
+    const added=addAlbumToMyLibrary(savedAlbum);
+    if(added)alert(duplicate?'Added the existing Musica album to your library.':'Added to Musica and your library.');
+    $("#addModal").classList.add("hidden");
+    render();
+    return;
+  }
+  if(duplicate){alert(`"${duplicate.title}" by ${duplicate.artist} is already in Musica. Open it on the main page and use Add to my library if you want it in your library.`);return}
+  $("#addModal").classList.add("hidden");
+  await loadData();
+}
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
-updateNavUsername();$("#navSetUsername").onclick=setLibraryUsername;$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>$("#addModal").classList.remove("hidden");$("#navAddAlbum").onclick=()=>{$("#addModal").classList.remove("hidden");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
+updateNavUsername();$("#navSetUsername").onclick=setLibraryUsername;$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
 $("#closeAlbumModal").onclick=()=>$("#albumModal").classList.add("hidden");$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")$("#albumModal").classList.add("hidden")};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};
 document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>t.onclick=async()=>{state.view=t.dataset.view;if(state.view==="libraries")await loadLibraries();document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));render();closeNav()});
 $("#searchInput").oninput=e=>{state.search=e.target.value;render()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};$("#themeToggle").onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaTheme",state.theme)};
