@@ -11,7 +11,7 @@ const cfg=window.MUSICA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.includes("PASTE_")&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_ANON_KEY.includes("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
 const state={view:"rankings",search:"",genre:"All",sort:"score",albums:[],ratingMap:{},theme:localStorage.getItem("musicaTheme")||"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID()};
-const extras={tracks:{},trackRatings:{},comments:{},currentAlbumId:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},currentAlbumId:null};
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -79,6 +79,42 @@ function normalizeAlbumName(value){return String(value||"").toLowerCase().replac
 function isSameAlbum(a,b){return normalizeAlbumName(a.title)===normalizeAlbumName(b.title)&&normalizeAlbumName(a.artist)===normalizeAlbumName(b.artist)}
 function existingAlbumMatch(album){return state.albums.find(a=>isSameAlbum(a,album))}
 function canDeleteAlbum(a){return !!a}
+
+function currentUsername(){return localStorage.getItem("musicaUsername")||""}
+function ratingName(){const saved=currentUsername().trim();if(saved&&confirm(`Rate as "${saved}"? Press Cancel to choose Anonymous or another username.`))return saved;const name=(prompt("Enter a username for this rating, or leave blank for Anonymous:")||"").trim();if(name){localStorage.setItem("musicaUsername",name);return name}return "Anonymous"}
+function renderRatingDetails(albumId){
+  const host=$("#albumRatingDetails");
+  if(!host)return;
+  const rows=extras.ratingDetails[albumRef(albumId)]||[];
+  host.innerHTML=rows.length?rows.map(r=>`<div class="ratingDetail"><strong>${escapeHtml(r.username||"Listener")}</strong><span>${Number(r.rating||0)}/10</span></div>`).join(""):`<div class="emptyMini">No visible user ratings yet.</div>`;
+}
+async function loadRatingDetails(albumId){
+  const ref=albumRef(albumId);
+  if(db&&!String(albumId).startsWith("seed-")){
+    const {data,error}=await db.from("ratings").select("username,rating,created_at").eq("album_id",albumId).order("created_at",{ascending:false}).limit(20);
+    if(!error){extras.ratingDetails[ref]=data||[];return extras.ratingDetails[ref]}
+  }
+  const my=userScore({id:albumId});
+  extras.ratingDetails[ref]=my?[{username:currentUsername()||"You",rating:my}]:[];
+  return extras.ratingDetails[ref];
+}
+function renderTrackRatingDetails(albumId,trackKeyValue){
+  const host=$("#trackRatingDetails");
+  if(!host)return;
+  const rows=extras.trackRatingDetails[`${albumRef(albumId)}::${trackKeyValue}`]||[];
+  host.innerHTML=rows.length?rows.map(r=>`<div class="ratingDetail"><strong>${escapeHtml(r.username||"Listener")}</strong><span>${Number(r.rating||0)}/10</span></div>`).join(""):`<div class="emptyMini">No visible song ratings yet.</div>`;
+}
+async function loadTrackRatingDetails(albumId,trackKeyValue){
+  const ref=albumRef(albumId);
+  const key=`${ref}::${trackKeyValue}`;
+  if(db){
+    const {data,error}=await db.from("track_ratings").select("username,rating,created_at").eq("album_ref",ref).eq("track_key",trackKeyValue).order("created_at",{ascending:false}).limit(20);
+    if(!error){extras.trackRatingDetails[key]=data||[];return extras.trackRatingDetails[key]}
+  }
+  const my=localTrackRating(albumId,trackKeyValue);
+  extras.trackRatingDetails[key]=my?[{username:currentUsername()||"You",rating:my}]:[];
+  return extras.trackRatingDetails[key];
+}
 
 function albumRef(albumId){return String(albumId||"")}
 function localComments(){return JSON.parse(localStorage.getItem("musicaAlbumComments")||"{}")}
@@ -154,6 +190,26 @@ async function fetchAlbumTracks(album){
   extras.tracks[ref]=tracks;
   return tracks;
 }
+async function loadSongScores(albumId){
+  const ref=albumRef(albumId);
+  if(db){
+    const {data,error}=await db.from("song_scores").select("track_key,avg_rating,ratings_count").eq("album_ref",ref);
+    if(!error){extras.songScores[ref]=Object.fromEntries((data||[]).map(s=>[s.track_key,s]));return extras.songScores[ref]}
+  }
+  const local=localTrackRatings();
+  const scores={};
+  Object.entries(local).forEach(([key,value])=>{
+    if(key.startsWith(ref+"::")){
+      const trackKeyValue=key.slice(ref.length+2);
+      scores[trackKeyValue]={track_key:trackKeyValue,avg_rating:Number(value),ratings_count:1};
+    }
+  });
+  extras.songScores[ref]=scores;
+  return scores;
+}
+function displaySongScore(score){return score&&Number(score.ratings_count)>0?Number(score.avg_rating||0).toFixed(1):"-"}
+function displaySongCount(score){if(!score||Number(score.ratings_count)<=0)return "No ratings";const total=Number(score.ratings_count);return total.toLocaleString()+" rating"+(total===1?"":"s")}
+
 async function loadTrackRatings(albumId){
   const ref=albumRef(albumId);
   if(db){
@@ -170,11 +226,12 @@ function renderTrackList(albumId){
   const ref=albumRef(albumId);
   const tracks=extras.tracks[ref]||[];
   const ratings=extras.trackRatings[ref]||{};
+  const songScores=extras.songScores[ref]||{};
   if(!tracks.length){host.innerHTML='<div class="emptyMini">No track list found for this album yet.</div>';return}
   host.innerHTML=tracks.map((track,i)=>{
     const key=trackKey(track);
     const current=ratings[key]||localTrackRating(albumId,key);
-    return `<div class="trackItem"><div class="trackName"><span>${track.track_number||i+1}</span><strong>${escapeHtml(track.name)}</strong></div><div class="trackActions"><button class="trackRateOpen" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${current?`Rated ${current}`:"Rate"}</button><button class="trackCommentOpen" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">Comment</button></div></div>`;
+    return `<div class="trackItem"><div class="trackName"><span>${track.track_number||i+1}</span><strong>${escapeHtml(track.name)}</strong><em>${displaySongScore(songScores[key])} - ${displaySongCount(songScores[key])}</em></div><div class="trackActions"><button class="trackRateOpen" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${current?`Rated ${current}`:"Rate"}</button><button class="trackCommentOpen" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">Comment</button></div></div>`;
   }).join("");
 }
 
@@ -241,25 +298,28 @@ window.openTrackRating=function(albumId,trackKeyValue,trackName){
     popup.addEventListener("click",e=>{if(e.target.id==="trackRatingPopup")closeTrackRating()});
   }
   const current=(extras.trackRatings[albumRef(albumId)]||{})[trackKeyValue]||localTrackRating(albumId,trackKeyValue);
-  popup.innerHTML=`<div class="trackRatingPanel"><button class="close" onclick="closeTrackRating()">&times;</button><p class="eyebrow">Song Rating</p><h3>${escapeHtml(trackName)}</h3><div class="songRatingBar popupChoices">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="songRateBtn ${current==n?"selected":""}" onclick="rateTrack('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}',${n});closeTrackRating()" aria-label="Rate ${escapeHtml(trackName)} ${n} out of 10"><span class="songRateNumber">${n}</span><span class="songRateCircle"></span></button>`).join("")}</div></div>`;
+  popup.innerHTML=`<div class="trackRatingPanel"><button class="close" onclick="closeTrackRating()">&times;</button><p class="eyebrow">Song Rating</p><h3>${escapeHtml(trackName)}</h3><div class="songRatingBar popupChoices">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="songRateBtn ${current==n?"selected":""}" onclick="rateTrack('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}',${n});closeTrackRating()" aria-label="Rate ${escapeHtml(trackName)} ${n} out of 10"><span class="songRateNumber">${n}</span><span class="songRateCircle"></span></button>`).join("")}</div><div class="ratingDetailsBlock"><strong>Recent song ratings</strong><div id="trackRatingDetails"><div class="emptyMini">Loading ratings...</div></div></div></div>`;
+  loadTrackRatingDetails(albumId,trackKeyValue).then(()=>renderTrackRatingDetails(albumId,trackKeyValue));
   popup.classList.remove("hidden");
 }
 window.closeTrackRating=function(){const popup=$("#trackRatingPopup");if(popup)popup.classList.add("hidden")}
 async function loadAlbumExtras(album){
   extras.currentAlbumId=albumRef(album.id);
-  await Promise.all([loadComments(album.id),loadTrackRatings(album.id)]);
+  await Promise.all([loadComments(album.id),loadTrackRatings(album.id),loadSongScores(album.id),loadRatingDetails(album.id)]);
   renderComments(album.id);
+  renderRatingDetails(album.id);
   const tracks=await fetchAlbumTracks(album);
   if(extras.currentAlbumId!==albumRef(album.id))return;
   renderTrackList(album.id,tracks);
 }
 window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
+  const username=ratingName();
   const ref=albumRef(albumId);
   if(db){
-    const {error}=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,rating:value},{onConflict:"album_ref,track_key,device_id"});
+    const {error}=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,rating:value},{onConflict:"album_ref,track_key,device_id"});
     if(error)setLocalTrackRating(albumId,trackKeyValue,value);
   }else setLocalTrackRating(albumId,trackKeyValue,value);
-  await loadTrackRatings(albumId);
+  await Promise.all([loadTrackRatings(albumId),loadSongScores(albumId),loadTrackRatingDetails(albumId,trackKeyValue)]);
   renderTrackList(albumId);
 }
 
@@ -273,7 +333,7 @@ if(state.view==="discover"){let hidden=state.albums.slice().sort((a,b)=>count(a)
 if(state.view==="artists"){let artists=[...new Set(state.albums.map(a=>a.artist))].sort();content.innerHTML=`<div class="sectionTitle"><h2>Artists</h2></div><div class="artistGrid">${artists.map(artistBlock).join("")}</div>`}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}}
 function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let avg=(d.reduce((s,a)=>s+score(a),0)/d.length).toFixed(1);return`<div class="artistBlock"><div class="row"><h3 style="margin:0">${escapeHtml(name)}</h3><div class="score">${avg}</div></div><div class="list" style="margin-top:12px">${d.map((a,i)=>row(a,i)).join("")}</div></div>`}
-window.openAlbum=function(id){let a=state.albums.find(x=>String(x.id)===String(id));if(!a)return;let my=userScore(a);extras.currentAlbumId=albumRef(a.id);$("#albumModalContent").innerHTML=`<div class="detail">${cover(a)}<div><p class="eyebrow">${escapeHtml(a.genre||"Album")} - ${escapeHtml(a.year||"")}</p><h2 style="font-size:34px;margin:0 0 6px">${escapeHtml(a.title)}</h2><div class="artist" style="font-size:18px">${escapeHtml(a.artist)}</div><div style="margin:18px 0"><div class="scoreBig">${displayScore(a)}</div><div class="muted">Musica Score - ${count(a).toLocaleString()} ratings</div></div><p>${escapeHtml(cleanAlbumSummary(a))}</p><strong>Your rating</strong><div class="ratingBar">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="rateBtn ${my==n?"selected":""}" onclick="rateAlbum('${escapeJsString(a.id)}',${n})">${n}</button>`).join("")}</div><div class="albumActions"><a class="btn" target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}">Open in Spotify</a></div></div></div><section class="albumExtras"><div class="extraPanel"><div class="sectionTitle compact"><h3>Song Ratings</h3></div><div id="trackRatingsList" class="trackRatings"><div class="emptyMini">Loading tracks...</div></div></div><div class="extraPanel"><div class="sectionTitle compact"><h3>Comments</h3></div><div class="commentForm"><input id="commentName" maxlength="40" placeholder="Your name"><textarea id="commentText" maxlength="500" placeholder="Leave a comment"></textarea><button class="bigBtn" onclick="addAlbumComment('${escapeJsString(a.id)}')">Post</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div></section>`;$("#albumModal").classList.remove("hidden");loadAlbumExtras(a)}
+window.openAlbum=function(id){let a=state.albums.find(x=>String(x.id)===String(id));if(!a)return;let my=userScore(a);extras.currentAlbumId=albumRef(a.id);$("#albumModalContent").innerHTML=`<div class="detail">${cover(a)}<div><p class="eyebrow">${escapeHtml(a.genre||"Album")} - ${escapeHtml(a.year||"")}</p><h2 style="font-size:34px;margin:0 0 6px">${escapeHtml(a.title)}</h2><div class="artist" style="font-size:18px">${escapeHtml(a.artist)}</div><div style="margin:18px 0"><div class="scoreBig">${displayScore(a)}</div><div class="muted">Musica Score - ${count(a).toLocaleString()} ratings</div></div><p>${escapeHtml(cleanAlbumSummary(a))}</p><strong>Your rating</strong><div class="ratingBar">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="rateBtn ${my==n?"selected":""}" onclick="rateAlbum('${escapeJsString(a.id)}',${n})">${n}</button>`).join("")}</div><div class="ratingDetailsBlock"><strong>Recent ratings</strong><div id="albumRatingDetails"><div class="emptyMini">Loading ratings...</div></div></div><div class="albumActions"><a class="btn" target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}">Open in Spotify</a></div></div></div><section class="albumExtras"><div class="extraPanel"><div class="sectionTitle compact"><h3>Song Ratings</h3></div><div id="trackRatingsList" class="trackRatings"><div class="emptyMini">Loading tracks...</div></div></div><div class="extraPanel"><div class="sectionTitle compact"><h3>Comments</h3></div><div class="commentForm"><input id="commentName" maxlength="40" placeholder="Your name"><textarea id="commentText" maxlength="500" placeholder="Leave a comment"></textarea><button class="bigBtn" onclick="addAlbumComment('${escapeJsString(a.id)}')">Post</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div></section>`;$("#albumModal").classList.remove("hidden");loadAlbumExtras(a)}
 
 window.deleteAlbum=async function(albumId){
   const album=state.albums.find(a=>String(a.id)===String(albumId));
@@ -303,7 +363,7 @@ window.deleteAlbum=async function(albumId){
   await loadData();
 }
 
-window.rateAlbum=async function(albumId,value){if(db){let {error}=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,rating:value},{onConflict:"album_id,device_id"});if(error){alert(error.message);return}await loadData();openAlbum(albumId)}else{let r=localRatings();r[albumId]=value;saveLocalRatings(r);state.ratingMap=r;render();openAlbum(albumId)}}
+window.rateAlbum=async function(albumId,value){const username=ratingName();if(db&&!String(albumId).startsWith("seed-")){let {error}=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,rating:value},{onConflict:"album_id,device_id"});if(error){alert(error.message);return}await loadData();openAlbum(albumId)}else{let r=localRatings();r[albumId]=value;saveLocalRatings(r);state.ratingMap=r;render();openAlbum(albumId)}}
 async function loadData(){if(!db){$("#setupWarning").classList.remove("hidden");state.albums=[...seedAlbums.filter(a=>!hiddenSeedAlbums().includes(a.id)),...localAlbums()];state.ratingMap=localRatings();applyCachedCovers();render();hydrateMissingCovers();return}let {data:albums,error}=await db.from("album_scores").select("*").order("avg_rating",{ascending:false});if(error){alert(error.message);state.albums=seedAlbums}else{state.albums=[...seedAlbums,...(albums||[])]}if(!state.albums.length){state.albums=seedAlbums}let {data:ratings}=await db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId);state.ratingMap=Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));applyCachedCovers();render();hydrateMissingCovers()}
 async function searchSpotify(){
   const q=$("#spotifyQuery").value.trim();

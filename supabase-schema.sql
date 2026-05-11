@@ -1,3 +1,4 @@
+drop view if exists song_scores;
 ﻿
 -- Run this in Supabase SQL Editor
 
@@ -133,3 +134,20 @@ create policy "Anyone can add track comments" on track_comments for insert with 
 
 drop policy if exists "Anyone can delete track comments" on track_comments;
 
+
+
+-- Aggregated per-song scores
+create or replace view song_scores as
+select
+  album_ref,
+  track_key,
+  max(track_name) as track_name,
+  round(avg(rating)::numeric, 1) as avg_rating,
+  count(rating)::int as ratings_count
+from track_ratings
+group by album_ref, track_key;
+
+
+-- Store usernames with ratings
+alter table ratings add column if not exists username text;
+alter table track_ratings add column if not exists username text;
