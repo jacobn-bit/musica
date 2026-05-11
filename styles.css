@@ -764,3 +764,10 @@ body.light .libraryDraftItem button{color:#6b7280!important;border-color:#e1ddd4
 .draftRemove{position:absolute;right:12px;top:12px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;cursor:pointer;z-index:2;box-shadow:var(--shadow)}
 .draftRemove:hover{border-color:var(--accent);color:var(--accent)}
 body.light .draftRemove{background:#ffffff!important;color:#6b7280!important;border-color:#e1ddd4!important}
+.libraryCard{cursor:pointer}
+.libraryAlbumsPreview{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.libraryAlbumsPreview .libraryAlbumCard{height:100%}
+.libraryAlbumsPreview .cover{height:auto;aspect-ratio:1/1}
+.libraryOpenBtn{justify-self:start}
+.libraryFullGrid .libraryDraftCard{min-width:0}
+@media(max-width:560px){.libraryAlbumsPreview{grid-template-columns:1fr 1fr;gap:10px}.libraryAlbumsPreview .cardBody{padding:12px}.libraryAlbumsPreview .title{font-size:18px}.libraryAlbumsPreview .artist{font-size:15px}}

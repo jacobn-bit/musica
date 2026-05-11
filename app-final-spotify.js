@@ -454,14 +454,22 @@ function openLibraryAlbum(encodedItem){
 }
 function libraryAlbumCard(item, removable=false){
   const encoded=encodeURIComponent(JSON.stringify(item));
-  const card='<article class="card libraryAlbumCard" onclick="openLibraryAlbum(\''+encoded+'\')">'+(item.cover_url?'<div class="cover"><img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'"></div>':'<div class="cover fallbackCover"><strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong></div>')+'<div class="cardBody"><div class="row"><div><div class="title">'+escapeHtml(item.title||"Untitled")+'</div><div class="artist">'+escapeHtml(item.artist||"")+(item.year?' - '+escapeHtml(item.year):'')+'</div></div><div class="score">'+escapeHtml(item.rating||"-")+'</div></div><span class="pill">Library pick</span></div></article>';
+  const card='<article class="card libraryAlbumCard" onclick="event.stopPropagation();openLibraryAlbum(\''+encoded+'\')">'+(item.cover_url?'<div class="cover"><img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'"></div>':'<div class="cover fallbackCover"><strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong></div>')+'<div class="cardBody"><div class="row"><div><div class="title">'+escapeHtml(item.title||"Untitled")+'</div><div class="artist">'+escapeHtml(item.artist||"")+(item.year?' - '+escapeHtml(item.year):'')+'</div></div><div class="score">'+escapeHtml(item.rating||"-")+'</div></div><span class="pill">Library pick</span></div></article>';
   return removable?'<div class="libraryDraftCard">'+card+'<button class="draftRemove" onclick="event.stopPropagation();removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>':card;
+}
+function openLibraryDetails(encodedLibrary){
+  const library=JSON.parse(decodeURIComponent(encodedLibrary));
+  const items=Array.isArray(library.items)?library.items:[];
+  const isMine=library.device_id===state.deviceId||library.isMine;
+  $("#albumModalContent").innerHTML='<div class="sectionTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
+  $("#albumModal").classList.remove("hidden");
 }
 function libraryBlock(library){
   const items=Array.isArray(library.items)?library.items:[];
   const isMine=library.device_id===state.deviceId||library.isMine;
-  const top=items.slice(0,6).map(item=>libraryAlbumCard(item,isMine)).join("");
-  return '<div class="libraryCard"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div></div><div class="libraryAlbums">'+(top||'<div class="emptyMini">No public albums yet.</div>')+'</div>'+(isMine?'':'<button class="trackRateOpen" onclick="followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>')+'</div>';
+  const preview=items.slice(0,2).map(item=>libraryAlbumCard(item,false)).join("");
+  const encoded=encodeURIComponent(JSON.stringify(library));
+  return '<div class="libraryCard" onclick="openLibraryDetails(\''+encoded+'\')"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div></div><div class="libraryAlbums libraryAlbumsPreview">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+'</div>'+(items.length>2?'<button class="linkBtn libraryOpenBtn" onclick="event.stopPropagation();openLibraryDetails(\''+encoded+'\')">See all albums</button>':'')+(isMine?'':'<button class="trackRateOpen" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>')+'</div>';
 }
 
 function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
