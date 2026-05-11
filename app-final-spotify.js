@@ -1,4 +1,4 @@
-﻿const seedAlbums=[
+const seedAlbums=[
 {id:"seed-1",title:"Abbey Road",artist:"The Beatles",year:1969,genre:"Rock",avg_rating:9.4,ratings_count:18432,tag:"Classic",summary:"Polished, melodic, and endlessly replayable.",spotify_url:"https://open.spotify.com/search/The%20Beatles%20Abbey%20Road",cover_url:""},
 {id:"seed-2",title:"To Pimp a Butterfly",artist:"Kendrick Lamar",year:2015,genre:"Hip-Hop",avg_rating:9.3,ratings_count:22102,tag:"Modern classic",summary:"Dense, political, jazz-infused, and emotionally huge.",spotify_url:"https://open.spotify.com/search/Kendrick%20Lamar%20To%20Pimp%20a%20Butterfly",cover_url:""},
 {id:"seed-3",title:"OK Computer",artist:"Radiohead",year:1997,genre:"Alternative",avg_rating:9.2,ratings_count:20110,tag:"Essential",summary:"Alienation, technology, beauty, and dread in one perfect arc.",spotify_url:"https://open.spotify.com/search/Radiohead%20OK%20Computer",cover_url:""},
@@ -391,9 +391,25 @@ async function followLibrary(libraryId){
   await loadLibraries();
   render();
 }
+function ensureLibraryAlbum(item){
+  let existing=state.albums.find(a=>String(a.id)===String(item.id));
+  if(existing)return existing;
+  const album={id:String(item.id),title:item.title,artist:item.artist,year:item.year||"",genre:item.genre||"Album",cover_url:item.cover_url||"",spotify_url:item.spotify_url||"",summary:item.summary||"",avg_rating:Number(item.rating||0),ratings_count:1};
+  state.albums.push(album);
+  return album;
+}
+function openLibraryAlbum(encodedItem){
+  const item=JSON.parse(decodeURIComponent(encodedItem));
+  const album=ensureLibraryAlbum(item);
+  openAlbum(album.id);
+}
+function libraryAlbumCard(item){
+  const encoded=encodeURIComponent(JSON.stringify(item));
+  return '<article class="card libraryAlbumCard" onclick="openLibraryAlbum(\''+encoded+'\')">'+(item.cover_url?'<div class="cover"><img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'"></div>':'<div class="cover fallbackCover"><strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong></div>')+'<div class="cardBody"><div class="row"><div><div class="title">'+escapeHtml(item.title||"Untitled")+'</div><div class="artist">'+escapeHtml(item.artist||"")+(item.year?' - '+escapeHtml(item.year):'')+'</div></div><div class="score">'+escapeHtml(item.rating||"-")+'</div></div><span class="pill">Library pick</span></div></article>';
+}
 function libraryBlock(library){
   const items=Array.isArray(library.items)?library.items:[];
-  const top=items.slice(0,5).map(item=>'<div class="libraryAlbum"><span>'+escapeHtml(item.rating)+'/10</span><strong>'+escapeHtml(item.title)+'</strong><em>'+escapeHtml(item.artist||"")+'</em></div>').join("");
+  const top=items.slice(0,6).map(libraryAlbumCard).join("");
   return '<div class="libraryCard"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div></div><div class="libraryAlbums">'+(top||'<div class="emptyMini">No public albums yet.</div>')+'</div><button class="trackRateOpen" onclick="followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button></div>';
 }
 

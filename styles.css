@@ -1,4 +1,4 @@
-﻿/* Musica v4 clean original design */
+/* Musica v4 clean original design */
 :root{
   --bg:#0b0b0f;
   --panel:#14141b;
@@ -739,3 +739,11 @@ body.light .linkBtn:hover{color:#a87800!important;border-color:#d9a51a!important
 body.light .navUserBox,body.light .libraryCard{background:#ffffff!important;border-color:#e5e1d8!important}
 body.light .libraryCreator input{background:#ffffff!important;color:#111827!important;border-color:#e1ddd4!important}
 @media(max-width:850px){.libraryCreator{grid-template-columns:1fr}.libraryGrid{grid-template-columns:1fr}}
+
+
+/* Library albums use the same card sizing as the main album grid */
+.libraryAlbums{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+.libraryAlbumCard{width:100%;cursor:pointer}
+.libraryAlbumCard .cover{aspect-ratio:1/1}
+.libraryAlbumCard .score{white-space:nowrap}
+@media(max-width:850px){.libraryAlbums{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}}
