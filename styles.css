@@ -709,3 +709,11 @@ body.light .trackName em{color:#6b7280!important}
 .ratingDetail strong{font-size:13px}.ratingDetail span{color:var(--accent);font-weight:950;font-size:13px}
 body.light .ratingDetail{border-top-color:#eee7dc!important}
 body.light .ratingDetailsBlock>strong{color:#6b7280!important}
+
+
+/* Collapsed visible ratings */
+.linkBtn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900;cursor:pointer}
+.linkBtn:hover{border-color:var(--accent);color:var(--accent)}
+.ratingDetailsBlock .hidden{display:none}
+body.light .linkBtn{color:#6b7280!important;border-color:#e1ddd4!important}
+body.light .linkBtn:hover{color:#a87800!important;border-color:#d9a51a!important}
