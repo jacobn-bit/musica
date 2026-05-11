@@ -151,3 +151,62 @@ group by album_ref, track_key;
 -- Store usernames with ratings
 alter table ratings add column if not exists username text;
 alter table track_ratings add column if not exists username text;
+
+
+-- Public cannot read raw rating identities; aggregated score views stay public.
+drop policy if exists "Anyone can read ratings" on ratings;
+drop policy if exists "Anyone can read track ratings" on track_ratings;
+
+
+-- Public followable user libraries
+create table if not exists user_libraries (
+  id uuid primary key default gen_random_uuid(),
+  device_id text not null unique,
+  username text not null,
+  title text not null,
+  items jsonb not null default '[]'::jsonb,
+  album_count int not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists library_follows (
+  id uuid primary key default gen_random_uuid(),
+  library_id uuid references user_libraries(id) on delete cascade,
+  device_id text not null,
+  created_at timestamptz default now(),
+  unique(library_id, device_id)
+);
+
+alter table user_libraries enable row level security;
+alter table library_follows enable row level security;
+
+drop policy if exists "Anyone can read libraries" on user_libraries;
+create policy "Anyone can read libraries" on user_libraries for select using (true);
+
+drop policy if exists "Anyone can publish libraries" on user_libraries;
+create policy "Anyone can publish libraries" on user_libraries for insert with check (true);
+
+drop policy if exists "Anyone can update own library device" on user_libraries;
+create policy "Anyone can update own library device" on user_libraries for update using (true);
+
+drop policy if exists "Anyone can read library follows" on library_follows;
+create policy "Anyone can read library follows" on library_follows for select using (true);
+
+drop policy if exists "Anyone can follow libraries" on library_follows;
+create policy "Anyone can follow libraries" on library_follows for insert with check (true);
+
+drop view if exists library_feed;
+create or replace view library_feed as
+select
+  l.id,
+  l.device_id,
+  l.username,
+  l.title,
+  l.items,
+  l.album_count,
+  l.updated_at,
+  count(f.id)::int as followers_count
+from user_libraries l
+left join library_follows f on f.library_id = l.id
+group by l.id;

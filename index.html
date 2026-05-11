@@ -20,10 +20,12 @@
     <aside id="sideNav" class="sideNav">
       <button id="closeNav" class="closeNav">&times;</button>
       <div class="navBrand">Musica</div>
+      <div class="navUserBox"><span id="navUsername">Not signed in</span><button id="navSetUsername" class="navTinyBtn">Set username</button></div>
       <button class="navItem active" data-view="rankings">Top Rankings</button>
       <button class="navItem" data-view="discover">Discover</button>
       <button class="navItem" data-view="artists">Artists</button>
       <button class="navItem" data-view="myratings">My Ratings</button>
+      <button class="navItem" data-view="libraries">Libraries</button>
       <button class="navItem primary" id="navAddAlbum">+ Add Album</button>
       <div class="navNote">Search Spotify, add albums, and let friends rate them.</div>
     </aside>
@@ -91,7 +93,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=final18"></script>
+  <script src="app-final-spotify.js?v=final20"></script>
 </body>
 </html>
 

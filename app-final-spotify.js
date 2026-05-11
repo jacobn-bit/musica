@@ -11,7 +11,7 @@ const cfg=window.MUSICA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.includes("PASTE_")&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_ANON_KEY.includes("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
 const state={view:"rankings",search:"",genre:"All",sort:"score",albums:[],ratingMap:{},theme:localStorage.getItem("musicaTheme")||"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID()};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},currentAlbumId:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},libraries:[],currentAlbumId:null};
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -93,12 +93,12 @@ function renderRatingDetails(albumId){
   const host=$("#albumRatingDetails");
   if(!host)return;
   const rows=extras.ratingDetails[albumRef(albumId)]||[];
-  host.innerHTML=rows.length?rows.map(r=>`<div class="ratingDetail"><strong>${escapeHtml(r.username||"Listener")}</strong><span>${Number(r.rating||0)}/10</span></div>`).join(""):`<div class="emptyMini">No visible user ratings yet.</div>`;
+  host.innerHTML=`<div class="emptyMini">${count(state.albums.find(a=>String(a.id)===String(albumId))||{}).toLocaleString()} people rated this album.</div>`;
 }
 async function loadRatingDetails(albumId){
   const ref=albumRef(albumId);
   if(db&&!String(albumId).startsWith("seed-")){
-    const {data,error}=await db.from("ratings").select("username,rating,created_at").eq("album_id",albumId).order("created_at",{ascending:false}).limit(20);
+    const data=[], error=null;
     if(!error){extras.ratingDetails[ref]=data||[];return extras.ratingDetails[ref]}
   }
   const my=userScore({id:albumId});
@@ -109,13 +109,13 @@ function renderTrackRatingDetails(albumId,trackKeyValue){
   const host=$("#trackRatingDetails");
   if(!host)return;
   const rows=extras.trackRatingDetails[`${albumRef(albumId)}::${trackKeyValue}`]||[];
-  host.innerHTML=rows.length?rows.map(r=>`<div class="ratingDetail"><strong>${escapeHtml(r.username||"Listener")}</strong><span>${Number(r.rating||0)}/10</span></div>`).join(""):`<div class="emptyMini">No visible song ratings yet.</div>`;
+  const score=(extras.songScores[albumRef(albumId)]||{})[trackKeyValue];host.innerHTML=`<div class="emptyMini">${displaySongCount(score)}</div>`;
 }
 async function loadTrackRatingDetails(albumId,trackKeyValue){
   const ref=albumRef(albumId);
   const key=`${ref}::${trackKeyValue}`;
   if(db){
-    const {data,error}=await db.from("track_ratings").select("username,rating,created_at").eq("album_ref",ref).eq("track_key",trackKeyValue).order("created_at",{ascending:false}).limit(20);
+    const data=[], error=null;
     if(!error){extras.trackRatingDetails[key]=data||[];return extras.trackRatingDetails[key]}
   }
   const my=localTrackRating(albumId,trackKeyValue);
@@ -330,6 +330,73 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
   renderTrackList(albumId);
 }
 
+
+function updateNavUsername(){
+  const el=$("#navUsername");
+  if(el)el.textContent=currentUsername()?"@"+currentUsername():"Not signed in";
+}
+function setLibraryUsername(){
+  const name=(prompt("Choose a public username for your library:",currentUsername()||"")||"").trim();
+  if(!name)return;
+  localStorage.setItem("musicaUsername",name);
+  updateNavUsername();
+}
+function localLibraries(){return JSON.parse(localStorage.getItem("musicaPublicLibraries")||"[]")}
+function saveLocalLibraries(libraries){localStorage.setItem("musicaPublicLibraries",JSON.stringify(libraries))}
+function libraryItemsFromRatings(){
+  return state.albums.filter(a=>userScore(a)).map(a=>({
+    id:String(a.id),
+    title:a.title,
+    artist:a.artist,
+    year:a.year||"",
+    cover_url:a.cover_url||"",
+    spotify_url:a.spotify_url||"",
+    rating:Number(userScore(a))
+  })).sort((a,b)=>b.rating-a.rating||a.title.localeCompare(b.title));
+}
+async function loadLibraries(){
+  if(db){
+    const {data,error}=await db.from("library_feed").select("*").order("updated_at",{ascending:false}).limit(50);
+    if(!error){extras.libraries=data||[];return extras.libraries}
+  }
+  extras.libraries=localLibraries();
+  return extras.libraries;
+}
+async function publishMyLibrary(){
+  const username=currentUsername()||ratingName();
+  if(!username)return;
+  const items=libraryItemsFromRatings();
+  if(!items.length){alert("Rate at least one album before publishing a library.");return}
+  const title=($("#libraryTitle")?.value||(username+"'s Library")).trim()||(username+"'s Library");
+  const payload={device_id:state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
+  if(db){
+    const {error}=await db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
+    if(error){alert(error.message);return}
+  }else{
+    const libraries=localLibraries().filter(l=>l.device_id!==state.deviceId);
+    libraries.unshift({...payload,id:"local-library-"+state.deviceId,followers_count:0});
+    saveLocalLibraries(libraries);
+  }
+  await loadLibraries();
+  render();
+}
+async function followLibrary(libraryId){
+  if(db){
+    const {error}=await db.from("library_follows").insert({library_id:libraryId,device_id:state.deviceId});
+    if(error&&!String(error.message||"").includes("duplicate")){alert(error.message);return}
+  }else{
+    const libraries=localLibraries().map(l=>String(l.id)===String(libraryId)?{...l,followers_count:Number(l.followers_count||0)+1}:l);
+    saveLocalLibraries(libraries);
+  }
+  await loadLibraries();
+  render();
+}
+function libraryBlock(library){
+  const items=Array.isArray(library.items)?library.items:[];
+  const top=items.slice(0,5).map(item=>'<div class="libraryAlbum"><span>'+escapeHtml(item.rating)+'/10</span><strong>'+escapeHtml(item.title)+'</strong><em>'+escapeHtml(item.artist||"")+'</em></div>').join("");
+  return '<div class="libraryCard"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div></div><div class="libraryAlbums">'+(top||'<div class="emptyMini">No public albums yet.</div>')+'</div><button class="trackRateOpen" onclick="followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button></div>';
+}
+
 function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
 function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();return(state.genre==="All"||x.genre===state.genre)&&(`${x.title} ${x.artist} ${x.genre||""}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
 function card(a){return`<article class="card" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(a.genre||"Album")}</span></div></article>`}
@@ -338,7 +405,8 @@ function render(){let arr=filtered();let top=state.albums.slice().sort((a,b)=>sc
 if(state.view==="rankings")content.innerHTML=`<div class="sectionTitle"><h2>Top Albums</h2><span class="muted">${arr.length} results</span></div><div class="grid">${arr.map(card).join("")}</div>`;
 if(state.view==="discover"){let hidden=state.albums.slice().sort((a,b)=>count(a)-count(b)).slice(0,6);let newer=state.albums.slice().sort((a,b)=>(b.year||0)-(a.year||0)).slice(0,6);content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="list">${hidden.map(row).join("")}</div><div class="sectionTitle"><h2>Newer Albums</h2></div><div class="list">${newer.map(row).join("")}</div>`}
 if(state.view==="artists"){let artists=[...new Set(state.albums.map(a=>a.artist))].sort();content.innerHTML=`<div class="sectionTitle"><h2>Artists</h2></div><div class="artistGrid">${artists.map(artistBlock).join("")}</div>`}
-if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}}
+if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
+if(state.view==="libraries"){content.innerHTML=`<div class="sectionTitle"><h2>Libraries</h2><span class="muted">${extras.libraries.length} public libraries</span></div><div class="libraryCreator"><input id="libraryTitle" placeholder="Library name" value="${escapeHtml(currentUsername()?currentUsername()+"'s Library":"My Library")}"><button class="bigBtn" onclick="publishMyLibrary()">Publish my rated albums</button></div><div class="libraryGrid">${extras.libraries.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>`}}
 function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let avg=(d.reduce((s,a)=>s+score(a),0)/d.length).toFixed(1);return`<div class="artistBlock"><div class="row"><h3 style="margin:0">${escapeHtml(name)}</h3><div class="score">${avg}</div></div><div class="list" style="margin-top:12px">${d.map((a,i)=>row(a,i)).join("")}</div></div>`}
 window.openAlbum=function(id){let a=state.albums.find(x=>String(x.id)===String(id));if(!a)return;let my=userScore(a);extras.currentAlbumId=albumRef(a.id);$("#albumModalContent").innerHTML=`<div class="detail">${cover(a)}<div><p class="eyebrow">${escapeHtml(a.genre||"Album")} - ${escapeHtml(a.year||"")}</p><h2 style="font-size:34px;margin:0 0 6px">${escapeHtml(a.title)}</h2><div class="artist" style="font-size:18px">${escapeHtml(a.artist)}</div><div style="margin:18px 0"><div class="scoreBig">${displayScore(a)}</div><div class="muted">Musica Score - ${count(a).toLocaleString()} ratings</div></div><p>${escapeHtml(cleanAlbumSummary(a))}</p><strong>Your rating</strong><div class="ratingBar">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="rateBtn ${my==n?"selected":""}" onclick="rateAlbum('${escapeJsString(a.id)}',${n})">${n}</button>`).join("")}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('albumRatingDetails',this)">See ratings</button><div id="albumRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div><div class="albumActions"><a class="btn" target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}">Open in Spotify</a></div></div></div><section class="albumExtras"><div class="extraPanel"><div class="sectionTitle compact"><h3>Song Ratings</h3></div><div id="trackRatingsList" class="trackRatings"><div class="emptyMini">Loading tracks...</div></div></div><div class="extraPanel"><div class="sectionTitle compact"><h3>Comments</h3></div><div class="commentForm"><input id="commentName" maxlength="40" placeholder="Your name"><textarea id="commentText" maxlength="500" placeholder="Leave a comment"></textarea><button class="bigBtn" onclick="addAlbumComment('${escapeJsString(a.id)}')">Post</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div></section>`;$("#albumModal").classList.remove("hidden");loadAlbumExtras(a)}
 
@@ -370,8 +438,8 @@ window.deleteAlbum=async function(albumId){
   await loadData();
 }
 
-window.rateAlbum=async function(albumId,value){const username=ratingName();if(db&&!String(albumId).startsWith("seed-")){let {error}=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,rating:value},{onConflict:"album_id,device_id"});if(error){alert(error.message);return}await loadData();openAlbum(albumId)}else{let r=localRatings();r[albumId]=value;saveLocalRatings(r);state.ratingMap=r;render();openAlbum(albumId)}}
-async function loadData(){if(!db){$("#setupWarning").classList.remove("hidden");state.albums=[...seedAlbums.filter(a=>!hiddenSeedAlbums().includes(a.id)),...localAlbums()];state.ratingMap=localRatings();applyCachedCovers();render();hydrateMissingCovers();return}let {data:albums,error}=await db.from("album_scores").select("*").order("avg_rating",{ascending:false});if(error){alert(error.message);state.albums=seedAlbums}else{state.albums=[...seedAlbums,...(albums||[])]}if(!state.albums.length){state.albums=seedAlbums}let {data:ratings}=await db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId);state.ratingMap=Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));applyCachedCovers();render();hydrateMissingCovers()}
+window.rateAlbum=async function(albumId,value){const username=ratingName();let r=localRatings();r[albumId]=value;saveLocalRatings(r);state.ratingMap=r;if(db&&!String(albumId).startsWith("seed-")){let {error}=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,rating:value},{onConflict:"album_id,device_id"});if(error){alert(error.message);return}await loadData();openAlbum(albumId)}else{render();openAlbum(albumId)}}
+async function loadData(){if(!db){$("#setupWarning").classList.remove("hidden");state.albums=[...seedAlbums.filter(a=>!hiddenSeedAlbums().includes(a.id)),...localAlbums()];state.ratingMap=localRatings();applyCachedCovers();render();hydrateMissingCovers();return}let {data:albums,error}=await db.from("album_scores").select("*").order("avg_rating",{ascending:false});if(error){alert(error.message);state.albums=seedAlbums}else{state.albums=[...seedAlbums,...(albums||[])]}if(!state.albums.length){state.albums=seedAlbums}let {data:ratings,error:ratingsError}=await db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId);state.ratingMap=ratingsError?localRatings():Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));applyCachedCovers();render();hydrateMissingCovers()}
 async function searchSpotify(){
   const q=$("#spotifyQuery").value.trim();
   if(!q)return;
@@ -402,11 +470,12 @@ async function searchSpotify(){
 }
 window.addSpotifyAlbum=async function(a){let album={title:a.title,artist:a.artist,year:a.year,genre:"",cover_url:a.cover_url,spotify_url:a.spotify_url,summary:spotifyAlbumSummary(a),spotify_id:a.spotify_id||""};let duplicate=existingAlbumMatch(album);if(duplicate){alert(`"${duplicate.title}" by ${duplicate.artist} is already in Musica.`);return}if(db){let {error}=await db.from("albums").insert(album);if(error){alert(error.message);return}}else{let arr=localAlbums();arr.push({...album,id:"local-"+Date.now(),avg_rating:0,ratings_count:0});saveLocalAlbums(arr)}$("#addModal").classList.add("hidden");await loadData()}
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
-$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>$("#addModal").classList.remove("hidden");$("#navAddAlbum").onclick=()=>{$("#addModal").classList.remove("hidden");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
+updateNavUsername();$("#navSetUsername").onclick=setLibraryUsername;$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>$("#addModal").classList.remove("hidden");$("#navAddAlbum").onclick=()=>{$("#addModal").classList.remove("hidden");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
 $("#closeAlbumModal").onclick=()=>$("#albumModal").classList.add("hidden");$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")$("#albumModal").classList.add("hidden")};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};
-document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>t.onclick=()=>{state.view=t.dataset.view;document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));render();closeNav()});
+document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>t.onclick=async()=>{state.view=t.dataset.view;if(state.view==="libraries")await loadLibraries();document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));render();closeNav()});
 $("#searchInput").oninput=e=>{state.search=e.target.value;render()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};$("#themeToggle").onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaTheme",state.theme)};
 loadData();
+
 
 
 
