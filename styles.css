@@ -771,3 +771,6 @@ body.light .draftRemove{background:#ffffff!important;color:#6b7280!important;bor
 .libraryOpenBtn{justify-self:start}
 .libraryFullGrid .libraryDraftCard{min-width:0}
 @media(max-width:560px){.libraryAlbumsPreview{grid-template-columns:1fr 1fr;gap:10px}.libraryAlbumsPreview .cardBody{padding:12px}.libraryAlbumsPreview .title{font-size:18px}.libraryAlbumsPreview .artist{font-size:15px}}
+.libraryFullGrid .libraryDraftCard{cursor:grab}
+.libraryFullGrid .libraryDraftCard.dragging{opacity:.55;transform:scale(.98)}
+.libraryFullGrid .libraryDraftCard:active{cursor:grabbing}

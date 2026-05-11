@@ -356,7 +356,7 @@ function albumToLibraryItem(a){return {
   summary:a.summary||"",
   rating:userScore(a)?Number(userScore(a)):displayScore(a)
 }}
-function sortedLibraryItems(items){return items.slice().sort((a,b)=>Number(b.rating||0)-Number(a.rating||0)||String(a.title||"").localeCompare(String(b.title||"")))}
+function sortedLibraryItems(items){return items.slice()}
 function libraryHasAlbum(album){return myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))}
 function currentLibraryCard(){
   const items=sortedLibraryItems(myLibraryItems());
@@ -415,6 +415,32 @@ window.removeFromMyLibrary=async function(albumId){
   saveMyLibraryItems(myLibraryItems().filter(item=>String(item.id)!==String(albumId)));
   await syncMyLibrary();
   render();
+  const mine=currentLibraryCard();
+  if(mine&&!$("#albumModal").classList.contains("hidden"))openLibraryDetails(mine);
+}
+window.dragLibraryItem=function(event,albumId){
+  event.stopPropagation();
+  event.dataTransfer.effectAllowed="move";
+  event.dataTransfer.setData("text/plain",String(albumId));
+  event.currentTarget.classList.add("dragging");
+}
+window.endLibraryDrag=function(event){event.currentTarget.classList.remove("dragging")}
+window.dropLibraryItem=async function(event,targetId){
+  event.preventDefault();
+  event.stopPropagation();
+  const sourceId=event.dataTransfer.getData("text/plain");
+  if(!sourceId||String(sourceId)===String(targetId))return;
+  const items=myLibraryItems();
+  const from=items.findIndex(item=>String(item.id)===String(sourceId));
+  const to=items.findIndex(item=>String(item.id)===String(targetId));
+  if(from<0||to<0)return;
+  const [moved]=items.splice(from,1);
+  items.splice(to,0,moved);
+  saveMyLibraryItems(items);
+  await syncMyLibrary();
+  render();
+  const mine=currentLibraryCard();
+  if(mine)openLibraryDetails(mine);
 }
 async function loadLibraries(){
   if(db){
@@ -452,16 +478,18 @@ function openLibraryAlbum(encodedItem){
   const album=ensureLibraryAlbum(item);
   openAlbum(album.id);
 }
-function libraryAlbumCard(item, removable=false){
+function libraryAlbumCard(item, removable=false, draggable=false){
   const encoded=encodeURIComponent(JSON.stringify(item));
   const card='<article class="card libraryAlbumCard" onclick="event.stopPropagation();openLibraryAlbum(\''+encoded+'\')">'+(item.cover_url?'<div class="cover"><img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'"></div>':'<div class="cover fallbackCover"><strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong></div>')+'<div class="cardBody"><div class="row"><div><div class="title">'+escapeHtml(item.title||"Untitled")+'</div><div class="artist">'+escapeHtml(item.artist||"")+(item.year?' - '+escapeHtml(item.year):'')+'</div></div><div class="score">'+escapeHtml(item.rating||"-")+'</div></div><span class="pill">Library pick</span></div></article>';
-  return removable?'<div class="libraryDraftCard">'+card+'<button class="draftRemove" onclick="event.stopPropagation();removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>':card;
+  if(!removable)return card;
+  const dragAttrs=draggable?' draggable="true" ondragstart="dragLibraryItem(event,\''+escapeJsString(item.id)+'\')" ondragend="endLibraryDrag(event)" ondragover="event.preventDefault()" ondrop="dropLibraryItem(event,\''+escapeJsString(item.id)+'\')"':'';
+  return '<div class="libraryDraftCard"'+dragAttrs+'>'+card+'<button class="draftRemove" onclick="event.stopPropagation();removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>';
 }
 function openLibraryDetails(library){
   if(!library)return;
   const items=Array.isArray(library.items)?library.items:[];
   const isMine=library.device_id===state.deviceId||library.isMine;
-  $("#albumModalContent").innerHTML='<div class="sectionTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
+  $("#albumModalContent").innerHTML='<div class="sectionTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
   $("#albumModal").classList.remove("hidden");
 }
 function openLibraryDetailsById(key){
