@@ -774,3 +774,10 @@ body.light .draftRemove{background:#ffffff!important;color:#6b7280!important;bor
 .libraryFullGrid .libraryDraftCard{cursor:grab}
 .libraryFullGrid .libraryDraftCard.dragging{opacity:.55;transform:scale(.98)}
 .libraryFullGrid .libraryDraftCard:active{cursor:grabbing}
+.libraryActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.albumCard{position:relative}
+.quickLibraryAdd{position:absolute;left:50%;top:12px;transform:translate(-50%,-8px);opacity:0;pointer-events:none;border:1px solid rgba(242,201,76,.55);background:var(--accent);color:#111;border-radius:999px;padding:9px 13px;font-size:13px;font-weight:950;box-shadow:var(--shadow);z-index:3;transition:.18s opacity,.18s transform}
+.albumCard:hover .quickLibraryAdd,.albumCard:focus-within .quickLibraryAdd{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+.albumCard:hover{outline:2px solid rgba(242,201,76,.28);outline-offset:2px}
+.libraryFullGrid .libraryDraftCard.dragTarget{outline:3px solid var(--accent);outline-offset:4px;border-radius:24px;box-shadow:0 0 0 6px rgba(242,201,76,.14)}
+body.light .quickLibraryAdd{background:#f2c94c!important;color:#111!important;border-color:#d9a51a!important}

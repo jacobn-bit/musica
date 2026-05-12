@@ -357,9 +357,15 @@ function albumToLibraryItem(a){return {
   rating:userScore(a)?Number(userScore(a)):displayScore(a)
 }}
 function sortedLibraryItems(items){return items.slice()}
+function liveLibraryItem(item){
+  const album=state.albums.find(a=>String(a.id)===String(item.id))||existingAlbumMatch(item);
+  if(!album)return item;
+  return {...item,id:String(album.id),title:album.title,artist:album.artist,year:album.year||item.year||"",genre:album.genre||item.genre||"Album",cover_url:album.cover_url||item.cover_url||"",spotify_url:album.spotify_url||item.spotify_url||"",summary:album.summary||item.summary||"",rating:displayScore(album),ratings_count:count(album)};
+}
+function liveLibraryItems(items){return sortedLibraryItems(items).map(liveLibraryItem)}
 function libraryHasAlbum(album){return myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))}
 function currentLibraryCard(){
-  const items=sortedLibraryItems(myLibraryItems());
+  const items=liveLibraryItems(myLibraryItems());
   if(!items.length)return null;
   const username=currentUsername()||"Listener";
   const existing=extras.libraries.find(l=>l.device_id===state.deviceId)||{};
@@ -383,7 +389,7 @@ function visibleLibraries(){
 async function syncMyLibrary(){
   const username=currentUsername()||ratingName();
   if(!username)return false;
-  const items=sortedLibraryItems(myLibraryItems());
+  const items=liveLibraryItems(myLibraryItems());
   const title=($("#libraryTitle")?.value||(username+"'s Library")).trim()||(username+"'s Library");
   const payload={device_id:state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
   if(db){
@@ -428,6 +434,7 @@ window.endLibraryDrag=function(event){event.currentTarget.classList.remove("drag
 window.dropLibraryItem=async function(event,targetId){
   event.preventDefault();
   event.stopPropagation();
+  event.currentTarget.classList.remove("dragTarget");
   const sourceId=event.dataTransfer.getData("text/plain");
   if(!sourceId||String(sourceId)===String(targetId))return;
   const items=myLibraryItems();
@@ -482,12 +489,12 @@ function libraryAlbumCard(item, removable=false, draggable=false){
   const encoded=encodeURIComponent(JSON.stringify(item));
   const card='<article class="card libraryAlbumCard" onclick="event.stopPropagation();openLibraryAlbum(\''+encoded+'\')">'+(item.cover_url?'<div class="cover"><img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'"></div>':'<div class="cover fallbackCover"><strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong></div>')+'<div class="cardBody"><div class="row"><div><div class="title">'+escapeHtml(item.title||"Untitled")+'</div><div class="artist">'+escapeHtml(item.artist||"")+(item.year?' - '+escapeHtml(item.year):'')+'</div></div><div class="score">'+escapeHtml(item.rating||"-")+'</div></div><span class="pill">Library pick</span></div></article>';
   if(!removable)return card;
-  const dragAttrs=draggable?' draggable="true" ondragstart="dragLibraryItem(event,\''+escapeJsString(item.id)+'\')" ondragend="endLibraryDrag(event)" ondragover="event.preventDefault()" ondrop="dropLibraryItem(event,\''+escapeJsString(item.id)+'\')"':'';
+  const dragAttrs=draggable?' draggable="true" ondragstart="dragLibraryItem(event,\''+escapeJsString(item.id)+'\')" ondragend="endLibraryDrag(event)" ondragover="event.preventDefault()" ondragenter="event.currentTarget.classList.add(\'dragTarget\')" ondragleave="event.currentTarget.classList.remove(\'dragTarget\')" ondrop="dropLibraryItem(event,\''+escapeJsString(item.id)+'\')"':'';
   return '<div class="libraryDraftCard"'+dragAttrs+'>'+card+'<button class="draftRemove" onclick="event.stopPropagation();removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>';
 }
 function openLibraryDetails(library){
   if(!library)return;
-  const items=Array.isArray(library.items)?library.items:[];
+  const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const isMine=library.device_id===state.deviceId||library.isMine;
   $("#albumModalContent").innerHTML='<div class="sectionTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
   $("#albumModal").classList.remove("hidden");
@@ -497,16 +504,17 @@ function openLibraryDetailsById(key){
   openLibraryDetails(library);
 }
 function libraryBlock(library){
-  const items=Array.isArray(library.items)?library.items:[];
+  const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const isMine=library.device_id===state.deviceId||library.isMine;
   const preview=items.slice(0,2).map(item=>libraryAlbumCard(item,false)).join("");
   const key=escapeJsString(library.id||library.device_id||"");
-  return '<div class="libraryCard" onclick="openLibraryDetailsById(\''+key+'\')"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div></div><div class="libraryAlbums libraryAlbumsPreview">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+'</div>'+(items.length>2?'<button class="linkBtn libraryOpenBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">See all albums</button>':'')+(isMine?'':'<button class="trackRateOpen" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>')+'</div>';
+  const canFollow=!isMine&&library.id&&String(library.id).indexOf("local-library-")!==0;
+  return '<div class="libraryCard" onclick="openLibraryDetailsById(\''+key+'\')"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div></div><div class="libraryAlbums libraryAlbumsPreview">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+'</div><div class="libraryActions">'+(items.length>2?'<button class="linkBtn libraryOpenBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">See all albums</button>':'')+(canFollow?'<button class="trackRateOpen" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>':'')+'</div></div>';
 }
 
 function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
 function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();return(state.genre==="All"||x.genre===state.genre)&&(`${x.title} ${x.artist} ${x.genre||""}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
-function card(a){return`<article class="card" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(a.genre||"Album")}</span></div></article>`}
+function card(a){return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button><div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(a.genre||"Album")}</span></div></article>`}
 function row(a,i){return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.genre||"")} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
 function render(){let arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title}$("#genreFilter").innerHTML=genres().map(g=>`<option ${g===state.genre?"selected":""}>${escapeHtml(g)}</option>`).join("");
 if(state.view==="rankings")content.innerHTML=`<div class="sectionTitle"><h2>Top Albums</h2><span class="muted">${arr.length} results</span></div><div class="grid">${arr.map(card).join("")}</div>`;
@@ -606,18 +614,21 @@ window.addSpotifyAlbum=async function(a){
   }
   if(extras.spotifyTarget==="library"){
     const added=await addAlbumToMyLibrary(savedAlbum);
-    if(added)alert(duplicate?'Added the existing Musica album to your public library.':'Added to Musica and your public library.');
-    $("#addModal").classList.add("hidden");
+    if(added)$("#spotifyStatus").textContent=duplicate?'Added the existing Musica album to your public library.':'Added to Musica and your public library.';
     render();
     return;
   }
-  if(duplicate){alert(`"${duplicate.title}" by ${duplicate.artist} is already in Musica. Open it on the main page and use Add to my library if you want it in your library.`);return}
-  $("#addModal").classList.add("hidden");
+  if(duplicate){$("#spotifyStatus").textContent=`"${duplicate.title}" by ${duplicate.artist} is already in Musica. Use the hover button or album page to add it to your library.`;return}
+  $("#spotifyStatus").textContent='Added to Musica. You can keep adding more albums.';
   await loadData();
 }
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
 updateNavUsername();$("#navSetUsername").onclick=setLibraryUsername;$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
 $("#closeAlbumModal").onclick=()=>$("#albumModal").classList.add("hidden");$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")$("#albumModal").classList.add("hidden")};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};
+function goHome(){state.view="rankings";document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
+function rememberSiteState(){if(!history.state||!history.state.musica)history.replaceState({musica:"home"},"");history.pushState({musica:"inside"},"")}
+rememberSiteState();
+window.addEventListener("popstate",()=>{if(!$("#albumModal").classList.contains("hidden")){$("#albumModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}if(!$("#addModal").classList.contains("hidden")){$("#addModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}goHome();history.pushState({musica:"inside"},"")});
 document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>t.onclick=async()=>{state.view=t.dataset.view;if(state.view==="libraries")await loadLibraries();document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));render();closeNav()});
 $("#searchInput").oninput=e=>{state.search=e.target.value;render()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};$("#themeToggle").onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaTheme",state.theme)};
 loadData();
