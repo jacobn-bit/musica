@@ -376,7 +376,9 @@ function liveLibraryItem(item){
 }
 function liveLibraryItems(items){return sortedLibraryItems(items).map(liveLibraryItem)}
 function librarySimilarity(items){
-  const mine=liveLibraryItems(myLibraryItems());
+  const publishedMine=extras.libraries.find(l=>l.device_id===state.deviceId)||(currentUsername()?extras.libraries.find(l=>String(l.username||"").toLowerCase()===currentUsername().toLowerCase()):null);
+  const mineSource=myLibraryItems().length?myLibraryItems():(publishedMine?.items||[]);
+  const mine=liveLibraryItems(mineSource);
   const other=liveLibraryItems(items||[]);
   if(!mine.length||!other.length)return null;
   const mineKeys=new Set(mine.map(a=>coverKey(a)));
