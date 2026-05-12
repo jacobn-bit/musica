@@ -14,6 +14,10 @@
         <div class="brand">Musica</div>
         <div class="tagline">Know what's worth listening to.</div>
       </div>
+      <div class="notificationWrap">
+        <button id="notificationBell" class="ghost notificationBell" aria-label="Notifications">&#128276;<span id="notificationBadge" class="notificationBadge hidden">0</span></button>
+        <div id="notificationPanel" class="notificationPanel hidden">No new notifications.</div>
+      </div>
       <button id="themeToggle" class="ghost">&#9790;</button>
     </header>
 
@@ -61,8 +65,8 @@
     </div>
 
     <nav class="tabs">
-      <button class="tab active" data-view="rankings">Rankings</button>
-      <button class="tab" data-view="discover">Discover</button>
+      <button class="tab active" data-view="rankings">Albums</button>
+      <button class="tab" data-view="libraries">Libraries</button>
       <button class="tab" data-view="artists">Artists</button>
       <button class="tab" data-view="myratings">My Ratings</button>
     </nav>
@@ -93,7 +97,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=final32"></script>
+  <script src="app-final-spotify.js?v=final36"></script>
 </body>
 </html>
 

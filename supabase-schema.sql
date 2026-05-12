@@ -190,6 +190,10 @@ create policy "Anyone can publish libraries" on user_libraries for insert with c
 drop policy if exists "Anyone can update own library device" on user_libraries;
 create policy "Anyone can update own library device" on user_libraries for update using (true);
 
+-- Allows the app's Remove library button to delete a mistaken public library.
+drop policy if exists "Anyone can remove libraries" on user_libraries;
+create policy "Anyone can remove libraries" on user_libraries for delete using (true);
+
 drop policy if exists "Anyone can read library follows" on library_follows;
 create policy "Anyone can read library follows" on library_follows for select using (true);
 

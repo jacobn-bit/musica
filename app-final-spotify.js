@@ -334,7 +334,19 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
 function updateNavUsername(){
   const el=$("#navUsername");
   if(el)el.textContent=currentUsername()?"@"+currentUsername():"Not signed in";
+  renderNotifications();
 }
+function followerSeenKey(){return "musicaSeenFollowers::"+state.deviceId}
+function myPublishedLibrary(){return extras.libraries.find(l=>l.device_id===state.deviceId)||null}
+function unreadFollowerCount(){const library=myPublishedLibrary();if(!library)return 0;return Math.max(0,Number(library.followers_count||0)-Number(localStorage.getItem(followerSeenKey())||0))}
+function renderNotifications(){
+  const badge=$("#notificationBadge"),panel=$("#notificationPanel");
+  const count=unreadFollowerCount();
+  if(badge){badge.textContent=count>99?"99+":String(count);badge.classList.toggle("hidden",count===0)}
+  if(panel){panel.innerHTML=count?'<strong>'+count+' new follower'+(count===1?'':'s')+'</strong><button class="navTinyBtn" onclick="markFollowerNotificationsRead()">Mark read</button>':'No new notifications.'}
+}
+window.markFollowerNotificationsRead=function(){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));renderNotifications()}
+async function refreshNotifications(){await loadLibraries();renderNotifications()}
 function setLibraryUsername(){
   const name=(prompt("Choose a public username for your library:",currentUsername()||"")||"").trim();
   if(!name)return;
@@ -363,6 +375,16 @@ function liveLibraryItem(item){
   return {...item,id:String(album.id),title:album.title,artist:album.artist,year:album.year||item.year||"",genre:album.genre||item.genre||"Album",cover_url:album.cover_url||item.cover_url||"",spotify_url:album.spotify_url||item.spotify_url||"",summary:album.summary||item.summary||"",rating:displayScore(album),ratings_count:count(album)};
 }
 function liveLibraryItems(items){return sortedLibraryItems(items).map(liveLibraryItem)}
+function librarySimilarity(items){
+  const mine=liveLibraryItems(myLibraryItems());
+  const other=liveLibraryItems(items||[]);
+  if(!mine.length||!other.length)return null;
+  const mineKeys=new Set(mine.map(a=>coverKey(a)));
+  const otherKeys=new Set(other.map(a=>coverKey(a)));
+  const shared=[...mineKeys].filter(key=>otherKeys.has(key)).length;
+  const total=new Set([...mineKeys,...otherKeys]).size;
+  return total?Math.round((shared/total)*100):null;
+}
 function libraryHasAlbum(album){return myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))}
 function currentLibraryCard(){
   const items=liveLibraryItems(myLibraryItems());
@@ -452,9 +474,10 @@ window.dropLibraryItem=async function(event,targetId){
 async function loadLibraries(){
   if(db){
     const {data,error}=await db.from("library_feed").select("*").order("updated_at",{ascending:false}).limit(50);
-    if(!error){extras.libraries=data||[];return extras.libraries}
+    if(!error){extras.libraries=data||[];renderNotifications();return extras.libraries}
   }
   extras.libraries=localLibraries();
+  renderNotifications();
   return extras.libraries;
 }
 async function publishMyLibrary(){
@@ -470,6 +493,20 @@ async function followLibrary(libraryId){
     const libraries=localLibraries().map(l=>String(l.id)===String(libraryId)?{...l,followers_count:Number(l.followers_count||0)+1}:l);
     saveLocalLibraries(libraries);
   }
+  await loadLibraries();
+  render();
+}
+async function removeLibrary(libraryId){
+  const library=visibleLibraries().find(l=>String(l.id)===String(libraryId));
+  if(!library)return;
+  if(!confirm('Remove "'+(library.title||'this library')+'" from public libraries?'))return;
+  if(db&&String(libraryId).indexOf("local-library-")!==0){
+    const {error}=await db.from("user_libraries").delete().eq("id",libraryId);
+    if(error){alert(error.message);return}
+  }else{
+    saveLocalLibraries(localLibraries().filter(l=>String(l.id)!==String(libraryId)));
+  }
+  if(library.device_id===state.deviceId||library.isMine){saveMyLibraryItems([])}
   await loadLibraries();
   render();
 }
@@ -509,7 +546,10 @@ function libraryBlock(library){
   const preview=items.slice(0,2).map(item=>libraryAlbumCard(item,false)).join("");
   const key=escapeJsString(library.id||library.device_id||"");
   const canFollow=!isMine&&library.id&&String(library.id).indexOf("local-library-")!==0;
-  return '<div class="libraryCard" onclick="openLibraryDetailsById(\''+key+'\')"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div></div><div class="libraryAlbums libraryAlbumsPreview">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+'</div><div class="libraryActions">'+(items.length>2?'<button class="linkBtn libraryOpenBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">See all albums</button>':'')+(canFollow?'<button class="trackRateOpen" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>':'')+'</div></div>';
+  const canRemove=(isMine||(currentUsername()&&String(library.username||"").toLowerCase()===currentUsername().toLowerCase()))&&library.id;
+  const similarity=!isMine?librarySimilarity(items):null;
+  const similarityBadge=similarity===null?'':'<span class="similarityBadge">'+similarity+'% similar</span>';
+  return '<div class="libraryCard" onclick="openLibraryDetailsById(\''+key+'\')"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="libraryStats"><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div>'+similarityBadge+'</div></div><div class="libraryAlbums libraryAlbumsPreview">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+'</div><div class="libraryActions">'+(items.length>2?'<button class="linkBtn libraryOpenBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">See all albums</button>':'')+(canFollow?'<button class="trackRateOpen" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>':'')+(canRemove?'<button class="linkBtn dangerLink" onclick="event.stopPropagation();removeLibrary(\''+escapeJsString(library.id)+'\')">Remove library</button>':'')+'</div></div>';
 }
 
 function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
@@ -518,7 +558,7 @@ function card(a){return`<article class="card albumCard" onclick="openAlbum('${es
 function row(a,i){return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.genre||"")} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
 function render(){let arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title}$("#genreFilter").innerHTML=genres().map(g=>`<option ${g===state.genre?"selected":""}>${escapeHtml(g)}</option>`).join("");
 if(state.view==="rankings")content.innerHTML=`<div class="sectionTitle"><h2>Top Albums</h2><span class="muted">${arr.length} results</span></div><div class="grid">${arr.map(card).join("")}</div>`;
-if(state.view==="discover"){let hidden=state.albums.slice().sort((a,b)=>count(a)-count(b)).slice(0,6);let newer=state.albums.slice().sort((a,b)=>(b.year||0)-(a.year||0)).slice(0,6);content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="list">${hidden.map(row).join("")}</div><div class="sectionTitle"><h2>Newer Albums</h2></div><div class="list">${newer.map(row).join("")}</div>`}
+if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
 if(state.view==="artists"){let artists=[...new Set(state.albums.map(a=>a.artist))].sort();content.innerHTML=`<div class="sectionTitle"><h2>Artists</h2></div><div class="artistGrid">${artists.map(artistBlock).join("")}</div>`}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
 if(state.view==="libraries"){const libraries=visibleLibraries();content.innerHTML=`<div class="sectionTitle"><h2>Libraries</h2></div><div class="libraryCreator"><input id="libraryTitle" placeholder="Library name" value="${escapeHtml(currentUsername()?currentUsername()+"'s Library":"My Library")}"><button class="bigBtn" onclick="openLibrarySpotifyAdd()">+ Add album</button></div><div class="libraryGrid">${libraries.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>`}}
@@ -551,6 +591,7 @@ window.deleteAlbum=async function(albumId){
   }
   $("#albumModal").classList.add("hidden");
   await loadData();
+refreshNotifications();
 }
 
 window.rateAlbum=async function(albumId,value){const username=ratingName();let r=localRatings();r[albumId]=value;saveLocalRatings(r);state.ratingMap=r;if(db&&!String(albumId).startsWith("seed-")){let {error}=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,rating:value},{onConflict:"album_id,device_id"});if(error){alert(error.message);return}await loadData();openAlbum(albumId)}else{render();openAlbum(albumId)}}
@@ -623,7 +664,7 @@ window.addSpotifyAlbum=async function(a){
   await loadData();
 }
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
-updateNavUsername();$("#navSetUsername").onclick=setLibraryUsername;$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
+updateNavUsername();$("#notificationBell").onclick=()=>{$("#notificationPanel").classList.toggle("hidden");refreshNotifications()};$("#navSetUsername").onclick=setLibraryUsername;$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
 $("#closeAlbumModal").onclick=()=>$("#albumModal").classList.add("hidden");$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")$("#albumModal").classList.add("hidden")};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};
 function goHome(){state.view="rankings";document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
 function rememberSiteState(){if(!history.state||!history.state.musica)history.replaceState({musica:"home"},"");history.pushState({musica:"inside"},"")}
