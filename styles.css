@@ -845,7 +845,7 @@ body.light .artistAZMenu summary{background:#ffffff!important;border-color:#e5e1
 
 
 /* Mobile artist cards keep the richer discovery layout */
-.notificationBell{color:#fff!important;background:var(--panel)!important}.notificationBellIcon{width:21px;height:21px;display:block;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;color:#fff!important}body.light .notificationBellIcon{color:#111827!important}
+.notificationBell{color:#fff!important;background:var(--panel)!important}.notificationBellIcon{width:21px;height:21px;display:block;fill:none;stroke:currentColor;transform:translateX(1px);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;color:#fff!important}body.light .notificationBellIcon{color:#111827!important}
 @media(max-width:850px){
   .artistGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))!important;gap:18px!important}
   .artistCard{padding:15px!important;border-radius:22px!important}
@@ -879,3 +879,60 @@ body.light .artistAZMenu summary{background:#ffffff!important;border-color:#e5e1
 @media(max-width:380px){
   .artistAlbumList{grid-template-columns:1fr!important}
 }
+
+/* Theme switch is secondary inside the hamburger menu */
+.themeNavItem{display:flex!important;align-items:center!important;gap:10px!important;justify-content:flex-start!important;opacity:.78!important}
+.themeMiniMoon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;font-size:13px;line-height:1;color:var(--muted)}
+.themeNavItem:hover{opacity:1!important}
+
+
+/* White text bell and tucked-away theme moon */
+.notificationBell{display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;background:var(--panel)!important;font-size:0!important;line-height:1!important}
+.notificationBellGlyph{display:block;color:#fff!important;font-family:"Segoe UI Symbol","Arial Unicode MS",Arial,sans-serif!important;font-size:22px!important;line-height:1!important;transform:translateY(-1px)}
+body.light .notificationBellGlyph{color:#fff!important}
+.themeMoonOnly{width:auto;height:auto;margin:4px 0 0 4px;padding:0;border:0;background:transparent;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;opacity:.55}
+.themeMoonOnly:hover{opacity:.9;color:var(--text)}
+body.light .themeMoonOnly{color:#6b7280!important;background:transparent!important}
+
+
+
+/* Top album art inside old hero card */
+.heroCard{position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(12,12,16,.96),rgba(12,12,16,.70)),var(--hero-cover,linear-gradient(135deg,#14141b,#0f0f14))!important;background-size:cover!important;background-position:center!important}
+.heroCard>*{position:relative;z-index:1}
+.heroCard:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,10,14,.88),rgba(10,10,14,.28));z-index:0}
+
+/* More dynamic top-ranked album hero background */
+.heroCard{isolation:isolate;border-color:rgba(242,201,76,.26)!important;box-shadow:0 18px 55px rgba(0,0,0,.55),0 0 34px rgba(242,201,76,.16)!important;background:linear-gradient(90deg,rgba(8,8,12,.84),rgba(8,8,12,.34)),var(--hero-cover,linear-gradient(135deg,#14141b,#0f0f14))!important;background-size:cover!important;background-position:center!important;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+.heroCard:hover{transform:translateY(-3px);border-color:rgba(242,201,76,.46)!important;box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 46px rgba(242,201,76,.24)!important}
+.heroCard:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 78% 18%,rgba(242,201,76,.22),transparent 34%),linear-gradient(90deg,rgba(5,5,8,.88) 0%,rgba(5,5,8,.36) 52%,rgba(5,5,8,.08) 100%);z-index:0}
+.heroCard:after{content:"";position:absolute;inset:-60% -30%;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.16) 48%,transparent 58%);z-index:0;transform:translateX(-45%);animation:heroShine 7s ease-in-out infinite;opacity:.45}
+@keyframes heroShine{0%,35%{transform:translateX(-55%)}65%,100%{transform:translateX(55%)}}
+.heroCard .scoreBig{filter:drop-shadow(0 0 18px rgba(242,201,76,.32))}
+@media(prefers-reduced-motion:reduce){.heroCard:after{animation:none}}
+
+/* Contain hero card shine within rounded edges */
+.heroCard{overflow:hidden!important;clip-path:inset(0 round 24px)!important;contain:paint!important}
+.heroCard:after{inset:0!important;width:150%!important;height:150%!important;left:-65%!important;top:-25%!important;border-radius:inherit!important;opacity:.32!important}
+@keyframes heroShine{0%,35%{transform:translateX(-35%)}65%,100%{transform:translateX(55%)}}
+
+/* Keep top album effects internal only, no glowing card edges */
+.heroCard{border-color:rgba(255,255,255,.10)!important;box-shadow:0 18px 45px rgba(0,0,0,.45)!important;outline:0!important;overflow:hidden!important;clip-path:none!important;contain:paint!important}
+.heroCard:hover{border-color:rgba(255,255,255,.16)!important;box-shadow:0 20px 50px rgba(0,0,0,.55)!important}
+.heroCard:before{inset:0!important;border-radius:inherit!important;background:radial-gradient(circle at 76% 18%,rgba(242,201,76,.14),transparent 32%),linear-gradient(90deg,rgba(5,5,8,.88) 0%,rgba(5,5,8,.38) 58%,rgba(5,5,8,.12) 100%)!important}
+.heroCard:after{display:none!important}
+
+/* Force top album card edges to stay black */
+.heroCard{border:1px solid #05060a!important;box-shadow:0 18px 45px rgba(0,0,0,.55)!important;background:linear-gradient(90deg,rgba(5,6,10,.92),rgba(5,6,10,.42)),var(--hero-cover,linear-gradient(135deg,#14141b,#0f0f14))!important}
+.heroCard:before{background:linear-gradient(90deg,rgba(3,4,7,.90) 0%,rgba(3,4,7,.42) 58%,rgba(3,4,7,.16) 100%)!important}
+.heroCard:hover{border-color:#05060a!important;box-shadow:0 20px 50px rgba(0,0,0,.60)!important}
+.heroCard .scoreBig{filter:none!important;text-shadow:none!important}
+
+/* Show full top album cover instead of a cropped background slice */
+.heroCard{background:linear-gradient(90deg,rgba(5,6,10,.94),rgba(5,6,10,.58)),var(--hero-cover,linear-gradient(135deg,#14141b,#0f0f14))!important;background-size:cover,contain!important;background-repeat:no-repeat!important;background-position:center,right center!important;background-color:#05060a!important}
+.heroCard:before{background:linear-gradient(90deg,rgba(3,4,7,.92) 0%,rgba(3,4,7,.54) 54%,rgba(3,4,7,.20) 100%)!important}
+
+/* Lighter top album overlay so cover art stays visible */
+.heroCard{background:linear-gradient(90deg,rgba(5,6,10,.72),rgba(5,6,10,.30)),var(--hero-cover,linear-gradient(135deg,#14141b,#0f0f14))!important;background-size:cover,contain!important;background-repeat:no-repeat!important;background-position:center,right center!important;background-color:#05060a!important}
+.heroCard:before{background:linear-gradient(90deg,rgba(3,4,7,.68) 0%,rgba(3,4,7,.32) 54%,rgba(3,4,7,.08) 100%)!important}
+
+
