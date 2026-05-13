@@ -845,9 +845,7 @@ body.light .artistAZMenu summary{background:#ffffff!important;border-color:#e5e1
 
 
 /* Mobile artist cards keep the richer discovery layout */
-.notificationBell{font-size:0!important;color:#fff!important}
-.notificationBell::before{content:"\1F514\FE0E";font-family:"Segoe UI Symbol","Arial Unicode MS",Arial,sans-serif;font-size:20px;line-height:1;color:#fff!important}
-body.light .notificationBell::before{color:#111827!important}
+.notificationBell{color:#fff!important;background:var(--panel)!important}.notificationBellIcon{width:21px;height:21px;display:block;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;color:#fff!important}body.light .notificationBellIcon{color:#111827!important}
 @media(max-width:850px){
   .artistGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))!important;gap:18px!important}
   .artistCard{padding:15px!important;border-radius:22px!important}
@@ -865,4 +863,19 @@ body.light .notificationBell::before{color:#111827!important}
   .artistFilterDock{padding-top:8px!important}
   .artistHero{min-height:150px!important}
   .artistAlbumRow{grid-template-columns:74px minmax(0,1fr) auto!important}
+}
+
+
+/* Phone artist albums use card tiles instead of flat rows */
+@media(max-width:650px){
+  .artistAlbumList{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  .artistAlbumRow{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:9px!important;padding:10px!important;border-radius:18px!important;background:rgba(255,255,255,.045)!important}
+  .artistAlbumRow .listCover{width:100%!important;height:auto!important;aspect-ratio:1/1!important;border-radius:14px!important;object-fit:cover!important}
+  .artistAlbumRow strong{font-size:14px!important;line-height:1.12!important}
+  .artistAlbumRow span{font-size:11px!important;margin-top:4px!important}
+  .artistAlbumScore{align-self:flex-start!important;font-size:15px!important;margin-top:auto!important}
+  .artistAlbumRow:hover{transform:translateY(-2px)!important}
+}
+@media(max-width:380px){
+  .artistAlbumList{grid-template-columns:1fr!important}
 }
