@@ -843,3 +843,26 @@ body.light .artistAZMenu summary{background:#ffffff!important;border-color:#e5e1
 .artistFilterDock .artistAZMenu{position:static}
 .artistFilterDock .artistAZMenu .artistAZ{left:0!important;top:100%!important;margin-top:-2px;width:max-content}
 
+
+/* Mobile artist cards keep the richer discovery layout */
+.notificationBell{font-size:0!important;color:#fff!important}
+.notificationBell::before{content:"\1F514\FE0E";font-family:"Segoe UI Symbol","Arial Unicode MS",Arial,sans-serif;font-size:20px;line-height:1;color:#fff!important}
+body.light .notificationBell::before{color:#111827!important}
+@media(max-width:850px){
+  .artistGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))!important;gap:18px!important}
+  .artistCard{padding:15px!important;border-radius:22px!important}
+  .artistCard:nth-child(3n+1){grid-row:auto!important}
+  .artistHero{min-height:138px!important;padding:16px!important;align-items:flex-end!important}
+  .artistHero h3{font-size:27px!important}
+  .artistHero p{font-size:12px!important}
+  .artistScore{font-size:24px!important}
+  .artistAlbumRow{grid-template-columns:72px minmax(0,1fr) auto!important;gap:12px!important;padding:10px!important}
+  .artistAlbumRow .listCover{width:72px!important;height:72px!important}
+  .artistAlbumScore{grid-column:auto!important;align-self:center!important}
+}
+@media(max-width:520px){
+  .artistDiscovery{margin-top:18px!important;padding:16px!important;border-radius:22px!important}
+  .artistFilterDock{padding-top:8px!important}
+  .artistHero{min-height:150px!important}
+  .artistAlbumRow{grid-template-columns:74px minmax(0,1fr) auto!important}
+}
