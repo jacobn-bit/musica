@@ -1,4 +1,4 @@
-exports.handler = async function(event) {
+﻿exports.handler = async function(event) {
   try {
     const spotifyId = event.queryStringParameters?.spotify_id || "";
     const title = event.queryStringParameters?.title || "";
@@ -42,7 +42,9 @@ exports.handler = async function(event) {
       spotify_id: t.id,
       name: t.name,
       track_number: t.track_number,
-      spotify_url: t.external_urls?.spotify || ""
+      spotify_url: t.external_urls?.spotify || "",
+      preview_url: t.preview_url || "",
+      duration_ms: t.duration_ms || 0
     }));
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tracks }) };
@@ -50,3 +52,4 @@ exports.handler = async function(event) {
     return { statusCode: 500, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Function crashed", message: err.message }) };
   }
 };
+
