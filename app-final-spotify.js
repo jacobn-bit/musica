@@ -206,7 +206,7 @@ async function fetchAlbumTracks(album){
   try{
     const params=new URLSearchParams({title:album.title||"",artist:album.artist||""});
     if(album.spotify_id)params.set("spotify_id",album.spotify_id);
-    const res=await fetch(`/.netlify/functions/album-tracks?${params.toString()}&v=2`,{cache:"no-store"});
+    const res=await fetch(`/.netlify/functions/album-tracks?${params.toString()}&v=3`,{cache:"no-store"});
     if(res.ok){const data=await res.json();tracks=data.tracks||[]}
   }catch(e){}
   if(!tracks.length)tracks=await fetchTracksFromItunes(album).catch(()=>[]);
@@ -825,4 +825,5 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
 
