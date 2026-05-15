@@ -1,4 +1,24 @@
-﻿exports.handler = async function(event) {
+﻿async function findItunesPreview(trackName, artistName) {
+  if (!trackName || !artistName) return "";
+  try {
+    const cleanTrack = String(trackName).replace(/\s*\[[^\]]+\]|\s*\([^)]*remaster[^)]*\)/ig, "").trim();
+    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${cleanTrack} ${artistName}`)}&entity=song&limit=5`);
+    if (!res.ok) return "";
+    const data = await res.json();
+    const targetTrack = cleanTrack.toLowerCase();
+    const targetArtist = String(artistName).toLowerCase();
+    const match = (data.results || []).find(item => {
+      const itemTrack = String(item.trackName || "").toLowerCase();
+      const itemArtist = String(item.artistName || "").toLowerCase();
+      return item.previewUrl && itemArtist.includes(targetArtist.split(/\s+/)[0]) && (itemTrack === targetTrack || itemTrack.includes(targetTrack) || targetTrack.includes(itemTrack));
+    }) || (data.results || []).find(item => item.previewUrl);
+    return match?.previewUrl || "";
+  } catch (err) {
+    return "";
+  }
+}
+
+exports.handler = async function(event) {
   try {
     const spotifyId = event.queryStringParameters?.spotify_id || "";
     const title = event.queryStringParameters?.title || "";
@@ -38,13 +58,19 @@
       headers: { "Authorization": "Bearer " + tokenData.access_token }
     });
     const tracksData = await tracksRes.json();
-    const tracks = (tracksData.items || []).map(t => ({
-      spotify_id: t.id,
-      name: t.name,
-      track_number: t.track_number,
-      spotify_url: t.external_urls?.spotify || "",
-      preview_url: t.preview_url || "",
-      duration_ms: t.duration_ms || 0
+    const spotifyTracks = tracksData.items || [];
+    const tracks = await Promise.all(spotifyTracks.map(async t => {
+      const spotifyPreview = t.preview_url || "";
+      const fallbackPreview = spotifyPreview ? "" : await findItunesPreview(t.name, artist);
+      return {
+        spotify_id: t.id,
+        name: t.name,
+        track_number: t.track_number,
+        spotify_url: t.external_urls?.spotify || "",
+        preview_url: spotifyPreview || fallbackPreview,
+        preview_source: spotifyPreview ? "spotify" : (fallbackPreview ? "itunes" : ""),
+        duration_ms: t.duration_ms || 0
+      };
     }));
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tracks }) };
@@ -52,4 +78,3 @@
     return { statusCode: 500, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Function crashed", message: err.message }) };
   }
 };
-
