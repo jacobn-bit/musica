@@ -131,22 +131,27 @@ function localTrackComments(){return JSON.parse(localStorage.getItem("musicaTrac
 function saveLocalTrackComments(comments){localStorage.setItem("musicaTrackComments",JSON.stringify(comments))}
 function saveLocalTrackRatings(ratings){localStorage.setItem("musicaTrackRatings",JSON.stringify(ratings))}
 function previewPayload(track){return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||""}))}
+function setPreviewingButton(button){
+  document.querySelectorAll(".isPreviewing").forEach(x=>{x.classList.remove("isPreviewing");if(x.dataset.playLabel)x.textContent=x.dataset.playLabel});
+  if(button){button.dataset.playLabel=button.dataset.playLabel||button.textContent;button.classList.add("isPreviewing");button.textContent="Ⅱ"}
+  document.body.classList.toggle("samplePlaying",!!button);
+}
 window.playTrackPreview=function(payload,button){
   let data={};
   try{data=JSON.parse(decodeURIComponent(payload||"{}"))}catch(e){}
   if(!data.url){alert("Spotify does not provide a 30 second sample for this track.");return}
   if(extras.previewAudio&&extras.previewKey===data.url){
-    if(extras.previewAudio.paused){extras.previewAudio.play();document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing"));button?.classList.add("isPreviewing")}else{extras.previewAudio.pause();button?.classList.remove("isPreviewing")}
+    if(extras.previewAudio.paused){extras.previewAudio.play();setPreviewingButton(button)}else{extras.previewAudio.pause();setPreviewingButton(null)}
     return;
   }
   if(extras.previewAudio){extras.previewAudio.pause();extras.previewAudio.currentTime=0}
-  document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing"));
+  setPreviewingButton(null);
   extras.previewAudio=new Audio(data.url);
   extras.previewKey=data.url;
-  extras.previewAudio.addEventListener("ended",()=>document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing")));
-  extras.previewAudio.play().then(()=>button?.classList.add("isPreviewing")).catch(()=>alert("Could not play this Spotify sample."));
+  extras.previewAudio.addEventListener("ended",()=>setPreviewingButton(null));
+  extras.previewAudio.play().then(()=>setPreviewingButton(button)).catch(()=>alert("Could not play this Spotify sample."));
 }
-function stopTrackPreview(){if(extras.previewAudio){extras.previewAudio.pause();extras.previewAudio.currentTime=0}extras.previewKey=null;document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing"))}function trackKey(track){return String(track.spotify_id||track.id||track.name||"").toLowerCase()}
+function stopTrackPreview(){if(extras.previewAudio){extras.previewAudio.pause();extras.previewAudio.currentTime=0}extras.previewKey=null;setPreviewingButton(null)}function trackKey(track){return String(track.spotify_id||track.id||track.name||"").toLowerCase()}
 function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(albumId)}::${key}`]||null}
 function setLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();ratings[`${albumRef(albumId)}::${key}`]=value;saveLocalTrackRatings(ratings)}
 async function loadComments(albumId){
@@ -263,7 +268,7 @@ function renderTrackList(albumId){
     const score=displaySongScore(songScores[key]).replace("No rating","")||["9.4","9.0","9.3","8.6","9.1","9.2","8.5","8.9"][i]||"";
     return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)}</strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">★ ${escapeHtml(score)}</button><button class="trackLove">♡</button><button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button></div>`;
   }).join("");
-  host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)}</h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p></div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}<button class="viewTracklist">View full tracklist <span>⌄</span></button></section>`;
+  host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="playingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p></div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}<button class="viewTracklist">View full tracklist <span>⌄</span></button></section>`;
 }
 
 async function loadTrackComments(albumId,trackKeyValue){
@@ -825,5 +830,6 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
 
 

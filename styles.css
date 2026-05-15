@@ -1753,3 +1753,33 @@ body.light #albumModal .modalPanel{background:#111827!important;color:#fff!impor
   cursor:not-allowed!important;
   filter:grayscale(1)!important;
 }
+
+/* Playing sample pause state and waves */
+.featurePlay.isPreviewing,
+.trackPulse.isPreviewing,
+.playNow.isPreviewing{
+  font-size:18px!important;
+  letter-spacing:-3px!important;
+  text-indent:-3px!important;
+}
+.playingWaves{
+  display:none;
+  align-items:end;
+  gap:3px;
+  height:18px;
+  margin-left:10px;
+  vertical-align:middle;
+}
+.playingWaves i{
+  width:4px;
+  height:8px;
+  border-radius:999px;
+  background:#ffd51f;
+  box-shadow:0 0 10px rgba(242,201,76,.45);
+  animation:playingWave .72s ease-in-out infinite;
+}
+.playingWaves i:nth-child(2){animation-delay:.12s;height:14px}
+.playingWaves i:nth-child(3){animation-delay:.24s;height:10px}
+.playingWaves i:nth-child(4){animation-delay:.36s;height:16px}
+.samplePlaying .playingWaves{display:inline-flex}
+@keyframes playingWave{0%,100%{transform:scaleY(.45);opacity:.65}50%{transform:scaleY(1.25);opacity:1}}
