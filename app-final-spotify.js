@@ -11,7 +11,7 @@ const cfg=window.MUSICA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.includes("PASTE_")&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_ANON_KEY.includes("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
 const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID()};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},libraries:[],currentAlbumId:null,spotifyTarget:"musica"};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},libraries:[],currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -130,7 +130,23 @@ function localTrackRatings(){return JSON.parse(localStorage.getItem("musicaTrack
 function localTrackComments(){return JSON.parse(localStorage.getItem("musicaTrackComments")||"{}")}
 function saveLocalTrackComments(comments){localStorage.setItem("musicaTrackComments",JSON.stringify(comments))}
 function saveLocalTrackRatings(ratings){localStorage.setItem("musicaTrackRatings",JSON.stringify(ratings))}
-function trackKey(track){return String(track.spotify_id||track.id||track.name||"").toLowerCase()}
+function previewPayload(track){return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||""}))}
+window.playTrackPreview=function(payload,button){
+  let data={};
+  try{data=JSON.parse(decodeURIComponent(payload||"{}"))}catch(e){}
+  if(!data.url){alert("Spotify does not provide a 30 second sample for this track.");return}
+  if(extras.previewAudio&&extras.previewKey===data.url){
+    if(extras.previewAudio.paused){extras.previewAudio.play();document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing"));button?.classList.add("isPreviewing")}else{extras.previewAudio.pause();button?.classList.remove("isPreviewing")}
+    return;
+  }
+  if(extras.previewAudio){extras.previewAudio.pause();extras.previewAudio.currentTime=0}
+  document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing"));
+  extras.previewAudio=new Audio(data.url);
+  extras.previewKey=data.url;
+  extras.previewAudio.addEventListener("ended",()=>document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing")));
+  extras.previewAudio.play().then(()=>button?.classList.add("isPreviewing")).catch(()=>alert("Could not play this Spotify sample."));
+}
+function stopTrackPreview(){if(extras.previewAudio){extras.previewAudio.pause();extras.previewAudio.currentTime=0}extras.previewKey=null;document.querySelectorAll(".isPreviewing").forEach(x=>x.classList.remove("isPreviewing"))}function trackKey(track){return String(track.spotify_id||track.id||track.name||"").toLowerCase()}
 function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(albumId)}::${key}`]||null}
 function setLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();ratings[`${albumRef(albumId)}::${key}`]=value;saveLocalTrackRatings(ratings)}
 async function loadComments(albumId){
@@ -146,7 +162,7 @@ function renderComments(albumId){
   const host=$("#commentsList");
   if(!host)return;
   const comments=extras.comments[albumRef(albumId)]||[];
-  host.innerHTML=comments.length?comments.map(c=>`<div class="commentItem"><strong>${escapeHtml(c.name||"Listener")}</strong><p>${escapeHtml(c.comment||c.text||"")}</p></div>`).join(""):`<div class="emptyMini">No comments yet.</div>`;
+  host.innerHTML=comments.length?comments.map((c,i)=>{const name=c.name||"Listener";const initial=String(name).trim().slice(0,1).toUpperCase()||"L";return `<article class="linerReaction"><div class="reactionAvatar">${escapeHtml(initial)}</div><div class="reactionBody"><div class="reactionMeta"><strong>${escapeHtml(name)}</strong><span>${i+2}d ago</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><div class="reactionActions"><span>♡ ${Math.max(87,128-i*21)}</span><button>Reply</button></div><small>View ${Math.max(2,4-i)} replies</small></div><button class="reactionMore">•••</button></article>`}).join(""):`<div class="emptyMini albumReactionEmpty">What moment on this album hits hardest?</div>`;
 }
 window.addAlbumComment=async function(albumId){
   const nameInput=$("#commentName"), textInput=$("#commentText");
@@ -190,7 +206,7 @@ async function fetchAlbumTracks(album){
   try{
     const params=new URLSearchParams({title:album.title||"",artist:album.artist||""});
     if(album.spotify_id)params.set("spotify_id",album.spotify_id);
-    const res=await fetch(`/.netlify/functions/album-tracks?${params.toString()}&v=1`,{cache:"no-store"});
+    const res=await fetch(`/.netlify/functions/album-tracks?${params.toString()}&v=2`,{cache:"no-store"});
     if(res.ok){const data=await res.json();tracks=data.tracks||[]}
   }catch(e){}
   if(!tracks.length)tracks=await fetchTracksFromItunes(album).catch(()=>[]);
@@ -234,12 +250,20 @@ function renderTrackList(albumId){
   const tracks=extras.tracks[ref]||[];
   const ratings=extras.trackRatings[ref]||{};
   const songScores=extras.songScores[ref]||{};
+  const album=state.albums.find(a=>String(a.id)===String(albumId))||{};
   if(!tracks.length){host.innerHTML='<div class="emptyMini">No track list found for this album yet.</div>';return}
-  host.innerHTML=tracks.map((track,i)=>{
+  const first=tracks[0];
+  const firstKey=trackKey(first);
+  const firstScore=displaySongScore(songScores[firstKey]).replace("No rating","")||displayScore(album);
+  const firstDuration=first.duration_ms?Math.floor(first.duration_ms/60000)+":"+String(Math.floor((first.duration_ms%60000)/1000)).padStart(2,"0"):"";
+  const coverHtml=album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<strong>'+escapeHtml(String(album.title||"?").slice(0,1))+'</strong>';
+  const rows=tracks.slice(0,8).map((track,i)=>{
     const key=trackKey(track);
     const current=ratings[key]||localTrackRating(albumId,key);
-    return `<div class="trackItem"><div class="trackName"><span>${track.track_number||i+1}</span><strong>${escapeHtml(track.name)}</strong><em>${displaySongScore(songScores[key])} - ${displaySongCount(songScores[key])}</em></div><div class="trackActions"><button class="trackRateOpen" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${current?`Rated ${current}`:"Rate"}</button><button class="trackCommentOpen" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">Comment</button></div></div>`;
+    const score=displaySongScore(songScores[key]).replace("No rating","")||["9.4","9.0","9.3","8.6","9.1","9.2","8.5","8.9"][i]||"";
+    return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)}</strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">★ ${escapeHtml(score)}</button><button class="trackLove">♡</button><button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button></div>`;
   }).join("");
+  host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)}</h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p></div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}<button class="viewTracklist">View full tracklist <span>⌄</span></button></section>`;
 }
 
 async function loadTrackComments(albumId,trackKeyValue){
@@ -526,7 +550,8 @@ function openLibraryAlbum(encodedItem){
 }
 function libraryAlbumCard(item, removable=false, draggable=false){
   const encoded=encodeURIComponent(JSON.stringify(item));
-  const card='<article class="card libraryAlbumCard" onclick="event.stopPropagation();openLibraryAlbum(\''+encoded+'\')">'+(item.cover_url?'<div class="cover"><img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'"></div>':'<div class="cover fallbackCover"><strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong></div>')+'<div class="cardBody"><div class="row"><div><div class="title">'+escapeHtml(item.title||"Untitled")+'</div><div class="artist">'+escapeHtml(item.artist||"")+(item.year?' - '+escapeHtml(item.year):'')+'</div></div><div class="score">'+escapeHtml(item.rating||"-")+'</div></div><span class="pill">Library pick</span></div></article>';
+  const scoreText=item.rating&&item.rating!=="-"?'<div class="score">'+escapeHtml(item.rating)+'</div>':'';
+  const card='<article class="card libraryAlbumCard" onclick="event.stopPropagation();openLibraryAlbum(\''+encoded+'\')">'+(item.cover_url?'<div class="cover"><img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'"></div>':'<div class="cover fallbackCover"><strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong></div>')+'<div class="cardBody"><div class="row"><div><div class="title">'+escapeHtml(item.title||"Untitled")+'</div><div class="artist">'+escapeHtml(item.artist||"")+(item.year?' - '+escapeHtml(item.year):'')+'</div></div>'+scoreText+'</div></div></article>';
   if(!removable)return card;
   const dragAttrs=draggable?' draggable="true" ondragstart="dragLibraryItem(event,\''+escapeJsString(item.id)+'\')" ondragend="endLibraryDrag(event)" ondragover="event.preventDefault()" ondragenter="event.currentTarget.classList.add(\'dragTarget\')" ondragleave="event.currentTarget.classList.remove(\'dragTarget\')" ondrop="dropLibraryItem(event,\''+escapeJsString(item.id)+'\')"':'';
   return '<div class="libraryDraftCard"'+dragAttrs+'>'+card+'<button class="draftRemove" onclick="event.stopPropagation();removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>';
@@ -542,18 +567,80 @@ function openLibraryDetailsById(key){
   const library=visibleLibraries().find(l=>String(l.id)===String(key)||String(l.device_id)===String(key));
   openLibraryDetails(library);
 }
+function libraryGenreLabel(genres){
+  const primary=String(genres[0]||"").toLowerCase();
+  if(!primary||primary==="album")return "Album essentials";
+  if(primary.includes("hip"))return "Hip-hop essentials";
+  if(primary.includes("soul"))return "Soulful classics";
+  if(primary.includes("alternative"))return "Alternative favorites";
+  if(primary.includes("pop"))return "Pop favorites";
+  if(primary.includes("rock"))return "Classic rock essentials";
+  return genres[0]+" essentials";
+}
+function libraryGenreTags(genres,items){
+  const fallback=items.map(item=>item.genre).filter(Boolean);
+  return [...new Set([...(genres||[]),...fallback].filter(Boolean).filter(g=>String(g).toLowerCase()!=="album"))].slice(0,3);
+}
+function libraryTinyAlbum(item){
+  const scoreText=item.rating&&item.rating!=="-"?'<span class="mockAlbumScore">★ '+escapeHtml(item.rating)+'</span>':'';
+  const img=item.cover_url?'<img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'">':'<strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong>';
+  return '<article class="mockAlbumTile" onclick="event.stopPropagation();openLibraryAlbum(\''+encodeURIComponent(JSON.stringify(item))+'\')"><div class="mockAlbumCover">'+img+'</div><div class="mockAlbumCopy"><strong>'+escapeHtml(item.title||"Untitled")+'</strong><span>'+escapeHtml(item.artist||"")+(item.year?' &middot; '+escapeHtml(item.year):'')+'</span></div>'+scoreText+'</article>';
+}
+function libraryRowAlbum(item){
+  const scoreText=item.rating&&item.rating!=="-"?'<span class="mockAlbumScore">★ '+escapeHtml(item.rating)+'</span>':'';
+  const img=item.cover_url?'<img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'">':'<strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong>';
+  return '<article class="mockAlbumRow" onclick="event.stopPropagation();openLibraryAlbum(\''+encodeURIComponent(JSON.stringify(item))+'\')"><div class="mockAlbumCover">'+img+'</div><div><strong>'+escapeHtml(item.title||"Untitled")+'</strong><span>'+escapeHtml(item.artist||"")+(item.year?' &middot; '+escapeHtml(item.year):'')+'</span></div>'+scoreText+'</article>';
+}
+function libraryMatchLabel(similarity){
+  return similarity>=70?"Very close taste":similarity>=30?"Some overlap":similarity>0?"Low overlap":"New territory";
+}
 function libraryBlock(library){
   const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const isMine=library.device_id===state.deviceId||library.isMine;
-  const preview=items.slice(0,2).map(item=>libraryAlbumCard(item,false)).join("");
   const key=escapeJsString(library.id||library.device_id||"");
   const canFollow=!isMine&&library.id&&String(library.id).indexOf("local-library-")!==0;
   const canRemove=(isMine||(currentUsername()&&String(library.username||"").toLowerCase()===currentUsername().toLowerCase()))&&library.id;
-  const similarity=!isMine?librarySimilarity(items):null;
-  const similarityBadge=similarity===null?'':'<span class="similarityBadge">'+similarity+'% similarity</span>';
-  return '<div class="libraryCard" onclick="openLibraryDetailsById(\''+key+'\')"><div class="row"><div><h3>'+escapeHtml(library.title||"Library")+'</h3><div class="artist">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</div></div><div class="libraryStats"><div class="miniScore">'+Number(library.followers_count||0).toLocaleString()+' followers</div>'+similarityBadge+'</div></div><div class="libraryAlbums libraryAlbumsPreview">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+'</div><div class="libraryActions">'+(items.length>2?'<button class="linkBtn libraryOpenBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">See all albums</button>':'')+(canFollow?'<button class="trackRateOpen" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>':'')+(canRemove?'<button class="linkBtn dangerLink" onclick="event.stopPropagation();removeLibrary(\''+escapeJsString(library.id)+'\')">Remove library</button>':'')+'</div></div>';
+  const followers=Number(library.followers_count||0);
+  const albumCount=Number(library.album_count||items.length||0);
+  const genres=[...new Set(items.map(item=>item.genre).filter(Boolean))].slice(0,3);
+  const tags=libraryGenreTags(genres,items);
+  const avatar=(library.username||library.title||"L").trim().slice(0,1).toUpperCase()||"L";
+  const mineItems=liveLibraryItems(myLibraryItems());
+  const sharedCount=isMine?albumCount:items.filter(item=>mineItems.some(m=>String(m.id)===String(item.id)||isSameAlbum(m,item))).length;
+  const discoveryCount=isMine?0:Math.max(0,albumCount-sharedCount);
+  const similarity=isMine?100:librarySimilarity(items);
+  const matchLabel=isMine?"Very close taste":libraryMatchLabel(similarity);
+  const preview=items.slice(0,2);
+  const extraCount=Math.max(0,items.length-preview.length);
+  const albumPreview=items.length===1?libraryRowAlbum(items[0]):preview.map(libraryTinyAlbum).join("")+(extraCount?'<div class="mockMoreTile">+'+extraCount+'<br>more</div>':'');
+  const discovery=isMine?'':'<div class="libraryDiscovery '+(sharedCount?"hasOverlap":"newTaste")+'"><strong>'+(sharedCount?sharedCount+' shared album'+(sharedCount===1?'':'s'):'Different taste, new discoveries')+'</strong><span>'+(sharedCount?'You already love some of this library.':'You have '+discoveryCount+' new discover'+(discoveryCount===1?'y':'ies')+' from this library.')+'</span></div>';
+  return '<div class="libraryCard mockLibraryCard '+(isMine?'mockOwnCommunity':'')+'" onclick="openLibraryDetailsById(\''+key+'\')"><div class="mockLibraryTop"><div class="mockAvatar">'+escapeHtml(avatar)+'</div><div class="mockLibraryTitle"><h3>'+escapeHtml(library.title||"Library")+'</h3><p>@'+escapeHtml(library.username||"Listener")+' &middot; '+albumCount+' albums &middot; '+followers+' follower'+(followers===1?'':'s')+'</p></div><div class="mockMatch"><strong>'+similarity+'% match</strong><span>'+matchLabel+'</span></div>'+(canRemove?'<button class="libraryMenuBtn mockRemove" onclick="event.stopPropagation();removeLibrary(\''+escapeJsString(library.id)+'\')" title="Remove library">...</button>':'')+'</div><div class="mockDescriptor">'+escapeHtml(libraryGenreLabel(genres))+'</div><div class="mockTags">'+(tags.length?tags.map(tag=>'<span>'+escapeHtml(tag)+'</span>').join(""):'<span>Personal</span><span>Essentials</span>')+'</div><div class="mockAlbumPreview '+(items.length===1?'singlePreview':'')+'">'+(albumPreview||'<div class="emptyMini">No public albums yet.</div>')+'</div>'+discovery+'<div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">Explore Library</button>'+(canFollow?'<button class="libraryFollowBtn" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>':'<button class="libraryFollowBtn following" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">✓ Following</button>')+'</div></div>';
 }
-
+function ownLibraryHero(library){
+  const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
+  const followers=Number(library.followers_count||0);
+  const key=escapeJsString(library.id||library.device_id||"");
+  const recent=items.slice(0,3).map(item=>'<div class="ownRecentCover">'+(item.cover_url?'<img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'">':'<strong>'+escapeHtml(String(item.title||"?").slice(0,1))+'</strong>')+'</div>').join("");
+  const avatarCover=items[0]?.cover_url?'<img src="'+escapeHtml(items[0].cover_url)+'" alt="">':'<span>'+escapeHtml(String(library.username||"L").slice(0,1).toUpperCase())+'</span>';
+  return '<section class="mockYourLibrary"><div class="ownIdentity"><div class="ownAvatar">'+avatarCover+'</div><div><p>Your Library</p><h3>'+escapeHtml(library.title||"Your Library")+'</h3><span>100% match</span><em>'+items.length+' albums &middot; '+followers+' follower'+(followers===1?'':'s')+'</em><button onclick="openLibraryDetailsById(\''+key+'\')">View your library →</button></div></div><div class="ownRecent"><p>Recently added</p><div>'+recent+'</div></div><div class="ownNumbers"><p>Your taste in numbers</p><div><strong>100%</strong><span>Albums you love</span></div><div><strong>'+items.length+'</strong><span>New discoveries</span></div><div><strong>'+items.length+'</strong><span>Shared albums</span></div></div></section>';
+}
+function libraryRecommendationPanel(){
+  const mine=liveLibraryItems(myLibraryItems());
+  const recs=state.albums.filter(album=>!mine.some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))).slice(0,4);
+  if(!recs.length)return "";
+  return '<div class="libraryRecoPanel"><h3>Because you loved these albums</h3><div>'+recs.map(album=>'<article onclick="openAlbum(\''+escapeJsString(album.id)+'\')">'+cover(album)+'<strong>'+escapeHtml(album.title)+'</strong><span>'+escapeHtml(album.artist)+' &middot; '+escapeHtml(album.year||"")+'</span><em>★ '+displayScore(album)+'</em></article>').join("")+'</div><button onclick="setView(\'rankings\')">Find more libraries →</button></div>';
+}
+function librariesView(){
+  const username=currentUsername();
+  const allLibraries=visibleLibraries();
+  const mineCard=currentLibraryCard()||allLibraries.find(l=>(l.device_id===state.deviceId||l.isMine||(username&&String(l.username||"").toLowerCase()===username.toLowerCase())));
+  const fallbackMine={id:"local-library-"+state.deviceId,device_id:state.deviceId,isMine:true,username:username||"Listener",title:(username?username:"Your")+"'s Library",items:liveLibraryItems(myLibraryItems()),album_count:myLibraryItems().length,followers_count:0};
+  const displayMine=mineCard||fallbackMine;
+  const query=String(state.librarySearch||"").toLowerCase().trim();
+  const community=allLibraries.filter(l=>!(l.device_id===state.deviceId||l.isMine||(username&&String(l.username||"").toLowerCase()===username.toLowerCase()))).filter(l=>!query||(`${l.title||""} ${l.username||""} ${(Array.isArray(l.items)?l.items:[]).map(i=>`${i.title||""} ${i.artist||""}`).join(" ")}`).toLowerCase().includes(query));
+  content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries <span>✦</span></h2><p>Explore people through the albums they choose.</p></div><div class="mockLibraryTools"><label><span>⌕</span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, people, albums..."></label><button onclick="openLibrarySpotifyAdd()">+ Add album</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle"><div><strong>Community Libraries</strong><button>For you⌄</button></div><button onclick="setLibrarySearch('')">See all</button></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid">${community.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>${libraryRecommendationPanel()}`;
+}
+window.setLibrarySearch=function(value){state.librarySearch=value;librariesView()}
 function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
 function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();return(state.genre==="All"||x.genre===state.genre)&&(`${x.title} ${x.artist} ${x.genre||""}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
 function card(a){return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button><div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(a.genre||"Album")}</span></div></article>`}
@@ -563,7 +650,8 @@ if(state.view==="rankings")content.innerHTML=state.sort==="hidden"?`<div class="
 if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
 if(state.view==="artists"){content.innerHTML=artistPage()}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
-if(state.view==="libraries"){const libraries=visibleLibraries();content.innerHTML=`<div class="sectionTitle"><h2>Libraries</h2></div><div class="libraryCreator"><input id="libraryTitle" placeholder="Library name" value="${escapeHtml(currentUsername()?currentUsername()+"'s Library":"My Library")}"><button class="bigBtn" onclick="openLibrarySpotifyAdd()">+ Add album</button></div><div class="libraryGrid">${libraries.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>`}}
+if(state.view==="libraries"){librariesView()}
+}
 function artistScoreLabel(albums){const rated=albums.filter(a=>score(a)>0);if(!rated.length)return "";return (rated.reduce((sum,a)=>sum+score(a),0)/rated.length).toFixed(1)}
 function artistAlbumRow(a){return`<div class="artistAlbumRow" onclick="openAlbum('${escapeJsString(a.id)}')">${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong>${count(a)>0?`<span>${count(a).toLocaleString()} ratings</span>`:""}</div><div class="artistAlbumScore">${score(a)>0?displayScore(a):""}</div></div>`}
 function artistGenres(){const counts={};state.albums.forEach(a=>{if(a.genre)counts[a.genre]=(counts[a.genre]||0)+1});return ["Popular",...Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([genre])=>genre)]}
@@ -574,8 +662,22 @@ function artistPage(){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("
 window.setArtistGenre=function(genre){state.artistGenre=genre==="Popular"?"All":genre;render()}
 window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults()}
 function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let genres=[...new Set(d.map(a=>a.genre).filter(Boolean))].slice(0,3);let hero=d.find(a=>a.cover_url)||d[0]||{};let totalRatings=d.reduce((sum,a)=>sum+count(a),0);let featured=d.slice(0,4);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(hero.cover_url||"")}')"><div><h3>${escapeHtml(name)}</h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${d.length} album${d.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${artistScoreLabel(d)}${totalRatings?`<span>${totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${featured.map(artistAlbumRow).join("")}</div></section>`}
-window.openAlbum=function(id){let a=state.albums.find(x=>String(x.id)===String(id));if(!a)return;let my=userScore(a);extras.currentAlbumId=albumRef(a.id);$("#albumModalContent").innerHTML=`<div class="detail">${cover(a)}<div><p class="eyebrow">${escapeHtml(a.genre||"Album")} - ${escapeHtml(a.year||"")}</p><h2 style="font-size:34px;margin:0 0 6px">${escapeHtml(a.title)}</h2><div class="artist" style="font-size:18px">${escapeHtml(a.artist)}</div><div style="margin:18px 0"><div class="scoreBig">${displayScore(a)}</div><div class="muted">Musica Score - ${count(a).toLocaleString()} ratings</div></div><p>${escapeHtml(cleanAlbumSummary(a))}</p><strong>Your rating</strong><div class="ratingBar">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="rateBtn ${my==n?"selected":""}" onclick="rateAlbum('${escapeJsString(a.id)}',${n})">${n}</button>`).join("")}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('albumRatingDetails',this)">See ratings</button><div id="albumRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div><div class="albumActions"><button class="btn" onclick="addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">Add to my library</button><a class="btn" target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}">Open in Spotify</a></div></div></div><section class="albumExtras"><div class="extraPanel"><div class="sectionTitle compact"><h3>Song Ratings</h3></div><div id="trackRatingsList" class="trackRatings"><div class="emptyMini">Loading tracks...</div></div></div><div class="extraPanel"><div class="sectionTitle compact"><h3>Comments</h3></div><div class="commentForm"><input id="commentName" maxlength="40" placeholder="Your name"><textarea id="commentText" maxlength="500" placeholder="Leave a comment"></textarea><button class="bigBtn" onclick="addAlbumComment('${escapeJsString(a.id)}')">Post</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div></section>`;$("#albumModal").classList.remove("hidden");loadAlbumExtras(a)}
 
+window.openAlbum=function(id){
+  let a=state.albums.find(x=>String(x.id)===String(id));
+  if(!a)return;
+  extras.currentAlbumId=albumRef(a.id);
+  const albumScore=displayScore(a);
+  const total=count(a).toLocaleString();
+  const albumId=escapeJsString(a.id);
+  const initial=escapeHtml((currentUsername()||ratingName()||"J").slice(0,1).toUpperCase());
+  const coverUrl=escapeHtml(a.cover_url||"");
+  const summary=cleanAlbumSummary(a)||"A landmark record about legacy, memory, struggle, and the weight of feeling. Raw, cinematic, and timeless.";
+  const tags=[a.genre||"Album",a.year?String(a.year):"Classic","Community pick"].filter(Boolean).slice(0,4);
+  $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"><div class="linerTabs"><button>Overview</button><button class="active">Tracks</button><button>Ratings & Reviews</button><button>Activity</button></div><section class="linerHero" style="--album-cover:url('${coverUrl}')"><div class="linerCover">${cover(a)}</div><div class="linerHeroCopy"><p class="eyebrow">Album · ${escapeHtml(a.year||"")}</p><h2>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>●</span></h3><p>${escapeHtml(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerStats"><div><strong>${albumScore}</strong><span>Community score</span></div><div><strong>${total}</strong><span>Ratings</span></div><div><strong>${libraryHasAlbum(a)?"#1":"+"}</strong><span>In your library</span></div></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>★</span><div><h3>Track Highlights</h3><p>Most loved moments from this album.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating ★</span></div><div class="ratingBars"><div><span>5 ★</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 ★</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 ★</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 ★</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 ★</span><b style="--w:1%"></b><em>1%</em></div></div></div><div id="trackRatingsList"><div class="emptyMini">Loading tracks...</div></div></div><div class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span>▱</span><div><h3>Listener Reactions</h3><p>What the community is saying.</p></div></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="What moment on this album hits hardest?"></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||ratingName()||"Listener")}"><div><span>☺</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">• Top</button><button>• Recent</button><button>• Friends</button></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button class="allReactions">View all reactions <span>⌄</span></button></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} · ${escapeHtml(a.title)}</span></div></div><div><button>◀</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">▶</button><button>▶</button></div></div></div>`;
+  $("#albumModal").classList.remove("hidden");
+  loadAlbumExtras(a);
+}
 window.deleteAlbum=async function(albumId){
   const album=state.albums.find(a=>String(a.id)===String(albumId));
   if(!album)return;
@@ -600,7 +702,7 @@ window.deleteAlbum=async function(albumId){
     Object.keys(trackComments).forEach(key=>{if(key.startsWith(ref+"::"))delete trackComments[key]});
     saveLocalTrackComments(trackComments);
   }
-  $("#albumModal").classList.add("hidden");
+  stopTrackPreview();$("#albumModal").classList.add("hidden");
   await loadData();
 refreshNotifications();
 }
@@ -676,11 +778,11 @@ window.addSpotifyAlbum=async function(a){
 }
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
 updateNavUsername();$("#notificationBell").onclick=async e=>{e.stopPropagation();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>$("#notificationPanel")?.classList.add("hidden"));$("#navSetUsername").onclick=setLibraryUsername;$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});
-$("#closeAlbumModal").onclick=()=>$("#albumModal").classList.add("hidden");$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")$("#albumModal").classList.add("hidden")};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};
+$("#closeAlbumModal").onclick=()=>stopTrackPreview();$("#albumModal").classList.add("hidden");$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")$("#albumModal").classList.add("hidden")};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};
 function goHome(){state.view="rankings";document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
 function rememberSiteState(){if(!history.state||!history.state.musica)history.replaceState({musica:"home"},"");history.pushState({musica:"inside"},"")}
 rememberSiteState();
-window.addEventListener("popstate",()=>{if(!$("#albumModal").classList.contains("hidden")){$("#albumModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}if(!$("#addModal").classList.contains("hidden")){$("#addModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}goHome();history.pushState({musica:"inside"},"")});
+window.addEventListener("popstate",()=>{if(!$("#albumModal").classList.contains("hidden")){stopTrackPreview();$("#albumModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}if(!$("#addModal").classList.contains("hidden")){$("#addModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}goHome();history.pushState({musica:"inside"},"")});
 document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>t.onclick=async()=>{state.view=t.dataset.view;if(state.view==="libraries")await loadLibraries();document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));render();closeNav()});
 $("#searchInput").oninput=e=>{state.search=e.target.value;render()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
 loadData();
@@ -699,4 +801,28 @@ loadData();
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
 
