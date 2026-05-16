@@ -214,3 +214,20 @@ select
 from user_libraries l
 left join library_follows f on f.library_id = l.id
 group by l.id;
+
+-- Admin-editable album overviews
+create table if not exists album_overviews (
+  album_key text primary key,
+  title text not null,
+  artist text,
+  overview text not null default '',
+  updated_at timestamptz default now()
+);
+
+alter table album_overviews enable row level security;
+
+drop policy if exists "Anyone can read album overviews" on album_overviews;
+create policy "Anyone can read album overviews" on album_overviews for select using (true);
+
+-- Do not add public insert/update/delete policies here.
+-- Overview edits are saved through the Netlify admin-overview function with the Supabase service role key.
