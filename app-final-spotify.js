@@ -103,7 +103,7 @@ window.unlockOverviewAdmin=async function(){
 async function loadCustomOverviews(){
   extras.overviews={};
   if(!db){extras.overviews=JSON.parse(localStorage.getItem("musicaCustomOverviews")||"{}");return extras.overviews}
-  const {data,error}=await db.from("album_overviews").select("album_key,title,artist,overview,loved_track_key,loved_track_name,admin_ratings_count");
+  const {data,error}=await db.from("album_overviews").select("album_key,title,artist,overview,loved_track_key,loved_track_name,admin_ratings_count,admin_score");
   if(!error&&data)extras.overviews=Object.fromEntries(data.map(row=>[row.album_key,row]));
   return extras.overviews;
 }
@@ -132,7 +132,7 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const titleWords=String(a.title||"This album").split(" ");
   const lastWord=titleWords.length>1?titleWords.pop():"matters";
   const heading=`Why ${escapeHtml(titleWords.join(" ")||a.title||"this album")} <span>${escapeHtml(lastWord)}</span>`;
-  const edit=canEditOverview?`<div class="overviewAdminControls"><button class="overviewEditBtn" onclick="editAlbumOverview('${albumId}')">Edit overview</button><button onclick="deleteAlbumOverview('${albumId}')">Clear custom overview</button><button onclick="clearAlbumReactionsAdmin('${albumId}')">Clear reactions</button><button onclick="clearAlbumTrackActivityAdmin('${albumId}')">Clear song ratings/comments</button><button onclick="setAlbumRatingsCountAdmin('${albumId}')">Set ratings count</button><button onclick="clearAlbumRatingsAdmin('${albumId}')">Clear album ratings</button><button class="danger" onclick="deleteAlbumAdmin('${albumId}')">Delete album</button></div>`:"";
+  const edit=canEditOverview?`<div class="overviewAdminControls"><button class="overviewEditBtn" onclick="editAlbumOverview('${albumId}')">Edit overview</button><button onclick="deleteAlbumOverview('${albumId}')">Clear custom overview</button><button onclick="clearAlbumReactionsAdmin('${albumId}')">Clear reactions</button><button onclick="clearAlbumTrackActivityAdmin('${albumId}')">Clear song ratings/comments</button><button onclick="setAlbumScoreAdmin('${albumId}')">Set Musica score</button><button onclick="setAlbumRatingsCountAdmin('${albumId}')">Set ratings count</button><button onclick="clearAlbumRatingsAdmin('${albumId}')">Clear album ratings</button><button class="danger" onclick="deleteAlbumAdmin('${albumId}')">Delete album</button></div>`:"";
   return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" style="--overview-cover:url('${coverUrl}')"><div class="overviewCopy"><p class="eyebrow">Album overview</p><h3>${heading}</h3><p class="overviewIntro">${escapeHtml(intro)}</p><div class="overviewPoints"><div><span class="overviewIcon">≋</span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p></div></div><div><span class="overviewIcon">☆</span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p></div></div><div><span class="overviewIcon">♚</span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p></div></div></div><div class="overviewScoreStrip"><span>Musica Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}</div><div class="overviewMood"><blockquote>${escapeHtml(quote)}</blockquote><div><p>Defining moments</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div><div class="overviewCommunityNote"><span></span><p>Join listeners who connect with this album every day.</p></div></div></section>`;
 }
 function renderAlbumOverviewMoments(albumId,tracks){
@@ -178,7 +178,7 @@ async function hydrateMissingCovers(){
   }
   if(changed){saveCoverCache(cache);render()}
 }
-function score(a){return Number(a.avg_rating||0)}
+function score(a){const override=extras.overviews[overviewKey(a)]?.admin_score;return override!==undefined&&override!==null&&override!==""?Number(override):Number(a.avg_rating||0)}
 function count(a){const override=extras.overviews[overviewKey(a)]?.admin_ratings_count;return override!==undefined&&override!==null&&override!==""?Number(override):Number(a.ratings_count||0)}
 function userScore(a){return state.ratingMap[a.id]||localRatings()[a.id]||null}
 function displayScore(a){return score(a)>0?score(a).toFixed(1):"-"}
@@ -570,7 +570,8 @@ function renderTrackList(albumId){
     if(score==="-"&&current)score=Number(current).toFixed(1);
     if(score==="-")score="";
     const scoreHtml=score?`★ <span class="trackScoreNumber">${escapeHtml(score)}</span>`:"★";
-    return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><button class="trackLove">♡</button><button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button></div>`;
+    const lovedRowAdmin=isAdminUnlocked()?`<button class="trackLovedAdmin" onclick="setMostLovedTrackAdmin('${escapeJsString(albumId)}','${escapeJsString(key)}')">Make most loved</button>`:`<button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button>`;
+    return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><button class="trackLove">♡</button>${lovedRowAdmin}</div>`;
   }).join("");
   host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
 }
@@ -773,7 +774,7 @@ window.saveAlbumOverview=async function(albumId){
   const payload={...adminAlbumPayload(album,"save"),overview};
   const data=await adminOverviewRequest(payload);
   if(!data)return;
-  extras.overviews[payload.album_key]={album_key:payload.album_key,title:payload.title,artist:payload.artist,overview};
+  extras.overviews[payload.album_key]={...(extras.overviews[payload.album_key]||{}),album_key:payload.album_key,title:payload.title,artist:payload.artist,overview};
   if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
   openAlbumOverviewPopup();
 }
@@ -852,6 +853,73 @@ window.deleteAlbumAdmin=async function(albumId){
   stopTrackPreview();
   $("#albumModal")?.classList.add("hidden");
   await loadData();
+}
+window.setAlbumScoreAdmin=async function(albumId){
+  if(!isAdminUnlocked()){alert("Please unlock admin mode first.");return}
+  const album=state.albums.find(x=>String(x.id)===String(albumId));
+  if(!album)return;
+  const current=score(album)||0;
+  const answer=(prompt(`Set Musica score for "${album.title}" (0-10):`,current?current.toFixed(1):"")||"").trim();
+  if(answer==="")return;
+  const value=Number(answer);
+  if(!Number.isFinite(value)||value<0||value>10){alert("Please enter a score between 0 and 10.");return}
+  const rounded=Math.round(value*10)/10;
+  const key=overviewKey(album);
+  const previous=extras.overviews[key]||{};
+  const payload={...adminAlbumPayload(album,"set_album_score"),overview:albumBaseOverview(album),admin_score:rounded};
+  const data=await adminOverviewRequest(payload);
+  if(!data)return;
+  extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,admin_score:rounded};
+  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  await loadData();
+  openAlbum(albumId);
+  openAlbumOverviewPopup();
+}
+window.setAlbumRatingsCountAdmin=async function(albumId){
+  if(!isAdminUnlocked()){alert("Please unlock admin mode first.");return}
+  const album=state.albums.find(x=>String(x.id)===String(albumId));
+  if(!album)return;
+  const answer=(prompt(`Set displayed rating count for "${album.title}":`,String(count(album)||0))||"").trim();
+  if(answer==="")return;
+  const value=Number(answer);
+  if(!Number.isFinite(value)||value<0){alert("Please enter a rating count of 0 or higher.");return}
+  const rounded=Math.max(0,Math.round(value));
+  const key=overviewKey(album);
+  const previous=extras.overviews[key]||{};
+  const payload={...adminAlbumPayload(album,"set_rating_count"),overview:albumBaseOverview(album),admin_ratings_count:rounded};
+  const data=await adminOverviewRequest(payload);
+  if(!data)return;
+  extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,admin_ratings_count:rounded};
+  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  await loadData();
+  openAlbum(albumId);
+  openAlbumOverviewPopup();
+}
+window.setMostLovedTrackAdmin=async function(albumId,trackKeyValue){
+  if(!isAdminUnlocked()){alert("Please unlock admin mode first.");return}
+  const album=state.albums.find(x=>String(x.id)===String(albumId));
+  const tracks=extras.tracks[albumRef(albumId)]||[];
+  const chosen=tracks.find(track=>trackKey(track)===String(trackKeyValue));
+  if(!album||!chosen){alert("Could not find that track yet. Try reopening the album after tracks load.");return}
+  const key=overviewKey(album);
+  const previous=extras.overviews[key]||{};
+  const payload={...adminAlbumPayload(album,"set_loved_track"),overview:albumBaseOverview(album),loved_track_key:trackKey(chosen),loved_track_name:chosen.name||""};
+  const data=await adminOverviewRequest(payload);
+  if(!data)return;
+  extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,loved_track_key:payload.loved_track_key,loved_track_name:payload.loved_track_name};
+  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  renderTrackList(albumId);
+}
+window.pickMostLovedTrack=async function(albumId){
+  if(!isAdminUnlocked()){alert("Please unlock admin mode first.");return}
+  const tracks=extras.tracks[albumRef(albumId)]||[];
+  if(!tracks.length){alert("No track list found yet for this album.");return}
+  const list=tracks.map((track,index)=>`${index+1}. ${track.name}`).join("\n");
+  const answer=(prompt(`Pick the most loved song by number:\n\n${list}`,"1")||"").trim();
+  if(!answer)return;
+  const index=Number(answer)-1;
+  if(!Number.isInteger(index)||index<0||index>=tracks.length){alert("Please enter a valid track number.");return}
+  await setMostLovedTrackAdmin(albumId,trackKey(tracks[index]));
 }
 window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
   const username=ratingName();
@@ -1343,6 +1411,9 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
+
+
 
 
 

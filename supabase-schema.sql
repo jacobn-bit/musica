@@ -257,3 +257,6 @@ alter table album_overviews add column if not exists loved_track_name text;
 
 -- Admin-displayed album rating count override
 alter table album_overviews add column if not exists admin_ratings_count int;
+
+-- Admin-displayed album Musica score override
+alter table album_overviews add column if not exists admin_score numeric;
