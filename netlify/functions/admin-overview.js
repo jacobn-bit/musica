@@ -22,41 +22,150 @@
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
 
-    if (body.action !== "save") {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action." }) };
-    }
-
     if (!supabaseUrl || !serviceKey) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: "Supabase service role settings are missing in Netlify." }) };
     }
 
+    const api = async (path, options = {}) => {
+      const res = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": serviceKey,
+          "Authorization": `Bearer ${serviceKey}`,
+          ...(options.headers || {})
+        }
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        const error = new Error(text || `Supabase request failed: ${res.status}`);
+        error.status = res.status;
+        throw error;
+      }
+      return text ? JSON.parse(text) : null;
+    };
+
+    const action = String(body.action || "");
     const album_key = String(body.album_key || "").trim();
+    const album_ref = String(body.album_ref || "").trim();
+    const album_id = String(body.album_id || "").trim();
     const title = String(body.title || "").trim();
     const artist = String(body.artist || "").trim();
-    const overview = String(body.overview || "").trim();
+    const comment_id = String(body.comment_id || "").trim();
+    const reply_id = String(body.reply_id || "").trim();
+    const library_id = String(body.library_id || "").trim();
+    const loved_track_key = String(body.loved_track_key || "").trim();
+    const loved_track_name = String(body.loved_track_name || "").trim();
+    const admin_ratings_count = body.admin_ratings_count === undefined || body.admin_ratings_count === null || body.admin_ratings_count === "" ? null : Math.max(0, Math.round(Number(body.admin_ratings_count)));
 
-    if (!album_key || !title) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key and title are required." }) };
+    if (action === "save") {
+      const overview = String(body.overview || "").trim();
+      if (!album_key || !title) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key and title are required." }) };
+      }
+      const rows = await api("album_overviews", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key, title, artist, overview, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
-    const res = await fetch(`${supabaseUrl}/rest/v1/album_overviews`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": serviceKey,
-        "Authorization": `Bearer ${serviceKey}`,
-        "Prefer": "resolution=merge-duplicates,return=representation"
-      },
-      body: JSON.stringify({ album_key, title, artist, overview, updated_at: new Date().toISOString() })
-    });
 
-    const text = await res.text();
-    if (!res.ok) {
-      return { statusCode: res.status, headers, body: JSON.stringify({ error: "Could not save overview.", details: text }) };
+
+
+    if (action === "set_rating_count") {
+      const overview = String(body.overview || "").trim();
+      if (!album_key || !title || admin_ratings_count === null || !Number.isFinite(admin_ratings_count)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and rating count are required." }) };
+      }
+      const rows = await api("album_overviews", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key, title, artist, overview, admin_ratings_count, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: text ? JSON.parse(text)[0] : null }) };
+    if (action === "set_loved_track") {
+      const overview = String(body.overview || "").trim();
+      if (!album_key || !title || !loved_track_key) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and track are required." }) };
+      }
+      const rows = await api("album_overviews", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key, title, artist, overview, loved_track_key, loved_track_name, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
+    }
+
+    if (action === "delete_album_comment") {
+      if (!comment_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Comment id is required." }) };
+      await api(`album_comment_replies?comment_id=eq.${encodeURIComponent(comment_id)}`, { method: "DELETE" });
+      await api(`album_comments?id=eq.${encodeURIComponent(comment_id)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "delete_album_reply") {
+      if (!reply_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Reply id is required." }) };
+      await api(`album_comment_replies?id=eq.${encodeURIComponent(reply_id)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "delete_library") {
+      if (!library_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Library id is required." }) };
+      await api(`library_follows?library_id=eq.${encodeURIComponent(library_id)}`, { method: "DELETE" });
+      await api(`user_libraries?id=eq.${encodeURIComponent(library_id)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "delete_overview") {
+      if (!album_key) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key is required." }) };
+      await api(`album_overviews?album_key=eq.${encodeURIComponent(album_key)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "clear_reactions") {
+      if (!album_ref) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album reference is required." }) };
+      await api(`album_comment_replies?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      await api(`album_comments?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "clear_track_activity") {
+      if (!album_ref) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album reference is required." }) };
+      await api(`track_comments?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      await api(`track_ratings?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "clear_album_ratings") {
+      if (!album_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album id is required." }) };
+      await api(`ratings?album_id=eq.${encodeURIComponent(album_id)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "delete_album") {
+      if (!album_id || !album_ref) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album id and reference are required." }) };
+      await api(`album_comment_replies?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      await api(`album_comments?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      await api(`track_comments?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      await api(`track_ratings?album_ref=eq.${encodeURIComponent(album_ref)}`, { method: "DELETE" });
+      await api(`ratings?album_id=eq.${encodeURIComponent(album_id)}`, { method: "DELETE" });
+      if (album_key) await api(`album_overviews?album_key=eq.${encodeURIComponent(album_key)}`, { method: "DELETE" });
+      await api(`albums?id=eq.${encodeURIComponent(album_id)}`, { method: "DELETE" });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action." }) };
   } catch (error) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || "Unexpected error" }) };
+    return { statusCode: error.status || 500, headers, body: JSON.stringify({ error: error.message || "Unexpected error" }) };
   }
 };
+
+
+
+
+
+
