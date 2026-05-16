@@ -2395,3 +2395,35 @@ body.light #albumModal .modalPanel{background:#111827!important;color:#fff!impor
 .overviewAdminHint{margin-top:10px!important;color:rgba(255,255,255,.55)!important;font-size:13px!important;}
 body.light .adminOverviewUnlock{color:#6b7280!important;border-color:#e1ddd4!important;}
 body.light .overviewEditorText{background:#fff!important;color:#111827!important;border-color:#e1ddd4!important;}
+
+/* Nested listener replies */
+.reactionsPanel .reactionReplyBox{
+  margin-top:12px!important;
+  padding:12px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:14px!important;
+  background:rgba(0,0,0,.22)!important;
+}
+.reactionsPanel .reactionReplyBox textarea{
+  width:100%!important;
+  min-height:58px!important;
+  resize:none!important;
+  border:0!important;
+  outline:0!important;
+  background:transparent!important;
+  color:#fff!important;
+  font:inherit!important;
+  font-size:14px!important;
+}
+.reactionsPanel .reactionReplyBox textarea::placeholder{color:rgba(255,255,255,.46)!important;}
+.reactionsPanel .reactionReplyControls{display:flex!important;justify-content:flex-end!important;gap:8px!important;margin-top:8px!important;}
+.reactionsPanel .reactionReplyControls button:first-child{border:0!important;border-radius:999px!important;background:#ffd12d!important;color:#111!important;font-weight:900!important;padding:8px 16px!important;}
+.reactionsPanel .reactionReplyControls button:last-child{border:1px solid rgba(255,255,255,.10)!important;border-radius:999px!important;background:rgba(255,255,255,.04)!important;color:rgba(255,255,255,.68)!important;padding:8px 14px!important;}
+.reactionsPanel .reactionReplies{margin-top:12px!important;margin-left:4px!important;padding:0 0 0 14px!important;border:0!important;border-left:1px solid rgba(255,255,255,.10)!important;background:transparent!important;border-radius:0!important;}
+.reactionsPanel .reactionReply{display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;gap:10px!important;padding:10px 0!important;}
+.reactionsPanel .reactionReplyAvatar{width:30px!important;height:30px!important;border-radius:50%!important;display:grid!important;place-items:center!important;background:linear-gradient(135deg,#ffd95c,#9b6d14)!important;color:#111!important;font-size:13px!important;font-weight:950!important;}
+.reactionsPanel .reactionReplyMeta{display:flex!important;align-items:center!important;gap:8px!important;}
+.reactionsPanel .reactionReplyMeta strong{font-size:13px!important;color:#fff!important;}
+.reactionsPanel .reactionReplyMeta span{font-size:12px!important;color:rgba(255,255,255,.45)!important;}
+.reactionsPanel .reactionReply p{margin:4px 0 0!important;color:rgba(255,255,255,.78)!important;font-size:13px!important;line-height:1.45!important;}
+.reactionsPanel .noRepliesYet{margin:0!important;color:rgba(255,255,255,.42)!important;font-size:12px!important;}

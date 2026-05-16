@@ -11,7 +11,7 @@ const cfg=window.MUSICA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.includes("PASTE_")&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_ANON_KEY.includes("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
 const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID()};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},libraries:[],overviews:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],overviews:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -227,6 +227,10 @@ async function loadTrackRatingDetails(albumId,trackKeyValue){
 function albumRef(albumId){return String(albumId||"")}
 function localComments(){return JSON.parse(localStorage.getItem("musicaAlbumComments")||"{}")}
 function saveLocalComments(comments){localStorage.setItem("musicaAlbumComments",JSON.stringify(comments))}
+function localCommentReplies(){return JSON.parse(localStorage.getItem("musicaAlbumCommentReplies")||"{}")}
+function saveLocalCommentReplies(replies){localStorage.setItem("musicaAlbumCommentReplies",JSON.stringify(replies))}
+function localId(prefix="local"){return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`}
+function domSafeId(value){return String(value??"").replace(/[^a-zA-Z0-9_-]/g,"_")}
 function localTrackRatings(){return JSON.parse(localStorage.getItem("musicaTrackRatings")||"{}")}
 function localTrackComments(){return JSON.parse(localStorage.getItem("musicaTrackComments")||"{}")}
 function saveLocalTrackComments(comments){localStorage.setItem("musicaTrackComments",JSON.stringify(comments))}
@@ -282,23 +286,49 @@ function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(al
 function setLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();ratings[`${albumRef(albumId)}::${key}`]=value;saveLocalTrackRatings(ratings)}
 async function loadComments(albumId){
   const ref=albumRef(albumId);
+  extras.commentReplies[ref]=extras.commentReplies[ref]||{};
   if(db){
-    const {data,error}=await db.from("album_comments").select("name,comment,created_at").eq("album_ref",ref).order("created_at",{ascending:false}).limit(30);
-    if(!error){extras.comments[ref]=data||[];return extras.comments[ref]}
+    const {data,error}=await db.from("album_comments").select("id,name,comment,created_at").eq("album_ref",ref).order("created_at",{ascending:false}).limit(30);
+    if(!error){
+      extras.comments[ref]=data||[];
+      const {data:replyRows,error:replyError}=await db.from("album_comment_replies").select("id,comment_id,name,reply,created_at").eq("album_ref",ref).order("created_at",{ascending:true}).limit(200);
+      extras.commentReplies[ref]={};
+      if(!replyError)(replyRows||[]).forEach(row=>{const key=String(row.comment_id);extras.commentReplies[ref][key]=extras.commentReplies[ref][key]||[];extras.commentReplies[ref][key].push(row)});
+      return extras.comments[ref];
+    }
   }
-  extras.comments[ref]=(localComments()[ref]||[]).slice().reverse();
+  const local=localComments();
+  const changed=(local[ref]||[]).some(c=>!c.id);
+  if(changed){local[ref]=(local[ref]||[]).map(c=>c.id?c:{...c,id:localId("comment")});saveLocalComments(local)}
+  extras.comments[ref]=(local[ref]||[]).slice().reverse();
+  extras.commentReplies[ref]=localCommentReplies()[ref]||{};
   return extras.comments[ref];
+}
+function renderReactionReply(reply){
+  const name=reply.name||"Listener";
+  const initial=String(name).trim().slice(0,1).toUpperCase()||"L";
+  return `<div class="reactionReply"><div class="reactionReplyAvatar">${escapeHtml(initial)}</div><div><div class="reactionReplyMeta"><strong>${escapeHtml(name)}</strong><span>just now</span></div><p>${escapeHtml(reply.reply||reply.comment||reply.text||"")}</p></div></div>`;
 }
 function renderComments(albumId){
   const host=$("#commentsList");
   if(!host)return;
-  const comments=extras.comments[albumRef(albumId)]||[];
+  const ref=albumRef(albumId);
+  const comments=extras.comments[ref]||[];
+  const replyMap=extras.commentReplies[ref]||{};
   const allButton=$("#allReactionsButton");
   if(allButton){
     const total=comments.length||0;
     allButton.querySelector("span:first-child").textContent=`View all ${total||0} reaction${total===1?"":"s"}`;
   }
-  host.innerHTML=comments.length?comments.map((c,i)=>{const name=c.name||"Listener";const initial=String(name).trim().slice(0,1).toUpperCase()||"L";const replyCount=Math.max(2,4-i);return `<article class="linerReaction"><div class="reactionAvatar">${escapeHtml(initial)}</div><div class="reactionBody"><div class="reactionMeta"><strong>${escapeHtml(name)}</strong><span>${i+2}d ago</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><div class="reactionActions"><span>♡ ${Math.max(87,128-i*21)}</span><button onclick="replyToReaction('${escapeJsString(name)}')">Reply</button></div><button class="viewReplies" onclick="toggleReactionReplies(this)">View ${replyCount} replies</button><div class="reactionReplies hidden"><p>No replies yet. Add your reply above.</p></div></div><button class="reactionMore" onclick="toggleReactionMenu(this)">•••</button></article>`}).join(""):`<div class="emptyMini albumReactionEmpty">What moment on this album hits hardest?</div>`;
+  host.innerHTML=comments.length?comments.map((c,i)=>{
+    const name=c.name||"Listener";
+    const initial=String(name).trim().slice(0,1).toUpperCase()||"L";
+    const commentId=String(c.id||c.local_id||`${ref}-${i}`);
+    const safeId=domSafeId(commentId);
+    const replies=replyMap[commentId]||[];
+    const repliesHtml=replies.length?replies.map(renderReactionReply).join(""):`<p class="noRepliesYet">No replies yet.</p>`;
+    return `<article class="linerReaction" data-comment-id="${escapeHtml(commentId)}"><div class="reactionAvatar">${escapeHtml(initial)}</div><div class="reactionBody"><div class="reactionMeta"><strong>${escapeHtml(name)}</strong><span>${i+2}d ago</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><div class="reactionActions"><span>♡ ${Math.max(87,128-i*21)}</span><button onclick="openReactionReplyBox('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(name)}')">Reply</button></div>${replies.length?`<button class="viewReplies" onclick="toggleReactionReplies(this)">View ${replies.length} ${replies.length===1?"reply":"replies"}</button>`:""}<div id="reactionReplies-${safeId}" class="reactionReplies ${replies.length?"hidden":"hidden"}">${repliesHtml}</div><div id="reactionReplyBox-${safeId}" class="reactionReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${escapeHtml(name)}..."></textarea><div class="reactionReplyControls"><button onclick="submitReactionReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeReactionReplyBox('${escapeJsString(commentId)}')">Cancel</button></div></div></div><button class="reactionMore" onclick="toggleReactionMenu(this)">•••</button></article>`
+  }).join(""):`<div class="emptyMini albumReactionEmpty">What moment on this album hits hardest?</div>`;
 }
 window.addAlbumComment=async function(albumId){
   const nameInput=$("#commentName"), textInput=$("#commentText");
@@ -311,13 +341,13 @@ window.addAlbumComment=async function(albumId){
     if(error){
       const all=localComments();
       all[ref]=all[ref]||[];
-      all[ref].push({name,comment,created_at:new Date().toISOString()});
+      all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString()});
       saveLocalComments(all);
     }
   }else{
     const all=localComments();
     all[ref]=all[ref]||[];
-    all[ref].push({name,comment,created_at:new Date().toISOString()});
+    all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString()});
     saveLocalComments(all);
   }
   textInput.value="";
@@ -608,12 +638,40 @@ window.setAlbumPopupTab=function(tab){
   const target=document.querySelector(targets[tab]||".linerHero");
   if(target)target.scrollIntoView({behavior:"smooth",block:"start"});
 }
-window.replyToReaction=function(name){
-  const box=$("#commentText");
+window.openReactionReplyBox=function(albumId,commentId,name){
+  document.querySelectorAll(".reactionReplyBox").forEach(box=>box.classList.add("hidden"));
+  const box=$("#reactionReplyBox-"+domSafeId(commentId));
   if(!box)return;
-  const prefix="@"+String(name||"Listener").trim()+" ";
-  if(!box.value.startsWith(prefix))box.value=prefix+box.value;
-  box.focus();
+  box.classList.remove("hidden");
+  const textarea=box.querySelector("textarea");
+  if(textarea){textarea.placeholder=`Reply to ${name||"Listener"}...`;textarea.focus()}
+}
+window.closeReactionReplyBox=function(commentId){
+  const box=$("#reactionReplyBox-"+domSafeId(commentId));
+  if(box)box.classList.add("hidden");
+}
+window.submitReactionReply=async function(albumId,commentId){
+  const box=$("#reactionReplyBox-"+domSafeId(commentId));
+  const textarea=box?.querySelector("textarea");
+  const reply=(textarea?.value||"").trim();
+  if(!reply)return;
+  const ref=albumRef(albumId);
+  const name=(currentUsername()||$("#commentName")?.value||"Listener").trim()||"Listener";
+  if(db){
+    const {error}=await db.from("album_comment_replies").insert({album_ref:ref,comment_id:commentId,device_id:state.deviceId,name,reply});
+    if(error){alert(error.message);return}
+  }else{
+    const all=localCommentReplies();
+    all[ref]=all[ref]||{};
+    all[ref][commentId]=all[ref][commentId]||[];
+    all[ref][commentId].push({id:localId("reply"),comment_id:commentId,name,reply,created_at:new Date().toISOString()});
+    saveLocalCommentReplies(all);
+  }
+  if(textarea)textarea.value="";
+  await loadComments(albumId);
+  renderComments(albumId);
+  const replies=$("#reactionReplies-"+domSafeId(commentId));
+  if(replies)replies.classList.remove("hidden");
 }
 window.toggleReactionReplies=function(button){
   const replies=button?.closest(".reactionBody")?.querySelector(".reactionReplies");
@@ -1005,6 +1063,7 @@ window.deleteAlbum=async function(albumId){
     const hidden=[...new Set([...hiddenSeedAlbums(),albumId])];
     saveHiddenSeedAlbums(hidden);
   }else if(db){
+    await db.from("album_comment_replies").delete().eq("album_ref",ref);
     await db.from("album_comments").delete().eq("album_ref",ref);
     await db.from("track_ratings").delete().eq("album_ref",ref);
     await db.from("track_comments").delete().eq("album_ref",ref);
@@ -1013,6 +1072,7 @@ window.deleteAlbum=async function(albumId){
   }else{
     saveLocalAlbums(localAlbums().filter(a=>String(a.id)!==String(albumId)));
     const comments=localComments();delete comments[ref];saveLocalComments(comments);
+    const commentReplies=localCommentReplies();delete commentReplies[ref];saveLocalCommentReplies(commentReplies);
     const ratings=localTrackRatings();
     Object.keys(ratings).forEach(key=>{if(key.startsWith(ref+"::"))delete ratings[key]});
     saveLocalTrackRatings(ratings);
@@ -1143,6 +1203,8 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
+
 
 
 

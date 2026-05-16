@@ -231,3 +231,22 @@ create policy "Anyone can read album overviews" on album_overviews for select us
 
 -- Do not add public insert/update/delete policies here.
 -- Overview edits are saved through the Netlify admin-overview function with the Supabase service role key.
+
+-- Nested replies for album listener reactions
+create table if not exists album_comment_replies (
+  id uuid primary key default gen_random_uuid(),
+  album_ref text not null,
+  comment_id uuid not null,
+  device_id text not null,
+  name text not null default 'Listener',
+  reply text not null,
+  created_at timestamptz default now()
+);
+
+alter table album_comment_replies enable row level security;
+
+drop policy if exists "Anyone can read album comment replies" on album_comment_replies;
+create policy "Anyone can read album comment replies" on album_comment_replies for select using (true);
+
+drop policy if exists "Anyone can add album comment replies" on album_comment_replies;
+create policy "Anyone can add album comment replies" on album_comment_replies for insert with check (true);
