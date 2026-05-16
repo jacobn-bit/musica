@@ -403,8 +403,11 @@ function renderTrackList(albumId){
   const rows=visibleTracks.map((track,i)=>{
     const key=trackKey(track);
     const current=ratings[key]||localTrackRating(albumId,key);
-    const score=displaySongScore(songScores[key]).replace("No rating","")||["9.4","9.0","9.3","8.6","9.1","9.2","8.5","8.9"][i]||"";
-    return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">★ ${escapeHtml(score)}</button><button class="trackLove">♡</button><button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button></div>`;
+    let score=displaySongScore(songScores[key]);
+    if(score==="-"&&current)score=Number(current).toFixed(1);
+    if(score==="-")score="";
+    const scoreHtml=score?`★ <span class="trackScoreNumber">${escapeHtml(score)}</span>`:"★";
+    return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><button class="trackLove">♡</button><button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button></div>`;
   }).join("");
   host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p></div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"} <span>${expanded?"⌃":"⌄"}</span></button>`:""}</section>`;
 }
@@ -975,6 +978,7 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
 
 
 
