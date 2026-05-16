@@ -57,6 +57,7 @@
     const loved_track_key = String(body.loved_track_key || "").trim();
     const loved_track_name = String(body.loved_track_name || "").trim();
     const admin_ratings_count = body.admin_ratings_count === undefined || body.admin_ratings_count === null || body.admin_ratings_count === "" ? null : Math.max(0, Math.round(Number(body.admin_ratings_count)));
+    const admin_score = body.admin_score === undefined || body.admin_score === null || body.admin_score === "" ? null : Math.round(Number(body.admin_score) * 10) / 10;
 
     if (action === "save") {
       const overview = String(body.overview || "").trim();
@@ -74,7 +75,19 @@
 
 
 
-    if (action === "set_rating_count") {
+
+    if (action === "set_album_score") {
+      const overview = String(body.overview || "").trim();
+      if (!album_key || !title || admin_score === null || !Number.isFinite(admin_score) || admin_score < 0 || admin_score > 10) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and score from 0 to 10 are required." }) };
+      }
+      const rows = await api("album_overviews", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key, title, artist, overview, admin_score, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
+    }    if (action === "set_rating_count") {
       const overview = String(body.overview || "").trim();
       if (!album_key || !title || admin_ratings_count === null || !Number.isFinite(admin_ratings_count)) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and rating count are required." }) };
@@ -163,6 +176,7 @@
     return { statusCode: error.status || 500, headers, body: JSON.stringify({ error: error.message || "Unexpected error" }) };
   }
 };
+
 
 
 
