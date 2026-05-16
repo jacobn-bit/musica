@@ -2427,3 +2427,126 @@ body.light .overviewEditorText{background:#fff!important;color:#111827!important
 .reactionsPanel .reactionReplyMeta span{font-size:12px!important;color:rgba(255,255,255,.45)!important;}
 .reactionsPanel .reactionReply p{margin:4px 0 0!important;color:rgba(255,255,255,.78)!important;font-size:13px!important;line-height:1.45!important;}
 .reactionsPanel .noRepliesYet{margin:0!important;color:rgba(255,255,255,.42)!important;font-size:12px!important;}
+
+/* Cinematic album overview sleeve */
+.linerOverview.albumOverviewSleeve{
+  position:relative!important;
+  z-index:2!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,.95fr) minmax(320px,.9fr)!important;
+  gap:34px!important;
+  margin:10px 0 24px!important;
+  padding:34px 38px!important;
+  min-height:520px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:24px!important;
+  background:
+    radial-gradient(circle at 63% 44%,rgba(242,201,76,.18),transparent 25%),
+    linear-gradient(90deg,rgba(8,9,12,.96) 0%,rgba(8,9,12,.78) 46%,rgba(8,9,12,.92) 100%),
+    var(--overview-cover)!important;
+  background-size:cover!important;
+  background-position:center!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 22px 80px rgba(0,0,0,.38)!important;
+}
+.linerOverview.albumOverviewSleeve:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,rgba(0,0,0,.34),rgba(0,0,0,.10) 52%,rgba(0,0,0,.42)),radial-gradient(circle at 70% 18%,rgba(255,255,255,.09),transparent 18%);
+  pointer-events:none;
+}
+.albumOverviewSleeve .overviewCopy,.albumOverviewSleeve .overviewMood{position:relative;z-index:1;}
+.albumOverviewSleeve .eyebrow{margin:0 0 20px!important;color:#ffd51f!important;font-size:13px!important;font-weight:950!important;letter-spacing:.34em!important;text-transform:uppercase!important;}
+.albumOverviewSleeve h3{max-width:610px!important;margin:0 0 22px!important;color:#f7f7f4!important;font-size:54px!important;line-height:1.05!important;letter-spacing:-.045em!important;text-shadow:0 4px 20px rgba(0,0,0,.45)!important;}
+.albumOverviewSleeve h3 span{color:#ffd03b!important;font-style:italic!important;font-weight:700!important;}
+.albumOverviewSleeve .overviewIntro{max-width:640px!important;margin:0 0 26px!important;color:rgba(255,255,255,.82)!important;font-size:18px!important;line-height:1.65!important;}
+.overviewPoints{display:grid!important;gap:22px!important;margin:24px 0 28px!important;}
+.overviewPoints>div{display:grid!important;grid-template-columns:72px minmax(0,1fr)!important;gap:18px!important;align-items:start!important;}
+.overviewIcon{width:56px!important;height:56px!important;border-radius:50%!important;display:grid!important;place-items:center!important;background:rgba(242,201,76,.12)!important;color:#ffd51f!important;font-size:26px!important;box-shadow:0 0 24px rgba(242,201,76,.08)!important;}
+.overviewPoints strong{display:block!important;margin-bottom:8px!important;color:#ffd51f!important;text-transform:uppercase!important;font-size:13px!important;letter-spacing:.18em!important;}
+.overviewPoints p{margin:0!important;color:rgba(255,255,255,.78)!important;font-size:15px!important;line-height:1.55!important;}
+.overviewScoreStrip{display:flex!important;align-items:center!important;gap:18px!important;width:min(100%,620px)!important;margin-top:22px!important;padding:18px 22px!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:16px!important;background:rgba(0,0,0,.25)!important;}
+.overviewScoreStrip span{color:#fff!important;font-size:16px!important;}
+.overviewScoreStrip strong{color:#ffd51f!important;font-size:34px!important;line-height:1!important;}
+.overviewScoreStrip em{color:rgba(255,255,255,.62)!important;font-style:normal!important;}
+.overviewScoreStrip small{margin-left:auto!important;color:rgba(255,255,255,.62)!important;font-size:13px!important;}
+.albumOverviewSleeve .overviewEditBtn{margin-top:18px!important;}
+.overviewMood{align-self:center!important;padding-top:58px!important;}
+.overviewMood blockquote{position:relative!important;margin:0 0 34px!important;padding:28px 34px!important;border:1px solid rgba(242,201,76,.35)!important;border-radius:18px!important;background:linear-gradient(145deg,rgba(0,0,0,.44),rgba(0,0,0,.24))!important;color:#ffd03b!important;font-size:32px!important;line-height:1.5!important;font-style:italic!important;box-shadow:0 0 34px rgba(242,201,76,.16)!important;}
+.overviewMood blockquote:before{content:"“";position:absolute;top:-45px;left:18px;color:#ffd51f;font-size:84px;font-style:normal;line-height:1;text-shadow:0 0 20px rgba(242,201,76,.4);}
+.overviewMood p{margin:0 0 12px!important;color:#ffd51f!important;font-size:12px!important;font-weight:950!important;letter-spacing:.18em!important;text-transform:uppercase!important;}
+.overviewMomentChips{display:flex!important;flex-wrap:wrap!important;gap:10px!important;margin-bottom:28px!important;}
+.overviewMomentChips span{display:inline-flex!important;border-radius:999px!important;padding:9px 14px!important;background:rgba(255,255,255,.075)!important;color:rgba(255,255,255,.86)!important;font-size:14px!important;}
+.overviewCommunityNote{display:flex!important;gap:16px!important;align-items:center!important;margin-top:20px!important;}
+.overviewCommunityNote span{width:82px!important;height:34px!important;border-radius:999px!important;background:linear-gradient(90deg,#6c4a24,#b9b0a4,#2f7f83)!important;box-shadow:0 0 0 3px rgba(255,255,255,.07)!important;}
+.overviewCommunityNote p{margin:0!important;max-width:420px!important;color:rgba(255,255,255,.72)!important;font-size:16px!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;line-height:1.5!important;}
+@media(max-width:900px){
+  .linerOverview.albumOverviewSleeve{grid-template-columns:1fr!important;padding:26px 20px!important;min-height:auto!important;}
+  .albumOverviewSleeve h3{font-size:36px!important;}
+  .overviewMood{padding-top:0!important;}
+  .overviewMood blockquote{font-size:22px!important;}
+  .overviewPoints>div{grid-template-columns:48px minmax(0,1fr)!important;}
+  .overviewIcon{width:42px!important;height:42px!important;font-size:20px!important;}
+  .overviewScoreStrip{flex-wrap:wrap!important;gap:10px!important;}
+  .overviewScoreStrip small{margin-left:0!important;width:100%!important;}
+}
+
+/* Standalone overview popup */
+.albumOverviewPopup.hidden{display:none!important;}
+.albumOverviewPopup{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;}
+.albumOverviewBackdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);}
+.albumOverviewPopupPanel{position:relative;width:min(1500px,96vw);max-height:92vh;overflow:auto;border-radius:26px;box-shadow:0 34px 120px rgba(0,0,0,.72);}
+.albumOverviewPopupPanel .albumOverviewSleeve{margin:0!important;}
+.albumOverviewClose{position:absolute;top:18px;right:18px;z-index:5;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.42);color:#fff;font-size:30px;line-height:1;cursor:pointer;}
+.albumOverviewClose:hover{border-color:rgba(242,201,76,.45);color:#ffd51f;}
+@media(max-width:650px){.albumOverviewPopup{padding:10px}.albumOverviewPopupPanel{width:100%;max-height:94vh}.albumOverviewClose{top:12px;right:12px;width:38px;height:38px;font-size:26px}}
+
+/* Admin management controls */
+.overviewAdminControls{display:flex!important;flex-wrap:wrap!important;gap:10px!important;margin-top:18px!important;}
+.overviewAdminControls button,.overviewEditorActions .danger{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:10px 14px;font-weight:850;cursor:pointer;}
+.overviewAdminControls .overviewEditBtn{margin-top:0!important;background:#ffd12d!important;color:#111!important;border-color:#ffd12d!important;}
+.overviewAdminControls .danger,.overviewEditorActions .danger{border-color:rgba(255,83,83,.38)!important;background:rgba(255,83,83,.12)!important;color:#ffb4b4!important;}
+.overviewAdminControls button:hover,.overviewEditorActions .danger:hover{border-color:rgba(242,201,76,.42);}
+
+/* Admin polish and popup controls */
+#closeAlbumModal,.albumOverviewClose{
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  line-height:1!important;
+  text-align:center!important;
+}
+#closeAlbumModal{font-size:32px!important;}
+.albumOverviewClose{font-size:28px!important;}
+.adminTinyDelete{
+  border:1px solid rgba(255,83,83,.30)!important;
+  background:rgba(255,83,83,.10)!important;
+  color:#ffb4b4!important;
+  border-radius:999px!important;
+  padding:4px 9px!important;
+  font-size:11px!important;
+  font-weight:850!important;
+  cursor:pointer!important;
+}
+.reactionReplyMeta .adminTinyDelete{margin-left:4px!important;}
+
+/* Larger song row rating numbers */
+.linerTrackRow .trackScoreNumber{
+  font-size:14px!important;
+  font-weight:600!important;
+  vertical-align:0!important;
+}
+
+/* Admin most-loved track picker */
+.pickLovedTrackBtn{
+  margin-top:10px!important;
+  border:1px solid rgba(242,201,76,.35)!important;
+  background:rgba(242,201,76,.10)!important;
+  color:#ffd51f!important;
+  border-radius:999px!important;
+  padding:7px 11px!important;
+  font-size:12px!important;
+  font-weight:850!important;
+  cursor:pointer!important;
+}

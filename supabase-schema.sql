@@ -1,5 +1,5 @@
-drop view if exists song_scores;
-﻿
+﻿drop view if exists song_scores;
+ï»¿
 -- Run this in Supabase SQL Editor
 
 create table if not exists albums (
@@ -250,3 +250,10 @@ create policy "Anyone can read album comment replies" on album_comment_replies f
 
 drop policy if exists "Anyone can add album comment replies" on album_comment_replies;
 create policy "Anyone can add album comment replies" on album_comment_replies for insert with check (true);
+
+-- Admin-selected most loved song for album popups
+alter table album_overviews add column if not exists loved_track_key text;
+alter table album_overviews add column if not exists loved_track_name text;
+
+-- Admin-displayed album rating count override
+alter table album_overviews add column if not exists admin_ratings_count int;
