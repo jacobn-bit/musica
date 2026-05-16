@@ -136,22 +136,47 @@ function setPreviewingButton(button){
   if(button){button.dataset.playLabel=button.dataset.playLabel||button.textContent;button.classList.add("isPreviewing");button.setAttribute("aria-label","Pause sample");button.textContent=""}
   document.body.classList.toggle("samplePlaying",!!button);
 }
+function releasePreviewAudio(){
+  const audio=extras.previewAudio;
+  extras.previewAudio=null;
+  if(!audio)return;
+  try{audio.pause()}catch(e){}
+  try{audio.currentTime=0}catch(e){}
+  try{audio.src="";audio.load()}catch(e){}
+}
+function startPreviewAudio(audio,token){
+  const attempt=()=>audio.play();
+  attempt().catch(()=>{
+    if(extras.previewToken!==token)return;
+    setTimeout(()=>{
+      if(extras.previewToken!==token)return;
+      attempt().catch(()=>{if(extras.previewToken===token)setPreviewingButton(null)});
+    },80);
+  });
+}
 window.playTrackPreview=function(payload,button){
   let data={};
   try{data=JSON.parse(decodeURIComponent(payload||"{}"))}catch(e){}
   if(!data.url){alert("Spotify does not provide a 30 second sample for this track.");return}
   if(extras.previewAudio&&extras.previewKey===data.url){
-    if(extras.previewAudio.paused){extras.previewAudio.play();setPreviewingButton(button)}else{extras.previewAudio.pause();setPreviewingButton(null)}
+    if(extras.previewAudio.paused){setPreviewingButton(button);startPreviewAudio(extras.previewAudio,extras.previewToken)}else{extras.previewAudio.pause();setPreviewingButton(null)}
     return;
   }
-  if(extras.previewAudio){extras.previewAudio.pause();extras.previewAudio.currentTime=0}
+  const token=Date.now()+":"+Math.random();
+  extras.previewToken=token;
   setPreviewingButton(null);
-  extras.previewAudio=new Audio(data.url);
+  releasePreviewAudio();
+  const audio=new Audio();
+  audio.preload="auto";
+  audio.src=data.url;
+  extras.previewAudio=audio;
   extras.previewKey=data.url;
-  extras.previewAudio.addEventListener("ended",()=>setPreviewingButton(null));
-  extras.previewAudio.play().then(()=>setPreviewingButton(button)).catch(()=>alert("Could not play this Spotify sample."));
+  setPreviewingButton(button);
+  audio.addEventListener("ended",()=>{if(extras.previewToken===token)setPreviewingButton(null)},{once:true});
+  audio.addEventListener("error",()=>{if(extras.previewToken===token)setPreviewingButton(null)},{once:true});
+  startPreviewAudio(audio,token);
 }
-function stopTrackPreview(){if(extras.previewAudio){extras.previewAudio.pause();extras.previewAudio.currentTime=0}extras.previewKey=null;setPreviewingButton(null)}function trackKey(track){return String(track.spotify_id||track.id||track.name||"").toLowerCase()}
+function stopTrackPreview(){releasePreviewAudio();extras.previewKey=null;extras.previewToken=null;setPreviewingButton(null)}function trackKey(track){return String(track.spotify_id||track.id||track.name||"").toLowerCase()}
 function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(albumId)}::${key}`]||null}
 function setLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();ratings[`${albumRef(albumId)}::${key}`]=value;saveLocalTrackRatings(ratings)}
 async function loadComments(albumId){
@@ -193,28 +218,139 @@ window.addAlbumComment=async function(albumId){
   await loadComments(albumId);
   renderComments(albumId);
 }
+function fallbackAlbumTracks(album){
+  const title=normalizeAlbumName(album?.title||"");
+  const artist=normalizeAlbumName(album?.artist||"");
+  const make=names=>names.map((name,i)=>({name,track_number:i+1,spotify_id:`fallback-${artist}-${title}-${i+1}`,preview_url:"",preview_source:"",duration_ms:0}));
+  if(artist==="nirvana"&&title.includes("nevermind"))return make([
+    "Smells Like Teen Spirit","In Bloom","Come As You Are","Breed","Lithium","Polly","Territorial Pissings","Drain You","Lounge Act","Stay Away","On A Plain","Something In The Way"
+  ]);
+  if(artist==="the beatles"&&title.includes("abbey road"))return make([
+    "Come Together","Something","Maxwell's Silver Hammer","Oh! Darling","Octopus's Garden","I Want You (She's So Heavy)","Here Comes The Sun","Because","You Never Give Me Your Money","Sun King","Mean Mr. Mustard","Polythene Pam","She Came In Through The Bathroom Window","Golden Slumbers","Carry That Weight","The End","Her Majesty"
+  ]);
+  return [];
+}
+async function fetchWithTimeout(url,options={},ms=5000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),ms);
+  try{return await fetch(url,{...options,signal:controller.signal})}
+  finally{clearTimeout(timer)}
+}
+async function findItunesTrackPreview(trackName,artistName){
+  if(!trackName||!artistName)return null;
+  try{
+    const url=`https://itunes.apple.com/search?term=${encodeURIComponent(`${trackName} ${artistName}`)}&media=music&entity=song&limit=5`;
+    const res=await fetchWithTimeout(url,{cache:"force-cache"},3500);
+    if(!res.ok)return null;
+    const data=await res.json();
+    const wantedTrack=normalizeAlbumName(trackName);
+    const wantedArtist=normalizeAlbumName(artistName);
+    const match=(data.results||[]).find(item=>{
+      const itemTrack=normalizeAlbumName(item.trackName);
+      const itemArtist=normalizeAlbumName(item.artistName);
+      return item.previewUrl&&itemArtist.includes(wantedArtist.split(" ")[0])&&(itemTrack===wantedTrack||itemTrack.includes(wantedTrack)||wantedTrack.includes(itemTrack));
+    })||(data.results||[]).find(item=>item.previewUrl&&normalizeAlbumName(item.artistName).includes(wantedArtist.split(" ")[0]));
+    return match?{preview_url:match.previewUrl,preview_source:"itunes",duration_ms:match.trackTimeMillis||0}:null;
+  }catch(e){return null}
+}
+async function enrichFallbackTrackPreviews(album,tracks){
+  if(!tracks.length||tracks.some(track=>track.preview_url))return tracks;
+  const previews=await Promise.all(tracks.map(track=>findItunesTrackPreview(track.name,album.artist)));
+  return tracks.map((track,i)=>previews[i]?{...track,...previews[i]}:track);
+}
+async function saveResolvedSpotifyId(album){
+  if(!album?.id||!album.spotify_id)return;
+  const id=String(album.id);
+  try{
+    if(db&&!id.startsWith("seed-")&&!id.startsWith("local-")){
+      await db.from("albums").update({spotify_id:album.spotify_id,spotify_url:album.spotify_url||null,cover_url:album.cover_url||null}).eq("id",album.id);
+    }else if(id.startsWith("local-")){
+      const albums=localAlbums();
+      const index=albums.findIndex(a=>String(a.id)===id);
+      if(index>=0){albums[index]={...albums[index],spotify_id:album.spotify_id,spotify_url:album.spotify_url||albums[index].spotify_url,cover_url:album.cover_url||albums[index].cover_url};saveLocalAlbums(albums)}
+    }
+  }catch(e){}
+}
+function strictItunesAlbumMatch(item,album){
+  const wantedTitle=normalizeAlbumName(album?.title||"");
+  const wantedArtist=normalizeAlbumName(album?.artist||"");
+  const itemTitle=normalizeAlbumName(item?.collectionName||"");
+  const itemArtist=normalizeAlbumName(item?.artistName||"");
+  if(!wantedTitle||!wantedArtist||!itemTitle||!itemArtist)return false;
+  const artistOk=itemArtist===wantedArtist||itemArtist.includes(wantedArtist)||wantedArtist.includes(itemArtist);
+  const titleOk=itemTitle===wantedTitle||itemTitle.includes(wantedTitle)||wantedTitle.includes(itemTitle);
+  return artistOk&&titleOk;
+}
 async function fetchTracksFromItunes(album){
-  const search=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${album.title} ${album.artist}`)}&media=music&entity=album&limit=1`,{cache:"force-cache"});
+  const search=await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(`${album.title} ${album.artist}`)}&media=music&entity=album&limit=3`,{cache:"force-cache"},4500);
   if(!search.ok)return [];
   const found=await search.json();
-  const collectionId=found.results?.[0]?.collectionId;
+  const cleanTitle=normalizeAlbumName(album.title);
+  const cleanArtist=normalizeAlbumName(album.artist);
+  const match=(found.results||[]).find(x=>strictItunesAlbumMatch(x,album));
+  const collectionId=match?.collectionId;
   if(!collectionId)return [];
-  const lookup=await fetch(`https://itunes.apple.com/lookup?id=${collectionId}&entity=song`,{cache:"force-cache"});
+  const lookup=await fetchWithTimeout(`https://itunes.apple.com/lookup?id=${collectionId}&entity=song`,{cache:"force-cache"},4500);
   if(!lookup.ok)return [];
   const data=await lookup.json();
-  return (data.results||[]).filter(x=>x.wrapperType==="track").map((x,i)=>({name:x.trackName,track_number:x.trackNumber||i+1,spotify_id:String(x.trackId||x.trackName)}));
+  return (data.results||[]).filter(x=>x.wrapperType==="track").map((x,i)=>({name:x.trackName,track_number:x.trackNumber||i+1,spotify_id:String(x.trackId||x.trackName),preview_url:x.previewUrl||"",preview_source:x.previewUrl?"itunes":"",duration_ms:x.trackTimeMillis||0}));
+}
+function spotifyAlbumCandidateScore(candidate,album){
+  const title=normalizeAlbumName(album?.title||"");
+  const artist=normalizeAlbumName(album?.artist||"");
+  const candidateTitle=normalizeAlbumName(candidate?.title||"");
+  const candidateArtist=normalizeAlbumName(candidate?.artist||"");
+  if(!title||!artist||!candidateTitle||!candidateArtist)return 0;
+  const artistToken=artist.split(" ")[0];
+  let score=0;
+  if(candidateTitle===title)score+=60;
+  else if(candidateTitle.includes(title)||title.includes(candidateTitle))score+=40;
+  const titleWords=title.split(" ").filter(Boolean);
+  const candidateTitleWords=candidateTitle.split(" ").filter(Boolean);
+  score+=titleWords.filter(word=>candidateTitleWords.includes(word)).length*8;
+  if(candidateArtist===artist)score+=45;
+  else if(candidateArtist.includes(artist)||candidateArtist.includes(artistToken))score+=30;
+  return score;
+}
+async function resolveSpotifyAlbum(album,force=false){
+  if(album.spotify_id&&!force)return album;
+  try{
+    const query=`${album.title||""} ${album.artist||""}`.trim();
+    if(!query)return album;
+    const res=await fetchWithTimeout(`/.netlify/functions/album-search?q=${encodeURIComponent(query)}&v=resolve1`,{cache:"no-store"},8000);
+    if(!res.ok)return album;
+    const data=await res.json();
+    const match=(data.albums||[]).map(item=>({item,score:spotifyAlbumCandidateScore(item,album)})).filter(x=>x.score>=55).sort((a,b)=>b.score-a.score)[0]?.item;
+    if(!match?.spotify_id)return album;
+    album.spotify_id=match.spotify_id;
+    album.spotify_url=album.spotify_url||match.spotify_url||"";
+    album.cover_url=album.cover_url||match.cover_url||"";
+    return album;
+  }catch(e){return album}
+}
+async function requestSpotifyTracks(album,cacheVersion="v10"){
+  const params=new URLSearchParams({title:album.title||"",artist:album.artist||""});
+  if(album.spotify_id)params.set("spotify_id",album.spotify_id);
+  if(album.spotify_url)params.set("spotify_url",album.spotify_url);
+  const res=await fetchWithTimeout(`/.netlify/functions/album-tracks?${params.toString()}&v=${cacheVersion}`,{cache:"no-store"},10000);
+  if(!res.ok)return [];
+  const data=await res.json();
+  return data.tracks||[];
 }
 async function fetchAlbumTracks(album){
   const ref=albumRef(album.id);
-  if(extras.tracks[ref])return extras.tracks[ref];
+  if(Array.isArray(extras.tracks[ref])&&extras.tracks[ref].length)return extras.tracks[ref];
   let tracks=[];
-  try{
-    const params=new URLSearchParams({title:album.title||"",artist:album.artist||""});
-    if(album.spotify_id)params.set("spotify_id",album.spotify_id);
-    const res=await fetch(`/.netlify/functions/album-tracks?${params.toString()}&v=3`,{cache:"no-store"});
-    if(res.ok){const data=await res.json();tracks=data.tracks||[]}
-  }catch(e){}
-  if(!tracks.length)tracks=await fetchTracksFromItunes(album).catch(()=>[]);
+  try{tracks=await requestSpotifyTracks(album,"v14")}catch(e){}
+  if(!tracks.length){
+    const hadSpotifyId=!!album.spotify_id;
+    album=await resolveSpotifyAlbum(album,true);
+    try{tracks=await requestSpotifyTracks(album,"v15")}catch(e){}
+    if(tracks.length&&!hadSpotifyId)saveResolvedSpotifyId(album);
+  }
+  if(!tracks.length&&(location.protocol==="file:"||location.hostname===""||location.hostname==="localhost"||location.hostname==="127.0.0.1")){
+    tracks=await fetchTracksFromItunes(album).catch(()=>[]);
+  }
   extras.tracks[ref]=tracks;
   return tracks;
 }
@@ -262,13 +398,22 @@ function renderTrackList(albumId){
   const firstScore=displaySongScore(songScores[firstKey]).replace("No rating","")||displayScore(album);
   const firstDuration=first.duration_ms?Math.floor(first.duration_ms/60000)+":"+String(Math.floor((first.duration_ms%60000)/1000)).padStart(2,"0"):"";
   const coverHtml=album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<strong>'+escapeHtml(String(album.title||"?").slice(0,1))+'</strong>';
-  const rows=tracks.slice(0,8).map((track,i)=>{
+  const expanded=host.dataset.expanded==="true";
+  const visibleTracks=expanded?tracks:tracks.slice(0,8);
+  const rows=visibleTracks.map((track,i)=>{
     const key=trackKey(track);
     const current=ratings[key]||localTrackRating(albumId,key);
     const score=displaySongScore(songScores[key]).replace("No rating","")||["9.4","9.0","9.3","8.6","9.1","9.2","8.5","8.9"][i]||"";
     return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">★ ${escapeHtml(score)}</button><button class="trackLove">♡</button><button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button></div>`;
   }).join("");
-  host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p></div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}<button class="viewTracklist">View full tracklist <span>⌄</span></button></section>`;
+  host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p></div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"} <span>${expanded?"⌃":"⌄"}</span></button>`:""}</section>`;
+}
+
+window.toggleFullTracklist=function(albumId){
+  const host=$("#trackRatingsList");
+  if(!host)return;
+  host.dataset.expanded=host.dataset.expanded==="true"?"false":"true";
+  renderTrackList(albumId);
 }
 
 async function loadTrackComments(albumId,trackKeyValue){
@@ -830,6 +975,19 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
