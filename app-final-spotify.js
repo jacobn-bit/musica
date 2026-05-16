@@ -302,7 +302,7 @@ window.playTrackPreview=function(payload,button){
   audio.addEventListener("error",()=>{if(extras.previewToken===token)setPreviewingButton(null)},{once:true});
   startPreviewAudio(audio,token);
 }
-function stopTrackPreview(){releasePreviewAudio();extras.previewKey=null;extras.previewToken=null;setPreviewingButton(null)}function trackKey(track){return String(track.spotify_id||track.id||track.name||"").toLowerCase()}
+function stopTrackPreview(){releasePreviewAudio();extras.previewKey=null;extras.previewToken=null;setPreviewingButton(null)}function trackKey(track){return String(track.name||track.spotify_id||track.id||"").toLowerCase()}
 function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(albumId)}::${key}`]||null}
 function setLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();ratings[`${albumRef(albumId)}::${key}`]=value;saveLocalTrackRatings(ratings)}
 async function loadComments(albumId){
@@ -517,8 +517,8 @@ async function fetchAlbumTracks(album){
 async function loadSongScores(albumId){
   const ref=albumRef(albumId);
   if(db){
-    const {data,error}=await db.from("song_scores").select("track_key,avg_rating,ratings_count").eq("album_ref",ref);
-    if(!error){extras.songScores[ref]=Object.fromEntries((data||[]).map(s=>[s.track_key,s]));return extras.songScores[ref]}
+    const {data,error}=await db.from("song_scores").select("track_key,track_name,avg_rating,ratings_count").eq("album_ref",ref);
+    if(!error){const mapped={};(data||[]).forEach(s=>{mapped[s.track_key]=s;if(s.track_name)mapped[String(s.track_name).toLowerCase()]=s});extras.songScores[ref]=mapped;return extras.songScores[ref]}
   }
   const local=localTrackRatings();
   const scores={};
@@ -537,8 +537,8 @@ function displaySongCount(score){if(!score||Number(score.ratings_count)<=0)retur
 async function loadTrackRatings(albumId){
   const ref=albumRef(albumId);
   if(db){
-    const {data,error}=await db.from("track_ratings").select("track_key,rating").eq("album_ref",ref).eq("device_id",state.deviceId);
-    if(!error){extras.trackRatings[ref]=Object.fromEntries((data||[]).map(r=>[r.track_key,r.rating]));return extras.trackRatings[ref]}
+    const {data,error}=await db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref).eq("device_id",state.deviceId);
+    if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;if(r.track_name)mapped[String(r.track_name).toLowerCase()]=r.rating});extras.trackRatings[ref]=mapped;return extras.trackRatings[ref]}
   }
   const local=localTrackRatings();
   extras.trackRatings[ref]=Object.fromEntries(Object.entries(local).filter(([k])=>k.startsWith(ref+"::")).map(([k,v])=>[k.slice(ref.length+2),v]));
@@ -570,7 +570,7 @@ function renderTrackList(albumId){
     if(score==="-"&&current)score=Number(current).toFixed(1);
     if(score==="-")score="";
     const scoreHtml=score?`★ <span class="trackScoreNumber">${escapeHtml(score)}</span>`:"★";
-    const lovedRowAdmin=isAdminUnlocked()?`<button class="trackLovedAdmin" onclick="setMostLovedTrackAdmin('${escapeJsString(albumId)}','${escapeJsString(key)}')">Make most loved</button>`:`<button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button>`;
+    const lovedRowAdmin=`<button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button>`;
     return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">▶</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><button class="trackLove">♡</button>${lovedRowAdmin}</div>`;
   }).join("");
   host.innerHTML=`<section class="linerFeaturedTrack"><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">▶</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K ratings</span></div><div class="featureCover">${coverHtml}</div></section><section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Track</span><span>Rating</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
@@ -747,13 +747,24 @@ window.toggleAllReactions=function(){
   const expanded=host.classList.toggle("showAllReactions");
   button.classList.toggle("expanded",expanded);
 }
+function canUseLocalAdminFallback(action){return ["set_album_score","set_rating_count","set_loved_track"].includes(action)}
 async function adminOverviewRequest(payload){
   const pin=sessionStorage.getItem("musicaAdminPin")||"";
   if(!pin){alert("Please unlock admin mode first.");return null}
-  const res=await fetch("/.netlify/functions/admin-overview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,pin})});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok){alert(data.error||"Admin action failed.");return null}
-  return data;
+  try{
+    const res=await fetch("/.netlify/functions/admin-overview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,pin})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){
+      if(res.status===404&&canUseLocalAdminFallback(payload.action))return {ok:true,localOnly:true};
+      alert(data.error||"Admin action failed.");
+      return null;
+    }
+    return data;
+  }catch(error){
+    if(canUseLocalAdminFallback(payload.action))return {ok:true,localOnly:true};
+    alert("Admin action failed. Please use the deployed Netlify site for admin changes.");
+    return null;
+  }
 }
 function adminAlbumPayload(album,action){return {action,album_key:overviewKey(album),album_ref:albumRef(album.id),album_id:String(album.id),title:album.title,artist:album.artist||""}}
 window.editAlbumOverview=function(albumId){
@@ -838,7 +849,7 @@ window.clearAlbumRatingsAdmin=async function(albumId){
   if(!confirm(`Delete all album ratings for "${album.title}"?`))return;
   const data=await adminOverviewRequest(adminAlbumPayload(album,"clear_album_ratings"));
   if(!data)return;
-  await loadData();
+  if(!data.localOnly)await loadData();
   openAlbum(albumId);
   openAlbumOverviewPopup();
 }
@@ -870,8 +881,8 @@ window.setAlbumScoreAdmin=async function(albumId){
   const data=await adminOverviewRequest(payload);
   if(!data)return;
   extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,admin_score:rounded};
-  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
-  await loadData();
+  if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  if(!data.localOnly)await loadData();
   openAlbum(albumId);
   openAlbumOverviewPopup();
 }
@@ -890,8 +901,8 @@ window.setAlbumRatingsCountAdmin=async function(albumId){
   const data=await adminOverviewRequest(payload);
   if(!data)return;
   extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,admin_ratings_count:rounded};
-  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
-  await loadData();
+  if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  if(!data.localOnly)await loadData();
   openAlbum(albumId);
   openAlbumOverviewPopup();
 }
@@ -907,7 +918,7 @@ window.setMostLovedTrackAdmin=async function(albumId,trackKeyValue){
   const data=await adminOverviewRequest(payload);
   if(!data)return;
   extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,loved_track_key:payload.loved_track_key,loved_track_name:payload.loved_track_name};
-  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
   renderTrackList(albumId);
 }
 window.pickMostLovedTrack=async function(albumId){
@@ -1411,6 +1422,13 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
+
+
+
+
+
+
 
 
 
