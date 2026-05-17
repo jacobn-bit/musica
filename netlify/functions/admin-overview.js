@@ -58,6 +58,8 @@
     const loved_track_name = String(body.loved_track_name || "").trim();
     const admin_ratings_count = body.admin_ratings_count === undefined || body.admin_ratings_count === null || body.admin_ratings_count === "" ? null : Math.max(0, Math.round(Number(body.admin_ratings_count)));
     const admin_score = body.admin_score === undefined || body.admin_score === null || body.admin_score === "" ? null : Math.round(Number(body.admin_score) * 10) / 10;
+    const hero_focus = String(body.hero_focus || "").trim();
+    const moment_focus = String(body.moment_focus || "").trim();
 
     if (action === "save") {
       const overview = String(body.overview || "").trim();
@@ -75,6 +77,34 @@
 
 
 
+
+
+
+    if (action === "set_hero_focus") {
+      const overview = String(body.overview || "").trim();
+      if (!album_key || !title || !hero_focus) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and hero focus are required." }) };
+      }
+      const rows = await api("album_overviews", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key, title, artist, overview, hero_focus, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
+    }
+
+    if (action === "set_moment_focus") {
+      const overview = String(body.overview || "").trim();
+      if (!album_key || !title || !moment_focus) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and moment focus are required." }) };
+      }
+      const rows = await api("album_overviews", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key, title, artist, overview, moment_focus, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
+    }
 
     if (action === "set_album_score") {
       const overview = String(body.overview || "").trim();
