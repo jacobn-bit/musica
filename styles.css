@@ -5207,3 +5207,252 @@ body.light .overviewEditorText{background:#fff!important;color:#111827!important
     background-position:left center!important;
   }
 }
+
+/* Hard reset close buttons so corrupted glyph text cannot show */
+.close{
+  position:absolute!important;
+  display:block!important;
+  overflow:hidden!important;
+  text-indent:-9999px!important;
+  line-height:0!important;
+  color:transparent!important;
+  font-size:0!important;
+  white-space:nowrap!important;
+}
+.close:before,.close:after{
+  text-indent:0!important;
+}
+
+/* Empty close button, CSS-only X */
+#closeAlbumModal.close,#closeAddModal.close{
+  text-indent:0!important;
+  font-size:0!important;
+  color:transparent!important;
+  overflow:hidden!important;
+}
+#closeAlbumModal.close * ,#closeAddModal.close *{
+  display:none!important;
+}
+
+/* Final close icon: draw X as button background, no pseudo/text artifacts */
+#closeAlbumModal.close,#closeAddModal.close{
+  color:transparent!important;
+  font-size:0!important;
+  line-height:0!important;
+  text-indent:0!important;
+  overflow:hidden!important;
+  background:
+    linear-gradient(45deg,transparent calc(50% - 1px),#fff calc(50% - 1px),#fff calc(50% + 1px),transparent calc(50% + 1px)),
+    linear-gradient(-45deg,transparent calc(50% - 1px),#fff calc(50% - 1px),#fff calc(50% + 1px),transparent calc(50% + 1px)),
+    rgba(8,10,14,.62)!important;
+  background-size:18px 18px,18px 18px,100% 100%!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+}
+#closeAlbumModal.close:before,#closeAlbumModal.close:after,
+#closeAddModal.close:before,#closeAddModal.close:after{
+  content:none!important;
+  display:none!important;
+}
+
+/* Smaller clean close X */
+#closeAlbumModal.close,#closeAddModal.close{
+  background:
+    linear-gradient(45deg,transparent 44%,#fff 45%,#fff 55%,transparent 56%),
+    linear-gradient(-45deg,transparent 44%,#fff 45%,#fff 55%,transparent 56%),
+    rgba(8,10,14,.62)!important;
+  background-size:14px 14px,14px 14px,100% 100%!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+}
+
+/* Plain safe close x: no gradient artifacts */
+#closeAlbumModal.close,#closeAddModal.close{
+  display:grid!important;
+  place-items:center!important;
+  background:rgba(8,10,14,.62)!important;
+  background-image:none!important;
+  color:transparent!important;
+  font-size:0!important;
+  line-height:1!important;
+  text-indent:0!important;
+}
+#closeAlbumModal.close:before,#closeAddModal.close:before{
+  content:"x"!important;
+  display:block!important;
+  position:static!important;
+  width:auto!important;
+  height:auto!important;
+  background:none!important;
+  color:#fff!important;
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:20px!important;
+  font-weight:400!important;
+  line-height:1!important;
+  transform:none!important;
+}
+#closeAlbumModal.close:after,#closeAddModal.close:after{
+  content:none!important;
+  display:none!important;
+}
+
+/* Final SVG close button override: no font glyphs or pseudo-element artifacts */
+#closeAlbumModal.close.iconClose,
+#closeAddModal.close.iconClose{
+  display:grid!important;
+  place-items:center!important;
+  width:38px!important;
+  height:38px!important;
+  padding:0!important;
+  overflow:hidden!important;
+  text-indent:0!important;
+  font-size:0!important;
+  line-height:0!important;
+  color:transparent!important;
+  background:rgba(8,10,14,.62)!important;
+  background-image:none!important;
+}
+#closeAlbumModal.close.iconClose:before,
+#closeAlbumModal.close.iconClose:after,
+#closeAddModal.close.iconClose:before,
+#closeAddModal.close.iconClose:after{
+  content:none!important;
+  display:none!important;
+  width:0!important;
+  height:0!important;
+  background:none!important;
+}
+#closeAlbumModal.close.iconClose svg,
+#closeAddModal.close.iconClose svg{
+  display:block!important;
+  width:14px!important;
+  height:14px!important;
+  stroke:#fff!important;
+  stroke-width:2!important;
+  stroke-linecap:round!important;
+  fill:none!important;
+  pointer-events:none!important;
+}
+#closeAlbumModal.close.iconClose svg path,
+#closeAddModal.close.iconClose svg path{
+  stroke:inherit!important;
+  fill:none!important;
+}
+
+/* Clean close button: force exactly two white strokes, no inherited glyphs */
+#albumModal #closeAlbumModal.close.cleanClose,
+#closeAddModal.close.cleanClose{
+  position:absolute!important;
+  display:grid!important;
+  place-items:center!important;
+  right:22px!important;
+  top:20px!important;
+  width:38px!important;
+  height:38px!important;
+  padding:0!important;
+  border-radius:999px!important;
+  border:1px solid rgba(255,255,255,.16)!important;
+  background:rgba(8,10,14,.62)!important;
+  background-image:none!important;
+  color:transparent!important;
+  font-size:0!important;
+  line-height:0!important;
+  text-indent:0!important;
+  overflow:hidden!important;
+  white-space:normal!important;
+}
+#albumModal #closeAlbumModal.close.cleanClose:before,
+#albumModal #closeAlbumModal.close.cleanClose:after,
+#closeAddModal.close.cleanClose:before,
+#closeAddModal.close.cleanClose:after{
+  content:none!important;
+  display:none!important;
+  background:none!important;
+}
+#albumModal #closeAlbumModal.close.cleanClose *,
+#closeAddModal.close.cleanClose *{
+  display:block!important;
+}
+#albumModal #closeAlbumModal.close.cleanClose .cleanCloseIcon,
+#closeAddModal.close.cleanClose .cleanCloseIcon{
+  position:relative!important;
+  width:15px!important;
+  height:15px!important;
+  color:transparent!important;
+  font-size:0!important;
+  line-height:0!important;
+  transform:none!important;
+}
+#albumModal #closeAlbumModal.close.cleanClose .cleanCloseIcon:before,
+#albumModal #closeAlbumModal.close.cleanClose .cleanCloseIcon:after,
+#closeAddModal.close.cleanClose .cleanCloseIcon:before,
+#closeAddModal.close.cleanClose .cleanCloseIcon:after{
+  content:""!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  width:17px!important;
+  height:2px!important;
+  border-radius:999px!important;
+  background:#fff!important;
+  transform-origin:center!important;
+}
+#albumModal #closeAlbumModal.close.cleanClose .cleanCloseIcon:before,
+#closeAddModal.close.cleanClose .cleanCloseIcon:before{
+  transform:translate(-50%,-50%) rotate(45deg)!important;
+}
+#albumModal #closeAlbumModal.close.cleanClose .cleanCloseIcon:after,
+#closeAddModal.close.cleanClose .cleanCloseIcon:after{
+  transform:translate(-50%,-50%) rotate(-45deg)!important;
+}
+
+/* Admin draggable album hero background positioning */
+.linerHero:before,
+.linerHero:after{
+  background-position:var(--hero-position,0% 50%)!important;
+}
+@media(min-width:1051px){
+  .linerHero:before,
+  .linerHero:after{
+    background-position:var(--hero-position,0% 50%)!important;
+  }
+}
+.heroDragButton{
+  position:absolute!important;
+  z-index:6!important;
+  right:18px!important;
+  bottom:18px!important;
+  border:1px solid rgba(255,213,31,.45)!important;
+  background:rgba(8,10,14,.72)!important;
+  color:#ffd51f!important;
+  border-radius:999px!important;
+  padding:9px 14px!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.28)!important;
+}
+.linerHero.canDragHero{
+  cursor:grab!important;
+  outline:1px dashed rgba(255,213,31,.45)!important;
+  outline-offset:-8px!important;
+}
+.linerHero.draggingHero{
+  cursor:grabbing!important;
+}
+.heroDragHint{
+  position:absolute!important;
+  z-index:7!important;
+  left:50%!important;
+  bottom:18px!important;
+  transform:translateX(-50%)!important;
+  background:rgba(8,10,14,.86)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,213,31,.32)!important;
+  border-radius:999px!important;
+  padding:9px 14px!important;
+  font-size:12px!important;
+  font-weight:850!important;
+  pointer-events:none!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.35)!important;
+}

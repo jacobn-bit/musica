@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Musica - Find Music Worth Listening To</title>
-  <link rel="stylesheet" href="styles.css?v=album-popup-art-roles4">
+  <link rel="stylesheet" href="styles.css?v=album-popup-hero-drag1">
 </head>
 <body>
   <div class="app">
@@ -78,14 +78,14 @@
 
   <div id="albumModal" class="modal hidden">
     <div class="modalPanel">
-      <button id="closeAlbumModal" class="close">&times;</button>
+      <button id="closeAlbumModal" class="close cleanClose" aria-label="Close album popup"><span class="cleanCloseIcon" aria-hidden="true"></span></button>
       <div id="albumModalContent"></div>
     </div>
   </div>
 
   <div id="addModal" class="modal hidden">
     <div class="modalPanel">
-      <button id="closeAddModal" class="close">&times;</button>
+      <button id="closeAddModal" class="close cleanClose" aria-label="Close add album popup"><span class="cleanCloseIcon" aria-hidden="true"></span></button>
       <h2 id="addModalTitle">Add album from Spotify</h2>
       <p id="addModalCopy" class="muted">Search an album and artist. Choose the correct result and Musica pulls the cover, year, and Spotify link automatically.</p>
       <div class="addSearch">
@@ -99,9 +99,16 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=album-popup-art-roles4"></script>
+  <script src="app-final-spotify.js?v=album-popup-hero-drag1"></script>
 </body>
 </html>
+
+
+
+
+
+
+
 
 
 

@@ -260,3 +260,7 @@ alter table album_overviews add column if not exists admin_ratings_count int;
 
 -- Admin-displayed album Musica score override
 alter table album_overviews add column if not exists admin_score numeric;
+
+-- Admin-adjustable album popup image positions
+alter table album_overviews add column if not exists hero_focus text;
+alter table album_overviews add column if not exists moment_focus text;
