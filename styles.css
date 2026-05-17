@@ -5456,3 +5456,152 @@ body.light .overviewEditorText{background:#fff!important;color:#111827!important
   pointer-events:none!important;
   box-shadow:0 14px 34px rgba(0,0,0,.35)!important;
 }
+
+/* Admin upload controls for album popup artwork */
+.heroAdminControls{
+  position:absolute!important;
+  z-index:6!important;
+  right:18px!important;
+  bottom:18px!important;
+  display:flex!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+  justify-content:flex-end!important;
+}
+.heroAdminControls .heroDragButton{
+  position:static!important;
+  right:auto!important;
+  bottom:auto!important;
+}
+.mostLovedAdminControls .pickLovedTrackBtn{
+  white-space:nowrap!important;
+}
+
+/* Restore album popup hero artwork to the right-side cinematic panel only */
+@media(min-width:1051px){
+  .linerHero:before{
+    left:-38px!important;
+    inset-inline-start:-38px!important;
+    right:-38px!important;
+    top:-112px!important;
+    bottom:-82px!important;
+    width:auto!important;
+    background:
+      linear-gradient(90deg,rgba(2,6,8,.98) 0%,rgba(2,6,8,.82) 43%,rgba(2,6,8,.70) 62%,rgba(2,6,8,.94) 100%),
+      var(--hero-scene),
+      var(--album-cover)!important;
+    background-size:cover!important;
+    background-position:var(--hero-position,50% 50%)!important;
+    filter:blur(24px) saturate(.92)!important;
+    transform:scale(1.08)!important;
+    opacity:.54!important;
+  }
+  .linerHero:after{
+    left:auto!important;
+    inset-inline-start:auto!important;
+    right:-38px!important;
+    top:-88px!important;
+    width:46%!important;
+    height:545px!important;
+    background:
+      linear-gradient(90deg,rgba(2,6,8,.06) 0%,rgba(2,6,8,.36) 52%,rgba(2,6,8,.84) 100%),
+      var(--hero-scene),
+      var(--album-cover)!important;
+    background-size:cover!important;
+    background-position:var(--hero-position,50% 50%)!important;
+    filter:grayscale(.03) contrast(1.08) saturate(.98)!important;
+    transform:none!important;
+    opacity:.38!important;
+  }
+}
+
+/* Restore roomy album popup hero template without changing current typography */
+@media(min-width:1051px){
+  .linerAlbumPage{
+    padding-top:30px!important;
+  }
+  .linerHero{
+    grid-template-columns:430px minmax(0,1fr)!important;
+    min-height:560px!important;
+    gap:70px!important;
+    align-items:center!important;
+    margin-top:4px!important;
+  }
+  .linerCover{
+    width:400px!important;
+    max-width:400px!important;
+    justify-self:center!important;
+    transform:none!important;
+  }
+  .linerCover .cover{
+    width:100%!important;
+    max-width:100%!important;
+    aspect-ratio:1/1!important;
+  }
+  .linerHeroCopy{
+    max-width:760px!important;
+  }
+  .linerHero:before{
+    inset:-130px -70px -92px -70px!important;
+    background-position:var(--hero-position,50% 50%)!important;
+    transform:scale(1.08)!important;
+    opacity:.56!important;
+  }
+  .linerHero:after{
+    right:-70px!important;
+    top:-106px!important;
+    width:52%!important;
+    height:650px!important;
+    background-size:cover!important;
+    background-position:var(--hero-position,50% 50%)!important;
+    opacity:.38!important;
+  }
+}
+
+/* Widen album popup hero without stretching it vertically */
+@media(min-width:1051px){
+  #albumModal .modalPanel{
+    width:min(1720px,99vw)!important;
+  }
+  .linerAlbumPage{
+    padding:22px 58px 36px!important;
+  }
+  .linerHero{
+    grid-template-columns:430px minmax(0,1fr)!important;
+    min-height:430px!important;
+    gap:76px!important;
+    align-items:center!important;
+    margin-top:0!important;
+  }
+  .linerCover{
+    width:390px!important;
+    max-width:390px!important;
+    justify-self:center!important;
+    transform:none!important;
+  }
+  .linerCover .cover{
+    width:100%!important;
+    max-width:100%!important;
+    aspect-ratio:1/1!important;
+  }
+  .linerHeroCopy{
+    max-width:760px!important;
+  }
+  .linerHero:before{
+    inset:-98px -70px -58px -70px!important;
+    transform:scale(1.06)!important;
+    opacity:.54!important;
+  }
+  .linerHero:after{
+    right:-70px!important;
+    top:-82px!important;
+    width:52%!important;
+    height:520px!important;
+    opacity:.38!important;
+  }
+}
+
+/* Album popup title weight only */
+.linerHeroCopy h2{
+  font-weight:900!important;
+}
