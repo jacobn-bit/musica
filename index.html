@@ -1,10 +1,24 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Musica - Find Music Worth Listening To</title>
-  <link rel="stylesheet" href="styles.css?v=clear-phone-overviews1">
+  <link rel="stylesheet" href="styles.css?v=mobile-score-hard-reset4">
+  <script>
+    (function(){
+      try{
+        var version="mobile-live-score-reset-2026-05-18-4";
+        var previous=localStorage.getItem("musicaClientDataVersion");
+        if(previous!==version){
+          ["musicaCustomOverviews","musicaLocalAlbums","musicaLocalRatings"].forEach(function(key){localStorage.removeItem(key);});
+          localStorage.setItem("musicaClientDataVersion",version);
+        }
+        if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(registrations){registrations.forEach(function(reg){reg.unregister();});}).catch(function(){});}
+        if(window.caches){caches.keys().then(function(keys){keys.forEach(function(key){caches.delete(key);});}).catch(function(){});}
+      }catch(error){}
+    })();
+  </script>
 </head>
 <body>
   <div class="app">
@@ -99,9 +113,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=clear-phone-overviews1"></script>
+  <script src="app-final-spotify.js?v=mobile-score-hard-reset4"></script>
 </body>
 </html>
+
 
 
 
