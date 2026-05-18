@@ -5680,3 +5680,16 @@ body.light .overviewEditorText{background:#fff!important;color:#111827!important
   filter:grayscale(.02) saturate(1.08) contrast(1.10)!important;
   opacity:.42!important;
 }
+
+
+/* Remove duplicated hologram layer from back-cover hero */
+.linerHero.backCoverHero:before{
+  background:linear-gradient(90deg,rgba(2,6,8,.97) 0%,rgba(2,6,8,.68) 34%,rgba(2,6,8,.36) 58%,rgba(2,6,8,.86) 100%),var(--hero-scene),var(--album-cover)!important;
+  filter:saturate(1.05) contrast(1.05)!important;
+  transform:none!important;
+  opacity:.78!important;
+}
+.linerHero.backCoverHero:after{
+  background:none!important;
+  opacity:0!important;
+}
