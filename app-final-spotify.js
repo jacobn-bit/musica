@@ -10,7 +10,7 @@
 const cfg=window.MUSICA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.includes("PASTE_")&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_ANON_KEY.includes("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
-const MUSICA_CLIENT_DATA_VERSION="mobile-live-score-reset-2026-05-18-4";
+const MUSICA_CLIENT_DATA_VERSION="mobile-live-score-reset-2026-05-18-6";
 function isLocalRuntime(){return location.protocol==="file:"||["localhost","127.0.0.1",""].includes(location.hostname)}
 function resetStaleClientData(){
   try{
@@ -116,26 +116,36 @@ window.unlockOverviewAdmin=async function(){
     const res=await fetch("/.netlify/functions/admin-overview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"verify",pin})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok){
-      if(res.status===404){finishAdminUnlock(pin,"Admin mode unlocked locally for testing. Deploy to Netlify for public admin saves.");return}
+      if(res.status===404&&isLocalRuntime()){finishAdminUnlock(pin,"Admin mode unlocked locally for testing. Deploy to Netlify for public admin saves.");return}
       alert(data.error||"Admin PIN was not accepted.");return
     }
     finishAdminUnlock(pin);
   }catch(error){
-    finishAdminUnlock(pin,"Admin mode unlocked locally for testing. Deploy to Netlify for public admin saves.");
+    if(isLocalRuntime()){finishAdminUnlock(pin,"Admin mode unlocked locally for testing. Deploy to Netlify for public admin saves.");return}
+    alert("Admin function could not be reached on Netlify. Check that netlify/functions/admin-overview.js is uploaded and Netlify has MUSICA_ADMIN_PIN set.");
   }
 }
 async function loadCustomOverviews(){
-  extras.overviews={};
+  const protectedLiveScores={
+    "life after death":{album_key:"life after death",title:"Life After Death (2014 Remastered Edition)",artist:"The Notorious B.I.G.",admin_score:9.1,admin_ratings_count:5}
+  };
+  extras.overviews={...protectedLiveScores};
   const localOverviews=JSON.parse(localStorage.getItem("musicaCustomOverviews")||"{}");
-  if(!db){extras.overviews=isLocalRuntime()?localOverviews:{};return extras.overviews}
-  const {data,error}=await db.from("album_overviews").select("album_key,title,artist,overview,loved_track_key,loved_track_name,admin_ratings_count,admin_score,hero_focus,moment_focus,hero_image,moment_image");
+  if(!db){extras.overviews=isLocalRuntime()?{...protectedLiveScores,...localOverviews}:protectedLiveScores;return extras.overviews}
+  const {data,error}=await db.from("album_overviews").select("album_key,title,artist,overview,loved_track_key,loved_track_name,admin_ratings_count,admin_score,hero_focus,moment_focus");
   localStorage.removeItem("musicaCustomOverviews");
   if(!error&&data){
-    extras.overviews=Object.fromEntries(data.map(row=>[row.album_key,row]));
+    extras.overviews={...protectedLiveScores,...Object.fromEntries(data.map(row=>[row.album_key,row]))};
+    try{
+      const optional=await db.from("album_overviews").select("album_key,hero_image,moment_image");
+      if(!optional.error&&optional.data){
+        optional.data.forEach(row=>{extras.overviews[row.album_key]={...(extras.overviews[row.album_key]||{}),...row}});
+      }
+    }catch(optionalError){}
     return extras.overviews;
   }
-  console.warn("Could not load album_overviews from Supabase; refusing stale local overview scores on deployed site.",error);
-  extras.overviews={};
+  console.warn("Could not load album_overviews from Supabase; using protected public score overrides only.",error);
+  extras.overviews=protectedLiveScores;
   return extras.overviews;
 }function albumBaseOverview(a){
   const key=overviewKey(a);
@@ -1889,6 +1899,10 @@ loadData();
 
 
 window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+
+
+
+
 
 
 
