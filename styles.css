@@ -5647,3 +5647,18 @@ body.light .overviewEditorText{background:#fff!important;color:#111827!important
 .linerCoverFlip .cover{width:100%!important;height:100%!important;}
 .backCoverLoading{width:100%;height:100%;display:grid;place-items:center;text-align:center;color:rgba(255,255,255,.72);font-weight:850;font-size:15px;padding:24px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(0,0,0,.34));}
 .backCoverLabel{position:absolute;left:14px;bottom:14px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font-size:11px;font-weight:850;letter-spacing:.04em;text-transform:uppercase;}
+
+
+/* Back cover hero background restored only when archive art exists */
+.linerHero.backCoverHero:before{
+  background:linear-gradient(90deg,rgba(2,6,8,.99) 0%,rgba(2,6,8,.90) 45%,rgba(2,6,8,.82) 64%,rgba(2,6,8,.96) 100%),var(--hero-scene),var(--album-cover)!important;
+  background-size:cover!important;
+  background-position:var(--hero-position,50% 50%)!important;
+  opacity:.28!important;
+}
+.linerHero.backCoverHero:after{
+  background:linear-gradient(90deg,rgba(2,6,8,.58) 0%,rgba(2,6,8,.72) 52%,rgba(2,6,8,.94) 100%),var(--hero-scene),var(--album-cover)!important;
+  background-size:cover!important;
+  background-position:var(--hero-position,50% 50%)!important;
+  opacity:.09!important;
+}
