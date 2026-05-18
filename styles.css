@@ -5605,3 +5605,45 @@ body.light .overviewEditorText{background:#fff!important;color:#111827!important
 .linerHeroCopy h2{
   font-weight:900!important;
 }
+
+/* Softer album popup hero background image */
+@media(min-width:1051px){
+  .linerHero:before{
+    background:
+      linear-gradient(90deg,rgba(2,6,8,.99) 0%,rgba(2,6,8,.90) 45%,rgba(2,6,8,.82) 64%,rgba(2,6,8,.96) 100%),
+      var(--hero-scene),
+      var(--album-cover)!important;
+    opacity:.34!important;
+  }
+  .linerHero:after{
+    background:
+      linear-gradient(90deg,rgba(2,6,8,.46) 0%,rgba(2,6,8,.62) 52%,rgba(2,6,8,.92) 100%),
+      var(--hero-scene),
+      var(--album-cover)!important;
+    opacity:.10!important;
+  }
+}
+@media(max-width:1050px){
+  .linerHero:before{opacity:.28!important;}
+  .linerHero:after{opacity:.07!important;}
+}
+
+/* Remove album popup hero background image for cleaner focus */
+.linerHero:before,
+.linerHero:after{
+  background-image:none!important;
+  background:none!important;
+  opacity:0!important;
+}
+
+
+/* Cover Art Archive album-cover flip: keeps the existing layout, only swaps the cover face */
+.linerCoverFlip{position:relative!important;width:100%!important;aspect-ratio:1/1!important;perspective:1200px!important;cursor:pointer!important;}
+.linerCoverFlip .linerCoverFace{position:absolute!important;inset:0!important;backface-visibility:hidden!important;transform-style:preserve-3d!important;transition:transform .48s ease!important;}
+.linerCoverFlip .linerCoverFront{transform:rotateY(0deg)!important;}
+.linerCoverFlip .linerCoverBack{transform:rotateY(180deg)!important;}
+.linerCoverFlip[data-flipped="1"] .linerCoverFront{transform:rotateY(-180deg)!important;}
+.linerCoverFlip[data-flipped="1"] .linerCoverBack{transform:rotateY(0deg)!important;}
+.linerCoverFlip .cover{width:100%!important;height:100%!important;}
+.backCoverLoading{width:100%;height:100%;display:grid;place-items:center;text-align:center;color:rgba(255,255,255,.72);font-weight:850;font-size:15px;padding:24px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(0,0,0,.34));}
+.backCoverLabel{position:absolute;left:14px;bottom:14px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font-size:11px;font-weight:850;letter-spacing:.04em;text-transform:uppercase;}
