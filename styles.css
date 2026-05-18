@@ -5662,3 +5662,21 @@ body.light .overviewEditorText{background:#fff!important;color:#111827!important
   background-position:var(--hero-position,50% 50%)!important;
   opacity:.09!important;
 }
+
+
+/* Stronger visible back-cover hero background */
+.linerHero.backCoverHero:before{
+  background:linear-gradient(90deg,rgba(2,6,8,.99) 0%,rgba(2,6,8,.74) 36%,rgba(2,6,8,.44) 58%,rgba(2,6,8,.86) 100%),var(--hero-scene),var(--album-cover)!important;
+  background-size:cover!important;
+  background-position:var(--hero-position,50% 50%)!important;
+  filter:blur(10px) saturate(1.08) contrast(1.08)!important;
+  transform:scale(1.03)!important;
+  opacity:.72!important;
+}
+.linerHero.backCoverHero:after{
+  background:linear-gradient(90deg,rgba(2,6,8,.10) 0%,rgba(2,6,8,.30) 48%,rgba(2,6,8,.78) 100%),var(--hero-scene),var(--album-cover)!important;
+  background-size:cover!important;
+  background-position:var(--hero-position,50% 50%)!important;
+  filter:grayscale(.02) saturate(1.08) contrast(1.10)!important;
+  opacity:.42!important;
+}
