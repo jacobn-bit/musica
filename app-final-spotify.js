@@ -112,9 +112,15 @@ window.unlockOverviewAdmin=async function(){
 }
 async function loadCustomOverviews(){
   extras.overviews={};
-  const localOverviews=JSON.parse(localStorage.getItem("musicaCustomOverviews")||"{}");if(!db){extras.overviews=localOverviews;return extras.overviews}
+  const localOverviews=JSON.parse(localStorage.getItem("musicaCustomOverviews")||"{}");
+  if(!db){extras.overviews=localOverviews;return extras.overviews}
   const {data,error}=await db.from("album_overviews").select("album_key,title,artist,overview,loved_track_key,loved_track_name,admin_ratings_count,admin_score,hero_focus,moment_focus,hero_image,moment_image");
-  if(!error&&data)extras.overviews=Object.fromEntries(data.map(row=>[row.album_key,row]));extras.overviews={...localOverviews,...extras.overviews};
+  if(!error&&data){
+    extras.overviews=Object.fromEntries(data.map(row=>[row.album_key,row]));
+    localStorage.removeItem("musicaCustomOverviews");
+    return extras.overviews;
+  }
+  extras.overviews=localOverviews;
   return extras.overviews;
 }
 function albumBaseOverview(a){
