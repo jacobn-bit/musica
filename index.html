@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Musica - Find Music Worth Listening To</title>
-  <link rel="stylesheet" href="styles.css?v=popup-hero-gold4">
+  <title>Muze - Find Music Worth Listening To</title>
+  <link rel="stylesheet" href="styles.css?v=muze-lockup-refine1">
   <script>
     (function(){
       try{
@@ -25,18 +25,19 @@
     <header class="topbar">
       <button id="menuBtn" class="menuBtn">&#9776;</button>
       <div class="brandWrap">
-        <div class="brand">Musica</div>
+        <img class="brandLogo" src="Muze%20Logo%20Transparent%20Wordmark%20104.png" alt="Muze">
         <div class="tagline">Know what's worth listening to.</div>
       </div>
       <div class="notificationWrap">
         <button id="notificationBell" class="ghost notificationBell" aria-label="Notifications"><span class="notificationBellGlyph">&#128276;&#65038;</span><span id="notificationBadge" class="notificationBadge hidden">0</span></button>
         <div id="notificationPanel" class="notificationPanel hidden"></div>
       </div>
+      <button id="authButton" class="authButton" type="button"><span class="authButtonIcon" aria-hidden="true"></span><span class="authButtonLabel">Login / Sign Up</span></button>
     </header>
 
     <aside id="sideNav" class="sideNav">
       <button id="closeNav" class="closeNav">&times;</button>
-      <div class="navBrand">Musica</div>
+      <div class="navBrand">Muze</div>
       <div class="navUserBox"><span id="navUsername">Not signed in</span><button id="navSetUsername" class="navTinyBtn">Set username</button></div>
       <button class="navItem active" data-view="rankings">Homepage</button>
       <button class="navItem" data-view="discover">Discover</button>
@@ -101,13 +102,38 @@
     <div class="modalPanel">
       <button id="closeAddModal" class="close cleanClose" aria-label="Close add album popup"><span class="cleanCloseIcon" aria-hidden="true"></span></button>
       <h2 id="addModalTitle">Add album from Spotify</h2>
-      <p id="addModalCopy" class="muted">Search an album and artist. Choose the correct result and Musica pulls the cover, year, and Spotify link automatically.</p>
+      <p id="addModalCopy" class="muted">Search an album and artist. Choose the correct result and Muze pulls the cover, year, and Spotify link automatically.</p>
       <div class="addSearch">
         <input id="spotifyQuery" placeholder="Example: Abbey Road The Beatles">
         <button id="spotifySearchBtn" class="bigBtn">Search</button>
       </div>
       <div id="spotifyStatus" class="muted"></div>
       <div id="spotifyResults" class="spotifyResults"></div>
+    </div>
+  </div>
+
+  <div id="authModal" class="modal authModal hidden" aria-hidden="true">
+    <div class="modalPanel authPanel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <button id="closeAuthModal" class="close cleanClose" aria-label="Close login popup"><span class="cleanCloseIcon" aria-hidden="true"></span></button>
+      <p class="eyebrow">Muze account</p>
+      <h2 id="authTitle">Log in to Muze</h2>
+      <p id="authPrompt" class="authPrompt">Log in to join the conversation.</p>
+      <div id="authLoggedOut">
+        <div class="authModes" role="tablist" aria-label="Authentication mode">
+          <button id="authLoginMode" class="active" type="button">Log In</button>
+          <button id="authSignupMode" type="button">Sign Up</button>
+        </div>
+        <form id="authForm" class="authForm">
+          <label>Email<input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+          <label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Password"></label>
+          <button id="authSubmit" class="bigBtn" type="submit">Log In</button>
+        </form>
+      </div>
+      <div id="authLoggedIn" class="authLoggedIn hidden">
+        <p>Signed in as <strong id="authUserEmail"></strong></p>
+        <button id="authLogout" class="bigBtn" type="button">Log Out</button>
+      </div>
+      <p id="authStatus" class="authStatus" aria-live="polite"></p>
     </div>
   </div>
 

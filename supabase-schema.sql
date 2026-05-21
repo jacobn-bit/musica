@@ -54,11 +54,24 @@ create policy "Anyone can add albums" on albums for insert with check (true);
 drop policy if exists "Anyone can read ratings" on ratings;
 create policy "Anyone can read ratings" on ratings for select using (true);
 
+-- Authenticated community writes:
+-- Public browsing and read access stay open through the select policies above and below.
+-- Logged-out users are blocked from ratings, reviews, comments, replies, libraries, and follows.
+-- These policy changes preserve existing albums, ratings, reviews, comments, and library data.
 drop policy if exists "Anyone can add ratings" on ratings;
-create policy "Anyone can add ratings" on ratings for insert with check (true);
+drop policy if exists "Authenticated users can add ratings" on ratings;
+create policy "Authenticated users can add ratings" on ratings
+for insert
+to authenticated
+with check (true);
 
 drop policy if exists "Anyone can update ratings" on ratings;
-create policy "Anyone can update ratings" on ratings for update using (true);
+drop policy if exists "Authenticated users can update ratings" on ratings;
+create policy "Authenticated users can update ratings" on ratings
+for update
+to authenticated
+using (true)
+with check (true);
 
 
 -- Comments and per-song ratings
@@ -91,16 +104,29 @@ drop policy if exists "Anyone can read album comments" on album_comments;
 create policy "Anyone can read album comments" on album_comments for select using (true);
 
 drop policy if exists "Anyone can add album comments" on album_comments;
-create policy "Anyone can add album comments" on album_comments for insert with check (true);
+drop policy if exists "Authenticated users can add album comments" on album_comments;
+create policy "Authenticated users can add album comments" on album_comments
+for insert
+to authenticated
+with check (true);
 
 drop policy if exists "Anyone can read track ratings" on track_ratings;
 create policy "Anyone can read track ratings" on track_ratings for select using (true);
 
 drop policy if exists "Anyone can add track ratings" on track_ratings;
-create policy "Anyone can add track ratings" on track_ratings for insert with check (true);
+drop policy if exists "Authenticated users can add track ratings" on track_ratings;
+create policy "Authenticated users can add track ratings" on track_ratings
+for insert
+to authenticated
+with check (true);
 
 drop policy if exists "Anyone can update track ratings" on track_ratings;
-create policy "Anyone can update track ratings" on track_ratings for update using (true);
+drop policy if exists "Authenticated users can update track ratings" on track_ratings;
+create policy "Authenticated users can update track ratings" on track_ratings
+for update
+to authenticated
+using (true)
+with check (true);
 
 
 
@@ -130,7 +156,11 @@ drop policy if exists "Anyone can read track comments" on track_comments;
 create policy "Anyone can read track comments" on track_comments for select using (true);
 
 drop policy if exists "Anyone can add track comments" on track_comments;
-create policy "Anyone can add track comments" on track_comments for insert with check (true);
+drop policy if exists "Authenticated users can add track comments" on track_comments;
+create policy "Authenticated users can add track comments" on track_comments
+for insert
+to authenticated
+with check (true);
 
 drop policy if exists "Anyone can delete track comments" on track_comments;
 
@@ -185,20 +215,37 @@ drop policy if exists "Anyone can read libraries" on user_libraries;
 create policy "Anyone can read libraries" on user_libraries for select using (true);
 
 drop policy if exists "Anyone can publish libraries" on user_libraries;
-create policy "Anyone can publish libraries" on user_libraries for insert with check (true);
+drop policy if exists "Authenticated users can publish libraries" on user_libraries;
+create policy "Authenticated users can publish libraries" on user_libraries
+for insert
+to authenticated
+with check (true);
 
 drop policy if exists "Anyone can update own library device" on user_libraries;
-create policy "Anyone can update own library device" on user_libraries for update using (true);
+drop policy if exists "Authenticated users can update libraries" on user_libraries;
+create policy "Authenticated users can update libraries" on user_libraries
+for update
+to authenticated
+using (true)
+with check (true);
 
 -- Allows the app's Remove library button to delete a mistaken public library.
 drop policy if exists "Anyone can remove libraries" on user_libraries;
-create policy "Anyone can remove libraries" on user_libraries for delete using (true);
+drop policy if exists "Authenticated users can remove libraries" on user_libraries;
+create policy "Authenticated users can remove libraries" on user_libraries
+for delete
+to authenticated
+using (true);
 
 drop policy if exists "Anyone can read library follows" on library_follows;
 create policy "Anyone can read library follows" on library_follows for select using (true);
 
 drop policy if exists "Anyone can follow libraries" on library_follows;
-create policy "Anyone can follow libraries" on library_follows for insert with check (true);
+drop policy if exists "Authenticated users can follow libraries" on library_follows;
+create policy "Authenticated users can follow libraries" on library_follows
+for insert
+to authenticated
+with check (true);
 
 drop view if exists library_feed;
 create or replace view library_feed as
@@ -249,7 +296,11 @@ drop policy if exists "Anyone can read album comment replies" on album_comment_r
 create policy "Anyone can read album comment replies" on album_comment_replies for select using (true);
 
 drop policy if exists "Anyone can add album comment replies" on album_comment_replies;
-create policy "Anyone can add album comment replies" on album_comment_replies for insert with check (true);
+drop policy if exists "Authenticated users can add album comment replies" on album_comment_replies;
+create policy "Authenticated users can add album comment replies" on album_comment_replies
+for insert
+to authenticated
+with check (true);
 
 -- Admin-selected most loved song for album popups
 alter table album_overviews add column if not exists loved_track_key text;

@@ -1,6 +1,6 @@
 {
-  "name": "Musica",
-  "short_name": "Musica",
+  "name": "Muze",
+  "short_name": "Muze",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0f0f12",
