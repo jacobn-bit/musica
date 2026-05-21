@@ -139,11 +139,180 @@ window.requireAuth=requireAuth;
 window.gateLikeAction=function(){requireAuth("like",()=>window.gateLikeAction())}
 function spotifyAlbumSummary(a){const year=a.year||String(a.release_date||"").slice(0,4);const trackCount=Number(a.total_tracks||0);const type=(a.album_type||"album").replace(/_/g," ");let parts=[];if(year)parts.push(`released in ${year}`);if(trackCount)parts.push(`${trackCount} track${trackCount===1?"":"s"}`);const detail=parts.length?` This ${type} was ${parts.join(" with ")}.`:"";return `${a.title} by ${a.artist}.${detail}`}
 function cleanAlbumSummary(a){const generated=spotifyAlbumSummary(a);let summary=String(a.summary||generated||"Added to Muze.");summary=summary.replace(/\s+was added from Spotify\./i,".");summary=summary.replace(/^Added from Spotify\.?$/i,generated);summary=summary.replace(/\.\s*\./g,".");return summary}
+const genreRules=[
+  {label:"Progressive Metal",tests:["progressive metal","prog metal","tool lateralus"]},
+  {label:"Progressive Rock",tests:["progressive rock","prog rock","art rock","pink floyd"]},
+  {label:"Alternative Rock",tests:["alternative rock","grunge","indie rock","modern rock","permanent wave","post-grunge","smashing pumpkins","foo fighters","weezer","john frusciante","red hot chili peppers","nirvana nevermind"]},
+  {label:"Folk Rock",tests:["folk rock","roots rock","singer songwriter","singer-songwriter","bob dylan highway 61"]},
+  {label:"Pop Rock",tests:["pop rock","beach boys pet sounds","fleetwood mac rumours"]},
+  {label:"Gothic Metal",tests:["gothic metal","goth metal","type o negative"]},
+  {label:"Pop Punk",tests:["pop punk","blink 182"]},
+  {label:"Punk Rock",tests:["punk rock","skate punk","the offspring","offspring","green day"]},
+  {label:"Psychedelic Rock",tests:["psychedelic rock","the doors"]},
+  {label:"Hip-Hop",tests:["hip hop","hip-hop","rap","pop rap","trap","drill","east coast hip hop","west coast rap","gangster rap","hardcore hip hop","kendrick lamar","nas illmatic","notorious b i g","2pac","tupac","eminem","fugees"]},
+  {label:"R&B",tests:["r&b","r and b","rnb","rhythm and blues","quiet storm"]},
+  {label:"Indie Pop",tests:["indie pop","bedroom pop","chamber pop"]},
+  {label:"Electronic",tests:["electronic","electronica","edm","house","techno","ambient","synthpop"]},
+  {label:"Alternative",tests:["alternative","indie","shoegaze","post-rock","radiohead"]},
+  {label:"Metal",tests:["metal","alternative metal","thrash","doom","black metal","death metal","nu metal","metallica"]},
+  {label:"Punk",tests:["punk","hardcore","emo"]},
+  {label:"Soul",tests:["soul","funk","motown","neo soul","stevie wonder"]},
+  {label:"Folk",tests:["folk","singer-songwriter"]},
+  {label:"Jazz",tests:["jazz","bebop","fusion"]},
+  {label:"Reggae",tests:["reggae","ska","dub"]},
+  {label:"Country",tests:["country","americana","bluegrass"]},
+  {label:"Rock",tests:["rock","album rock","classic rock","blues rock","hard rock","glam rock","beatles","queen","kiss","david bowie","george harrison","paul mccartney","jimi hendrix","rolling stones","led zeppelin"]},
+  {label:"Pop",tests:["pop","dance pop","art pop","new wave","taylor swift","harry styles","michael jackson thriller"]}
+];
+const albumGenreOverrides={
+  "the beatles::abbey road":"Rock",
+  "the beatles::revolver":"Rock",
+  "the beatles::rubber soul":"Rock",
+  "the beatles::sgt pepper s lonely hearts club band":"Rock",
+  "the beatles::the beatles":"Rock",
+  "the beatles::the white album":"Rock",
+  "the beatles::white album":"Rock",
+  "michael jackson::thriller":"Pop",
+  "bob dylan::highway 61 revisited":"Folk Rock",
+  "nirvana::nevermind":"Alternative Rock",
+  "tool::lateralus":"Progressive Metal",
+  "jimi hendrix::experience hendrix":"Rock",
+  "the jimi hendrix experience::experience hendrix":"Rock",
+  "the notorious b i g::ready to die":"Hip-Hop",
+  "notorious b i g::ready to die":"Hip-Hop",
+  "the beach boys::pet sounds":"Pop Rock",
+  "beach boys::pet sounds":"Pop Rock",
+  "fugees::the score":"Hip-Hop",
+  "pink floyd::the dark side of the moon":"Progressive Rock",
+  "pink floyd::wish you were here":"Progressive Rock",
+  "pink floyd::animals":"Progressive Rock",
+  "pink floyd::the wall":"Progressive Rock",
+  "queen::a night at the opera":"Rock",
+  "david bowie::the rise and fall of ziggy stardust and the spiders from mars":"Rock",
+  "the smashing pumpkins::mellon collie and the infinite sadness":"Alternative Rock",
+  "the smashing pumpkins::siamese dream":"Alternative Rock",
+  "2pac::all eyez on me":"Hip-Hop",
+  "2pac::me against the world":"Hip-Hop",
+  "deftones::white pony":"Alternative Metal",
+  "the offspring::smash":"Punk Rock"
+};
+const artistGenreOverrides={
+  "the beatles":"Rock",
+  "beatles":"Rock",
+  "smashing pumpkins":"Alternative Rock",
+  "the smashing pumpkins":"Alternative Rock",
+  "2pac":"Hip-Hop",
+  "tupac":"Hip-Hop",
+  "tupac shakur":"Hip-Hop",
+  "queen":"Rock",
+  "taylor swift":"Pop",
+  "deftones":"Alternative Metal",
+  "kiss":"Rock",
+  "george harrison":"Rock",
+  "harry styles":"Pop",
+  "paul mccartney":"Rock",
+  "wings":"Rock",
+  "paul mccartney and wings":"Rock",
+  "david bowie":"Rock",
+  "the offspring":"Punk Rock",
+  "offspring":"Punk Rock",
+  "weezer":"Alternative Rock",
+  "foo fighters":"Rock",
+  "cat stevens":"Folk Rock",
+  "yusuf":"Folk Rock",
+  "yusuf cat stevens":"Folk Rock",
+  "silverchair":"Alternative Rock",
+  "john frusciante":"Alternative Rock",
+  "ben harper":"Folk Rock",
+  "ben harper and the innocent criminals":"Folk Rock",
+  "type o negative":"Gothic Metal",
+  "blink 182":"Pop Punk",
+  "green day":"Punk Rock",
+  "the doors":"Psychedelic Rock",
+  "doors":"Psychedelic Rock",
+  "jimi hendrix":"Rock",
+  "the jimi hendrix experience":"Rock",
+  "bob dylan":"Folk Rock",
+  "the beach boys":"Pop Rock",
+  "beach boys":"Pop Rock",
+  "notorious b i g":"Hip-Hop",
+  "the notorious b i g":"Hip-Hop",
+  "eminem":"Hip-Hop",
+  "fugees":"Hip-Hop",
+  "red hot chili peppers":"Alternative Rock",
+  "tool":"Progressive Metal",
+  "pink floyd":"Progressive Rock",
+  "metallica":"Metal",
+  "michael jackson":"Pop",
+  "nirvana":"Alternative Rock",
+  "kendrick lamar":"Hip-Hop",
+  "nas":"Hip-Hop",
+  "stevie wonder":"Soul"
+};
+function genreKey(value){return String(value||"").toLowerCase().replace(/&/g,"and").replace(/\([^)]*\)/g," ").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim()}
+function normalizeMatchKey(value){
+  return genreKey(value)
+    .replace(/\b(remaster(?:ed)?|live|deluxe|expanded|anniversary|edition|version|mono|stereo|bonus|explicit|clean|original|soundtrack|compilation|greatest hits|best of|collection)\b/g," ")
+    .replace(/\b(the)\b/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+function normalizeArtistKey(value){return normalizeMatchKey(value).replace(/\b(feat|featuring|with|and)\b/g," ").replace(/\s+/g," ").trim()}
+function partialOverrideLookup(map,value){
+  const normalized=normalizeArtistKey(value);
+  if(!normalized)return "";
+  if(map[normalized])return map[normalized];
+  const padded=` ${normalized} `;
+  const entries=Object.entries(map).map(([key,label])=>[normalizeArtistKey(key),label]).sort((a,b)=>b[0].length-a[0].length);
+  const exact=entries.find(([key])=>key&&normalized===key);
+  if(exact)return exact[1];
+  const partial=entries.find(([key])=>key&&key.length>2&&(padded.includes(` ${key} `)||` ${key} `.includes(padded)));
+  return partial?partial[1]:"";
+}
+function validGenreCandidate(value){
+  const cleaned=genreKey(value);
+  return cleaned&&cleaned!=="album"&&cleaned!=="classic"&&cleaned!=="essential"&&cleaned!=="masterpiece"&&cleaned!=="timeless"&&cleaned!=="modern classic";
+}
+function genreCandidateGroup(values){
+  return values.filter(validGenreCandidate);
+}
+function albumArtistGenreCandidates(album){
+  return Array.isArray(album?.artist_genres)?genreCandidateGroup(album.artist_genres):[];
+}
+function albumStoredGenreCandidates(album){
+  const candidates=[album?.cached_genre,album?.stored_genre,album?.genre_label,album?.genre_name,album?.category,album?.primary_genre,album?.spotify_genre,album?.tag];
+  if(Array.isArray(album?.genres))candidates.push(...album.genres);
+  return genreCandidateGroup(candidates);
+}
+function albumGenreCandidates(album){
+  return genreCandidateGroup([album?.genre,...albumArtistGenreCandidates(album),...albumStoredGenreCandidates(album),`${album?.artist||""} ${album?.title||""}`,album?.artist]);
+}
+function normalizeGenreLabel(value){
+  const text=genreKey(value);
+  if(!text)return "";
+  for(const rule of genreRules){if(rule.tests.some(test=>text.includes(test)))return rule.label}
+  return "";
+}
+function albumGenreLabel(album){
+  const artist=normalizeArtistKey(album?.artist);
+  const title=normalizeMatchKey(album?.title);
+  const direct=validGenreCandidate(album?.genre)?normalizeGenreLabel(album.genre)||String(album.genre).trim():"";
+  if(direct)return direct;
+  for(const candidate of albumArtistGenreCandidates(album)){const label=normalizeGenreLabel(candidate);if(label)return label}
+  for(const candidate of albumStoredGenreCandidates(album)){const label=normalizeGenreLabel(candidate);if(label)return label}
+  const exact=albumGenreOverrides[`${artist}::${title}`]||partialOverrideLookup(albumGenreOverrides,`${artist}::${title}`);
+  if(exact)return exact;
+  const artistLabel=partialOverrideLookup(artistGenreOverrides,artist);
+  if(artistLabel)return artistLabel;
+  for(const candidate of [`${artist} ${title}`,artist]){const label=normalizeGenreLabel(candidate);if(label)return label}
+  return "Album";
+}
+function genreSearchText(album){return [albumGenreLabel(album),...albumGenreCandidates(album)].join(" ")}
 function beautifulAlbumDescription(a){
   const title=String(a.title||"This album").trim();
   const artist=String(a.artist||"the artist").trim();
   const year=a.year||String(a.release_date||"").slice(0,4);
-  const genre=String(a.genre||a.tag||"").trim();
+  const genre=String(albumGenreLabel(a)||a.tag||"").trim();
   const rating=Number(score(a)||a.avg_rating||0);
   const saved=String(a.summary||"").trim();
   const factual=spotifyAlbumSummary(a);
@@ -209,26 +378,28 @@ function normalizeOverviewTitle(value){return String(value||"").toLowerCase().re
 function overviewKey(a){return normalizeOverviewTitle(a?.title)}
 function isAdminUnlocked(){return sessionStorage.getItem("musicaAdminUnlocked")==="1"}
 function syncAdminUnlockButton(){const btn=$("#adminOverviewUnlock");if(btn)btn.textContent=isAdminUnlocked()?"Admin overview unlocked":"Admin overview"}
+function adminDebug(label,details){console.debug("[Muze admin]",label,details)}
 function finishAdminUnlock(pin,message){
   sessionStorage.setItem("musicaAdminUnlocked","1");
-  sessionStorage.setItem("musicaAdminPin",pin);
+  sessionStorage.setItem("musicaAdminPin",String(pin||"").trim());
   syncAdminUnlockButton();
   alert(message||"Admin overview editing is unlocked for this browser tab.");
 }
 window.unlockOverviewAdmin=async function(){
-  const pin=(prompt("Enter your Muze admin PIN:")||"").trim();
+  const pin=String(prompt("Enter your Muze admin PIN:")||"").trim();
   if(!pin)return;
+  adminDebug("unlock start",{pinLength:pin.length,isLocalRuntime:isLocalRuntime(),hadCachedPin:Boolean(sessionStorage.getItem("musicaAdminPin"))});
   try{
     const res=await fetch("/.netlify/functions/admin-overview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"verify",pin})});
     const data=await res.json().catch(()=>({}));
+    adminDebug("unlock response",{status:res.status,ok:res.ok,serverDebug:data.debug||null});
     if(!res.ok){
-      if(res.status===404&&isLocalRuntime()){finishAdminUnlock(pin,"Admin mode unlocked locally for testing. Deploy to Netlify for public admin saves.");return}
       alert(data.error||"Admin PIN was not accepted.");return
     }
     finishAdminUnlock(pin);
   }catch(error){
-    if(isLocalRuntime()){finishAdminUnlock(pin,"Admin mode unlocked locally for testing. Deploy to Netlify for public admin saves.");return}
-    alert("Admin function could not be reached on Netlify. Check that netlify/functions/admin-overview.js is uploaded and Netlify has MUSICA_ADMIN_PIN set.");
+    adminDebug("unlock network error",{message:error.message,isLocalRuntime:isLocalRuntime()});
+    alert("Admin function could not be reached. Use Netlify Dev locally or the deployed Netlify site, and make sure MUSICA_ADMIN_PIN is configured.");
   }
 }
 async function loadCustomOverviews(){
@@ -294,26 +465,148 @@ function saveLocalRatings(r){localStorage.setItem("musicaLocalRatings",JSON.stri
 function coverKey(a){return `${(a.artist||"").toLowerCase().trim()}::${(a.title||"").toLowerCase().trim()}`}
 function coverCache(){return JSON.parse(localStorage.getItem("musicaCoverCache")||"{}")}
 function saveCoverCache(cache){localStorage.setItem("musicaCoverCache",JSON.stringify(cache))}
-function backCoverCache(){return JSON.parse(localStorage.getItem("musicaBackCoverCache")||"{}")}
-function saveBackCoverCache(cache){localStorage.setItem("musicaBackCoverCache",JSON.stringify(cache))}
+const BACK_COVER_CACHE_KEY="musicaBackCoverCacheV3";
+function backCoverDebug(label,details){console.debug("[Muze back cover]",label,details)}
+function backCoverCache(){
+  try{
+    const cache=JSON.parse(localStorage.getItem(BACK_COVER_CACHE_KEY)||"{}");
+    if(Object.keys(cache).length)return cache;
+    const oldCache=JSON.parse(localStorage.getItem("musicaBackCoverCache")||"{}");
+    const migrated={};
+    Object.entries(oldCache).forEach(([key,value])=>{if(value&&value!=="__none__")migrated[key]=value});
+    if(Object.keys(migrated).length)localStorage.setItem(BACK_COVER_CACHE_KEY,JSON.stringify(migrated));
+    return migrated;
+  }catch(error){return {}}
+}
+function saveBackCoverCache(cache){localStorage.setItem(BACK_COVER_CACHE_KEY,JSON.stringify(cache))}
+function backCoverUrlFromResponse(data){
+  if(!data)return "";
+  const direct=data.back_url||data.backCoverUrl||data.backCoverImage||data.backArtwork||data.back_cover_url||data.url||data.image_url||data.image||"";
+  if(direct)return direct;
+  const image=(data.images||[]).find(item=>item?.back||String(item?.type||"").toLowerCase()==="back"||(item?.types||[]).some(type=>String(type).toLowerCase()==="back"));
+  return image?.back_url||image?.url||image?.image_url||image?.image||"";
+}
+function cleanBackCoverLookupText(value){
+  return String(value||"")
+    .replace(/\([^)]*(live|remaster|edition)[^)]*\)/ig," ")
+    .replace(/\[[^\]]*\]/g," ")
+    .replace(/\b(remastered|remaster|deluxe|expanded|anniversary|edition|explicit|clean|version|mono|stereo|bonus|disc|cd)\b/ig," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+function normalizeBackCoverLookupText(value){
+  return cleanBackCoverLookupText(value).toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim();
+}
+function escapeMusicBrainzQuery(value){return String(value||"").replace(/([+\-!(){}\[\]^"~*?:\\/])/g,"\\$1")}
+function backCoverImageUrl(image){
+  const url=image?.thumbnails?.["1200"]||image?.thumbnails?.large||image?.thumbnails?.["500"]||image?.image||"";
+  return String(url||"").replace(/^http:\/\//i,"https://");
+}
+function pickBackCoverImage(images){
+  return (images||[]).find(img=>img.back===true)||(images||[]).find(img=>(img.types||[]).some(type=>String(type).toLowerCase()==="back"));
+}
+function scoreBackCoverRelease(release,wantedTitle,wantedArtist,wantedYear){
+  const title=normalizeBackCoverLookupText(release?.title);
+  const artist=normalizeBackCoverLookupText((release?.["artist-credit"]||[]).map(item=>item.name||item.artist?.name||"").join(" "));
+  const year=String(release?.date||"").slice(0,4);
+  let score=Number(release?.score||0);
+  if(title===wantedTitle)score+=35;
+  else if(title.includes(wantedTitle)||wantedTitle.includes(title))score+=15;
+  if(artist.includes(wantedArtist)||wantedArtist.includes(artist))score+=25;
+  if(wantedYear&&year===wantedYear)score+=15;
+  if(String(release?.status||"").toLowerCase()==="official")score+=8;
+  if(String(release?.["primary-type"]||"").toLowerCase()==="album")score+=8;
+  return score;
+}
+async function findBackCoverDirectFromArchive(album){
+  const cleanTitle=cleanBackCoverLookupText(album?.title);
+  const cleanArtist=cleanBackCoverLookupText(album?.artist);
+  if(!cleanTitle||!cleanArtist)return "";
+  const wantedTitle=normalizeBackCoverLookupText(cleanTitle);
+  const wantedArtist=normalizeBackCoverLookupText(cleanArtist);
+  const wantedYear=String(album?.year||"").slice(0,4);
+  const title=escapeMusicBrainzQuery(cleanTitle);
+  const artist=escapeMusicBrainzQuery(cleanArtist);
+  const queries=[
+    `release:"${title}" artist:"${artist}"`,
+    `release:${title} artist:${artist}`,
+    `"${title}" artist:"${artist}"`,
+    `${title} ${artist}`,
+    `release:"${title}"`
+  ];
+  backCoverDebug("direct browser lookup start",{title:cleanTitle,artist:cleanArtist,queries});
+  const releases=[];
+  for(const query of queries){
+    try{
+      const res=await fetch(`https://musicbrainz.org/ws/2/release?query=${encodeURIComponent(query)}&limit=25&fmt=json`,{cache:"no-store"});
+      const data=await res.json().catch(()=>null);
+      backCoverDebug("direct musicbrainz response",{query,status:res.status,ok:res.ok,count:data?.releases?.length||0});
+      if(res.ok&&data?.releases)releases.push(...data.releases);
+    }catch(error){backCoverDebug("direct musicbrainz error",{query,message:error.message})}
+  }
+  const seen=new Set();
+  const candidates=releases.filter(release=>release?.id&&!seen.has(release.id)&&seen.add(release.id))
+    .sort((a,b)=>scoreBackCoverRelease(b,wantedTitle,wantedArtist,wantedYear)-scoreBackCoverRelease(a,wantedTitle,wantedArtist,wantedYear))
+    .slice(0,12);
+  backCoverDebug("direct candidates",candidates.map(release=>({id:release.id,title:release.title,date:release.date,score:scoreBackCoverRelease(release,wantedTitle,wantedArtist,wantedYear)})));
+  for(const release of candidates){
+    try{
+      const res=await fetch(`https://coverartarchive.org/release/${release.id}/`,{cache:"no-store"});
+      const data=await res.json().catch(()=>null);
+      backCoverDebug("direct cover archive response",{releaseId:release.id,title:release.title,status:res.status,ok:res.ok,imageCount:data?.images?.length||0});
+      if(!res.ok)continue;
+      const back=pickBackCoverImage(data?.images);
+      const url=backCoverImageUrl(back);
+      if(url)return url;
+    }catch(error){backCoverDebug("direct cover archive error",{releaseId:release.id,message:error.message})}
+  }
+  return "";
+}
 async function findBackCoverFromArchive(a){
   const key=coverKey(a);
   const cache=backCoverCache();
-  if(cache[key])return cache[key]==="__none__"?"":cache[key];
+  if(cache[key]&&cache[key]!=="__none__"){
+    backCoverDebug("cache hit",{key,url:cache[key]});
+    return cache[key];
+  }
+  if(cache[key]==="__none__"){
+    delete cache[key];
+    saveBackCoverCache(cache);
+    backCoverDebug("dropped stale not-found cache",{key});
+  }
   const params=new URLSearchParams({title:a.title||"",artist:a.artist||"",year:String(a.year||"")});
   const query=params.toString();
   const endpoints=["/.netlify/functions/cover-art?"+query];
   if(location.protocol==="file:"||["localhost","127.0.0.1",""].includes(location.hostname))endpoints.push("https://lucent-cucurucho-2eda91.netlify.app/.netlify/functions/cover-art?"+query);
   let data=null;
+  let url="";
+  backCoverDebug("lookup start",{key,title:a.title,artist:a.artist,year:a.year,endpoints});
   for(const endpoint of endpoints){
     try{
-      const res=await fetch(endpoint,{cache:"force-cache"});
-      if(res.ok){data=await res.json();break}
-    }catch(error){}
+      const bust=endpoint+(endpoint.includes("?")?"&":"?")+"v=backcover-restore-1";
+      const res=await fetch(bust,{cache:"no-store"});
+      data=await res.json().catch(()=>null);
+      backCoverDebug("api response",{endpoint,status:res.status,ok:res.ok,data});
+      const candidate=backCoverUrlFromResponse(data);
+      if(res.ok&&data?.found&&candidate){url=candidate;break}
+    }catch(error){
+      backCoverDebug("api error",{endpoint,message:error.message});
+    }
   }
-  const url=data&&data.found&&data.back_url?data.back_url:"";
-  cache[key]=url||"__none__";
-  saveBackCoverCache(cache);
+  if(url){
+    cache[key]=url;
+    saveBackCoverCache(cache);
+    backCoverDebug("resolved",{key,url});
+  }else{
+    url=await findBackCoverDirectFromArchive(a).catch(error=>{backCoverDebug("direct browser lookup failed",{key,message:error.message});return ""});
+    if(url){
+      cache[key]=url;
+      saveBackCoverCache(cache);
+      backCoverDebug("resolved by direct browser fallback",{key,url});
+    }else{
+      backCoverDebug("not found",{key,lastResponse:data});
+    }
+  }
   return url;
 }
 function applyCachedCovers(){const cache=coverCache();state.albums.forEach(a=>{const cached=cache[coverKey(a)];if(!a.cover_url&&cached)a.cover_url=cached})}
@@ -363,17 +656,54 @@ function listCover(a){
   return `<div class="listCover"><img src="${escapeHtml(url)}" onerror="this.hidden=true" alt="${escapeHtml(a.title||"Album cover")}"><span>${escapeHtml(coverText(a))}</span></div>`
 }
 function flippableAlbumCover(a,albumId){
-  return `<div class="linerCoverFlip" data-flipped="0" onclick="flipAlbumCover('${escapeJsString(albumId)}')" title="Click album cover to flip"><div class="linerCoverFace linerCoverFront">${cover(a)}</div><div class="linerCoverFace linerCoverBack"><div class="cover"><div class="backCoverLoading">Back cover</div></div></div></div>`;
+  return `<div class="linerCoverFlip" data-flipped="0" onclick="flipAlbumCover('${escapeJsString(albumId)}')" title="Click album cover to flip"><div class="linerCoverFlipCard"><div class="linerCoverFace linerCoverFront">${cover(a)}</div><div class="linerCoverFace linerCoverBack"><div class="cover"><div class="backCoverLoading">Back cover</div></div></div></div></div>`;
+}
+function comparableImageUrl(url){
+  return String(url||"").trim().split("?")[0].replace(/\/+$/,"").toLowerCase();
+}
+function isRealBackCoverUrl(album,url){
+  return !!url&&comparableImageUrl(url)!==comparableImageUrl(album?.cover_url);
+}
+function albumBackCoverField(album){
+  return album?.backCoverUrl||album?.backCoverImage||album?.backArtwork||album?.back_cover_url||album?.back_url||"";
+}
+function setBackCoverFace(album,url){
+  const flip=document.querySelector(".linerCoverFlip");
+  const backFace=flip?.querySelector(".linerCoverBack .cover");
+  if(!flip||!backFace||!isRealBackCoverUrl(album,url)){backCoverDebug("rejected back face url",{title:album?.title,artist:album?.artist,url,front:album?.cover_url});return false}
+  flip.dataset.backCoverUrl=url;
+  flip.dataset.backCoverSource="back-cover-api";
+  backFace.innerHTML=`<img src="${escapeHtml(url)}" alt="${escapeHtml(album.title||"Album")} back cover"><span class="backCoverLabel">Back cover</span>`;
+  backCoverDebug("back face set",{title:album?.title,artist:album?.artist,url});
+  return true;
+}
+async function resolveBackCoverUrl(album){
+  if(!album)return "";
+  const hero=document.querySelector(`.linerHero[data-album-id="${CSS.escape(String(album.id))}"]`);
+  const existing=albumBackCoverField(album)||hero?.dataset.backCoverUrl||document.querySelector(".linerCoverFlip")?.dataset.backCoverUrl||"";
+  if(isRealBackCoverUrl(album,existing)){backCoverDebug("using existing url",{title:album.title,artist:album.artist,url:existing});return existing}
+  const cache=backCoverCache();
+  const key=coverKey(album);
+  if(cache[key]&&!isRealBackCoverUrl(album,cache[key])){
+    const invalidValue=cache[key];
+    delete cache[key];
+    saveBackCoverCache(cache);
+    backCoverDebug("removed invalid cached url",{key,value:invalidValue});
+  }
+  const url=await findBackCoverFromArchive(album).catch(()=>"");
+  backCoverDebug("resolved final",{title:album.title,artist:album.artist,url,isReal:isRealBackCoverUrl(album,url)});
+  return isRealBackCoverUrl(album,url)?url:"";
 }
 async function applyBackCoverHero(album){
   if(!album)return;
   const hero=document.querySelector(`.linerHero[data-album-id="${CSS.escape(String(album.id))}"]`);
   if(!hero)return;
-  const url=await findBackCoverFromArchive(album).catch(()=>"");
+  const url=await resolveBackCoverUrl(album);
   if(!url)return;
   hero.style.setProperty("--hero-scene",`url("${url}")`);
   hero.dataset.backCoverUrl=url;
   hero.classList.add("backCoverHero");
+  setBackCoverFace(album,url);
   ensureBackCoverZoomHotspot(hero,url);
 }
 function ensureBackCoverZoomHotspot(hero,url){
@@ -420,18 +750,28 @@ function closeBackCoverZoom(){
 document.addEventListener("keydown",event=>{if(event.key==="Escape")closeBackCoverZoom()});
 window.flipAlbumCover=async function(albumId){
   const album=state.albums.find(x=>String(x.id)===String(albumId));
-  applyBackCoverHero(album);
   const flip=document.querySelector(".linerCoverFlip");
   if(!album||!flip)return;
   if(flip.dataset.flipped==="1"){flip.dataset.flipped="0";return}
   const backFace=flip.querySelector(".linerCoverBack .cover");
   if(!backFace)return;
+  const existing=flip.dataset.backCoverUrl||"";
+  if(isRealBackCoverUrl(album,existing)){
+    setBackCoverFace(album,existing);
+    flip.dataset.flipped="1";
+    return;
+  }
   let img=backFace.querySelector("img");
-  if(!img){
+  if(img&&isRealBackCoverUrl(album,img.getAttribute("src"))){
+    flip.dataset.backCoverUrl=img.getAttribute("src")||"";
+    flip.dataset.flipped="1";
+    return;
+  }
+  if(!img||!isRealBackCoverUrl(album,img.getAttribute("src"))){
     backFace.innerHTML='<div class="backCoverLoading">Finding back cover...</div>';
-    const url=await findBackCoverFromArchive(album).catch(()=>"");
-    if(!url){backFace.innerHTML='<div class="backCoverLoading">No back cover found</div>';setTimeout(()=>{flip.dataset.flipped="0"},900);return}
-    backFace.innerHTML=`<img src="${escapeHtml(url)}" alt="${escapeHtml(album.title||"Album")} back cover"><span class="backCoverLabel">Back cover</span>`;
+    const url=await resolveBackCoverUrl(album);
+    if(!url){backFace.innerHTML='<div class="backCoverLoading">Back cover unavailable</div>';flip.dataset.flipped="1";return}
+    setBackCoverFace(album,url);
   }
   flip.dataset.flipped="1";
 }
@@ -754,7 +1094,7 @@ async function resolveSpotifyAlbum(album,force=false){
   try{
     const query=`${album.title||""} ${album.artist||""}`.trim();
     if(!query)return album;
-    const res=await fetchWithTimeout(`/.netlify/functions/album-search?q=${encodeURIComponent(query)}&v=resolve1`,{cache:"no-store"},8000);
+    const res=await fetchWithTimeout(`/.netlify/functions/album-search?q=${encodeURIComponent(query)}&v=resolve-genre3`,{cache:"no-store"},8000);
     if(!res.ok)return album;
     const data=await res.json();
     const match=(data.albums||[]).map(item=>({item,score:spotifyAlbumCandidateScore(item,album)})).filter(x=>x.score>=55).sort((a,b)=>b.score-a.score)[0]?.item;
@@ -762,6 +1102,8 @@ async function resolveSpotifyAlbum(album,force=false){
     album.spotify_id=match.spotify_id;
     album.spotify_url=album.spotify_url||match.spotify_url||"";
     album.cover_url=album.cover_url||match.cover_url||"";
+    album.genre=albumGenreLabel({...album,...match});
+    album.artist_genres=match.artist_genres||album.artist_genres||[];
     return album;
   }catch(e){return album}
 }
@@ -854,7 +1196,7 @@ function renderTrackList(albumId){
     const lovedRowAdmin=`<button class="trackDots" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">•••</button>`;
     return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><button class="trackLove" onclick="gateLikeAction()" aria-label="Like ${escapeHtml(track.name)}">&#9825;</button>${lovedRowAdmin}</div>`;
   }).join("");
-  const featuredHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>Most loved moment</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p><em>- community review</em>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K</span></div><div class="momentWhy"><strong>Why it hits</strong><span>Most replayed track</span><span>Feel-good classic</span><span>appears in 136 playlists</span></div><div class="featureCover">${coverHtml}</div></section>`;
+  const featuredHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>“The production on this is untouchable. Every bar hits.”</p><em>- community review</em>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K</span></div><div class="momentWhy"><strong>Why it hits</strong><span>Most replayed track</span><span>Feel-good classic</span><span>appears in 136 playlists</span></div><div class="featureCover">${coverHtml}</div></section>`;
   const tableHtml=`<section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Title</span><span>Community score</span><span>Vibes</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
   host.innerHTML=featuredHtml+tableHtml;
 }
@@ -1060,20 +1402,21 @@ window.toggleAllReactions=function(){
 }
 function canUseLocalAdminFallback(action){return ["set_album_score","set_rating_count","set_loved_track","set_hero_focus","set_moment_focus","set_hero_image","set_moment_image"].includes(action)}
 async function adminOverviewRequest(payload){
-  const pin=sessionStorage.getItem("musicaAdminPin")||"";
+  const pin=String(sessionStorage.getItem("musicaAdminPin")||"").trim();
   if(!pin){alert("Please unlock admin mode first.");return null}
+  adminDebug("request start",{action:payload.action,pinLength:pin.length,isLocalRuntime:isLocalRuntime()});
   try{
     const res=await fetch("/.netlify/functions/admin-overview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,pin})});
     const data=await res.json().catch(()=>({}));
+    adminDebug("request response",{action:payload.action,status:res.status,ok:res.ok,serverDebug:data.debug||null});
     if(!res.ok){
-      if(res.status===404&&isLocalRuntime()&&canUseLocalAdminFallback(payload.action))return {ok:true,localOnly:true};
       alert(data.error||"Admin action failed.");
       return null;
     }
     return data;
   }catch(error){
-    if(isLocalRuntime()&&canUseLocalAdminFallback(payload.action))return {ok:true,localOnly:true};
-    alert("Admin action failed. Please use the deployed Netlify site for admin changes.");
+    adminDebug("request network error",{action:payload.action,message:error.message,isLocalRuntime:isLocalRuntime()});
+    alert("Admin action failed. Use Netlify Dev locally or the deployed Netlify site so the admin function can validate MUSICA_ADMIN_PIN.");
     return null;
   }
 }
@@ -1321,7 +1664,7 @@ window.uploadAlbumVisualImage=function(albumId,kind){
       }else{
         await persistAlbumVisualImage(albumId,"moment_image",image);
         renderTrackList(albumId);
-        alert("Most Loved Moment image uploaded. Drag the banner or use Move banner image to crop it.");
+        alert("Most Loved Track image uploaded. Drag the banner or use Move banner image to crop it.");
       }
     }catch(error){alert(error.message||"Image upload failed.")}
   };
@@ -1334,7 +1677,7 @@ window.setMomentImageFocus=function(albumId){
   const key=overviewKey(album);
   const previous=extras.overviews[key]||{};
   const current=previous.moment_focus||albumMomentFocus(album);
-  const answer=(prompt(`Move the Most Loved Moment image for "${album.title}".\n\nEnter horizontal and vertical percentages, for example:\n50 35 = centered and higher\n50 50 = centered middle\n50 65 = centered lower`,current)||"").trim();
+  const answer=(prompt(`Move the Most Loved Track image for "${album.title}".\n\nEnter horizontal and vertical percentages, for example:\n50 35 = centered and higher\n50 50 = centered middle\n50 65 = centered lower`,current)||"").trim();
   if(!answer)return;
   const parts=answer.split(/[ ,]+/).map(Number).filter(Number.isFinite);
   if(parts.length<2){alert("Please enter two numbers, like 50 45.");return}
@@ -1443,7 +1786,10 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
 
 function updateNavUsername(){
   const el=$("#navUsername");
-  if(el)el.textContent=currentUsername()?"@"+currentUsername():"Not signed in";
+  const button=$("#navSetUsername");
+  const username=currentUsername();
+  if(el)el.textContent=username?"@"+username:"Sign in to save albums, rate music, and build your library.";
+  if(button)button.textContent=username?"Edit profile":"Sign in / Create account";
   renderNotifications();
 }
 function followerSeenKey(){return "musicaSeenFollowers::"+state.deviceId}
@@ -1473,7 +1819,7 @@ function albumToLibraryItem(a){return {
   title:a.title,
   artist:a.artist,
   year:a.year||"",
-  genre:a.genre||"Album",
+  genre:albumGenreLabel(a),
   cover_url:a.cover_url||"",
   spotify_url:a.spotify_url||"",
   summary:a.summary||"",
@@ -1483,7 +1829,7 @@ function sortedLibraryItems(items){return items.slice()}
 function liveLibraryItem(item){
   const album=state.albums.find(a=>String(a.id)===String(item.id))||existingAlbumMatch(item);
   if(!album)return item;
-  return {...item,id:String(album.id),title:album.title,artist:album.artist,year:album.year||item.year||"",genre:album.genre||item.genre||"Album",cover_url:album.cover_url||item.cover_url||"",spotify_url:album.spotify_url||item.spotify_url||"",summary:album.summary||item.summary||"",rating:displayScore(album),ratings_count:count(album)};
+  return {...item,id:String(album.id),title:album.title,artist:album.artist,year:album.year||item.year||"",genre:albumGenreLabel(album),cover_url:album.cover_url||item.cover_url||"",spotify_url:album.spotify_url||item.spotify_url||"",summary:album.summary||item.summary||"",rating:displayScore(album),ratings_count:count(album)};
 }
 function liveLibraryItems(items){return sortedLibraryItems(items).map(liveLibraryItem)}
 function librarySimilarity(items){
@@ -1638,7 +1984,7 @@ async function removeLibrary(libraryId){
 function ensureLibraryAlbum(item){
   let existing=state.albums.find(a=>String(a.id)===String(item.id))||existingAlbumMatch(item);
   if(existing)return existing;
-  const album={id:String(item.id),title:item.title,artist:item.artist,year:item.year||"",genre:item.genre||"Album",cover_url:item.cover_url||"",spotify_url:item.spotify_url||"",summary:item.summary||"",avg_rating:Number(item.rating||0),ratings_count:1};
+  const album={id:String(item.id),title:item.title,artist:item.artist,year:item.year||"",genre:albumGenreLabel(item),cover_url:item.cover_url||"",spotify_url:item.spotify_url||"",summary:item.summary||"",avg_rating:Number(item.rating||0),ratings_count:1};
   state.albums.push(album);
   return album;
 }
@@ -1677,7 +2023,7 @@ function libraryGenreLabel(genres){
   return genres[0]+" essentials";
 }
 function libraryGenreTags(genres,items){
-  const fallback=items.map(item=>item.genre).filter(Boolean);
+  const fallback=items.map(item=>albumGenreLabel(item)).filter(Boolean);
   return [...new Set([...(genres||[]),...fallback].filter(Boolean).filter(g=>String(g).toLowerCase()!=="album"))].slice(0,3);
 }
 function libraryTinyAlbum(item){
@@ -1701,7 +2047,7 @@ function libraryBlock(library){
   const canRemove=(isMine||(currentUsername()&&String(library.username||"").toLowerCase()===currentUsername().toLowerCase())||isAdminUnlocked())&&library.id;
   const followers=Number(library.followers_count||0);
   const albumCount=Number(library.album_count||items.length||0);
-  const genres=[...new Set(items.map(item=>item.genre).filter(Boolean))].slice(0,3);
+  const genres=[...new Set(items.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);
   const tags=libraryGenreTags(genres,items);
   const avatar=(library.username||library.title||"L").trim().slice(0,1).toUpperCase()||"L";
   const mineItems=liveLibraryItems(myLibraryItems());
@@ -1740,10 +2086,10 @@ function librariesView(){
   content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries <span>?</span></h2><p>Explore people through the albums they choose.</p></div><div class="mockLibraryTools"><label><span>?</span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, people, albums..."></label><button onclick="openLibrarySpotifyAdd()">+ Add album</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle"><div><strong>Community Libraries</strong><button>For you?</button></div><button onclick="setLibrarySearch('')">See all</button></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid">${community.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>${libraryRecommendationPanel()}`;
 }
 window.setLibrarySearch=function(value){state.librarySearch=value;librariesView()}
-function genres(){return["All",...new Set(state.albums.map(a=>a.genre).filter(Boolean))]}
-function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();return(state.genre==="All"||x.genre===state.genre)&&(`${x.title} ${x.artist} ${x.genre||""}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
-function card(a){return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button><div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(a.genre||"Album")}</span></div></article>`}
-function row(a,i){return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.genre||"")} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
+function genres(){return["All",...new Set(state.albums.map(albumGenreLabel).filter(Boolean))]}
+function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();const label=albumGenreLabel(x);return(state.genre==="All"||label===state.genre)&&(`${x.title} ${x.artist} ${genreSearchText(x)}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
+function card(a){const genreLabel=albumGenreLabel(a);return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button><div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(genreLabel)}</span></div></article>`}
+function row(a,i){const genreLabel=albumGenreLabel(a);return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(genreLabel)} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
 function render(){let arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;const heroCard=$("#heroCard");if(heroCard){if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}}$("#genreFilter").innerHTML=genres().map(g=>`<option ${g===state.genre?"selected":""}>${escapeHtml(g)}</option>`).join("");
 if(state.view==="rankings")content.innerHTML=state.sort==="hidden"?`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`:`<div class="sectionTitle"><h2>Top Albums</h2><span class="muted">${arr.length} results</span></div><div class="grid">${arr.map(card).join("")}</div>`;
 if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
@@ -1788,8 +2134,28 @@ function albumMomentFocus(album){
   if(text.includes("bob dylan")||text.includes("rolling stone"))return "50% 31%";
   return "50% 33%";
 }
+function albumAmbientStyleVars(album){
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
+  let tint={rgb:"255,190,48",soft:"255,217,128",strength:.10};
+  if(text.includes("nevermind")||text.includes("nirvana")){
+    tint={rgb:"78,178,218",soft:"132,214,238",strength:.105};
+  }else if(text.includes("thriller")||text.includes("michael jackson")){
+    tint={rgb:"255,187,54",soft:"255,222,132",strength:.12};
+  }else if(text.includes("abbey road")||text.includes("beatles")){
+    tint={rgb:"226,163,82",soft:"255,219,148",strength:.11};
+  }else if(text.includes("metal")||text.includes("metallica")||text.includes("master of puppets")||text.includes("type o negative")){
+    tint={rgb:"88,150,230",soft:"145,190,255",strength:.105};
+  }else if(text.includes("radiohead")||text.includes("ok computer")){
+    tint={rgb:"104,154,190",soft:"162,196,218",strength:.095};
+  }else if(text.includes("hip-hop")||text.includes("rap")||text.includes("nas")||text.includes("kendrick")){
+    tint={rgb:"214,154,64",soft:"255,210,126",strength:.095};
+  }else if(text.includes("soul")||text.includes("jazz")||text.includes("stevie")){
+    tint={rgb:"226,174,88",soft:"255,226,150",strength:.105};
+  }
+  return `;--album-ambient-rgb:${tint.rgb};--album-ambient-soft-rgb:${tint.soft};--album-ambient-strength:${tint.strength}`;
+}
 function albumVibeTags(album){
-  const text=`${album.title||""} ${album.artist||""} ${album.genre||""}`.toLowerCase();
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
   if(text.includes("radiohead")||text.includes("ok computer"))return ["anxious","cinematic","late-night","alienated"];
   if(text.includes("nirvana")||text.includes("nevermind"))return ["explosive","raw","restless","anthemic"];
   if(text.includes("beatles")||text.includes("abbey"))return ["timeless","melodic","warm","iconic"];
@@ -1800,7 +2166,7 @@ function albumVibeTags(album){
   return ["immersive","personal","replayable","talked-about"];
 }
 function albumHeroLine(album){
-  const text=`${album.title||""} ${album.artist||""} ${album.genre||""}`.toLowerCase();
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
   const lines=[
     [/nirvana|nevermind/,"The album that dragged alternative rock into the mainstream."],
     [/abbey road|the beatles/,"A golden final stretch of melody, warmth, and farewell."],
@@ -1834,7 +2200,7 @@ function albumHeroLine(album){
   return "Every listen feels like a new discovery.";
 }
 function albumReturnBody(album){
-  const text=`${album.title||""} ${album.artist||""} ${album.genre||""}`.toLowerCase();
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
   if(text.includes("nevermind")||text.includes("nirvana"))return "The tension is immediate, the hooks are wounded, and the whole record still sounds like it is breaking through the room.";
   if(text.includes("abbey road")||text.includes("beatles"))return "The production is polished, the melodies are generous, and each replay reveals another small piece of warmth.";
   if(text.includes("thriller")||text.includes("michael jackson"))return "The production is cinematic, the hooks are physical, and every track feels designed for shared memory.";
@@ -1855,7 +2221,7 @@ function renderListenerCards(comments){
     return `<article class="listenerCard"><div class="listenerCardAvatar">${avatar}</div><div><strong>${name}</strong><span>${timeAgo(c.created_at)}</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><small>&#9825; ${likes}</small></article>`;
   }).join(""):`<div class="listenerCard empty">No listener reactions yet.</div>`;
 }function albumHeroPullQuotes(album){
-  const text=`${album.title||""} ${album.artist||""} ${album.genre||""}`.toLowerCase();
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
   if(text.includes("nirvana")||text.includes("nevermind"))return ["Still sounds dangerous","Raw feeling, no polish","A generation breaking open"];
   if(text.includes("abbey road")||text.includes("beatles"))return ["Melody that keeps returning","Warmth, farewell, legacy","A record people live with"];
   if(text.includes("thriller")||text.includes("michael jackson"))return ["Pop as pure spectacle","Every hook lands","The room changes when it plays"];
@@ -1866,7 +2232,7 @@ function renderListenerCards(comments){
   return ["Listeners keep returning","A mood you can step into","Taste forming in real time"];
 }
 function albumHeroCenterpiece(album){
-  const text=`${album.title||""} ${album.artist||""} ${album.genre||""}`.toLowerCase();
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
   if(text.includes("nirvana")||text.includes("nevermind"))return "Why people return: the songs still feel unstable, immediate, and alive, like every chorus is pushing against the walls.";
   if(text.includes("abbey road")||text.includes("beatles"))return "Why people return: the melodies feel effortless, but the emotion keeps unfolding with every replay.";
   if(text.includes("thriller")||text.includes("michael jackson"))return "Why people return: every track feels engineered for movement, memory, and shared electricity.";
@@ -1876,7 +2242,7 @@ function albumHeroCenterpiece(album){
   if(text.includes("rock")||text.includes("alternative"))return "Why people return: the energy is immediate, but the feeling underneath keeps changing shape.";
   return "Why people return: this record leaves a distinct emotional trace, giving listeners something to replay, argue for, and make their own.";
 }function albumCommunityPull(album){
-  const text=`${album.title||""} ${album.artist||""} ${album.genre||""}`.toLowerCase();
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
   if(text.includes("radiohead")||text.includes("ok computer"))return "92% say this album sounds better after midnight.";
   if(text.includes("nirvana")||text.includes("nevermind"))return "Most listeners come back for the moments that still feel volatile.";
   if(text.includes("beatles")||text.includes("abbey"))return "Frequently replayed when listeners want melody, warmth, and legacy.";
@@ -1886,7 +2252,7 @@ function albumHeroCenterpiece(album){
   return "This album is becoming a small meeting place for strong opinions.";
 }
 function albumReactionWhispers(album){
-  const text=`${album.title||""} ${album.artist||""} ${album.genre||""}`.toLowerCase();
+  const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
   if(text.includes("radiohead"))return ["“That tension never lets go”","“Best after midnight”","“Every detail matters”"];
   if(text.includes("nirvana"))return ["“Still sounds dangerous”","“That chorus detonates”","“Pure catharsis”"];
   if(text.includes("beatles"))return ["“The melodies keep giving”","“Timeless for a reason”","“Warm from front to back”"];
@@ -1894,14 +2260,14 @@ function albumReactionWhispers(album){
   return ["“That transition destroyed me”","“Gets better at night”","“Replay material”"];
 }
 function artistAlbumRow(a){return`<div class="artistAlbumRow" onclick="openAlbum('${escapeJsString(a.id)}')">${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong>${count(a)>0?`<span>${count(a).toLocaleString()} ratings</span>`:""}</div><div class="artistAlbumScore">${score(a)>0?displayScore(a):""}</div></div>`}
-function artistGenres(){const counts={};state.albums.forEach(a=>{if(a.genre)counts[a.genre]=(counts[a.genre]||0)+1});return ["Popular",...Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([genre])=>genre)]}
+function artistGenres(){const counts={};state.albums.forEach(a=>{const label=albumGenreLabel(a);if(label&&label!=="Album")counts[label]=(counts[label]||0)+1});return ["Popular",...Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([genre])=>genre)]}
 function artistRank(name){let albums=state.albums.filter(a=>a.artist===name);let rated=albums.filter(a=>score(a)>0||count(a)>0);let totalRatings=rated.reduce((sum,a)=>sum+count(a),0);let avg=rated.length?rated.reduce((sum,a)=>sum+score(a),0)/rated.length:0;let top=rated.length?Math.max(...rated.map(a=>score(a))):0;return {ratedCount:rated.length,totalRatings,avg,top}}
-function artistNames(){let names=[...new Set(state.albums.map(a=>a.artist).filter(Boolean))];let q=state.artistSearch.toLowerCase().trim();let filtered=names.filter(name=>{let albums=state.albums.filter(a=>a.artist===name);let letterOk=state.artistLetter==="All"||String(name).trim().toUpperCase().startsWith(state.artistLetter);let genreOk=state.artistGenre==="All"||state.artistGenre==="Popular"||albums.some(a=>a.genre===state.artistGenre);let searchOk=!q||String(name).toLowerCase().includes(q)||albums.some(a=>`${a.title} ${a.genre||""}`.toLowerCase().includes(q));return letterOk&&genreOk&&searchOk});return filtered.sort((a,b)=>{let ra=artistRank(a),rb=artistRank(b);if(state.artistGenre==="All"||state.artistGenre==="Popular"){if(!!rb.ratedCount!==!!ra.ratedCount)return rb.ratedCount?1:-1;if(rb.avg!==ra.avg)return rb.avg-ra.avg;if(rb.top!==ra.top)return rb.top-ra.top;if(rb.totalRatings!==ra.totalRatings)return rb.totalRatings-ra.totalRatings}return a.localeCompare(b)})}
+function artistNames(){let names=[...new Set(state.albums.map(a=>a.artist).filter(Boolean))];let q=state.artistSearch.toLowerCase().trim();let filtered=names.filter(name=>{let albums=state.albums.filter(a=>a.artist===name);let letterOk=state.artistLetter==="All"||String(name).trim().toUpperCase().startsWith(state.artistLetter);let genreOk=state.artistGenre==="All"||state.artistGenre==="Popular"||albums.some(a=>albumGenreLabel(a)===state.artistGenre);let searchOk=!q||String(name).toLowerCase().includes(q)||albums.some(a=>`${a.title} ${genreSearchText(a)}`.toLowerCase().includes(q));return letterOk&&genreOk&&searchOk});return filtered.sort((a,b)=>{let ra=artistRank(a),rb=artistRank(b);if(state.artistGenre==="All"||state.artistGenre==="Popular"){if(!!rb.ratedCount!==!!ra.ratedCount)return rb.ratedCount?1:-1;if(rb.avg!==ra.avg)return rb.avg-ra.avg;if(rb.top!==ra.top)return rb.top-ra.top;if(rb.totalRatings!==ra.totalRatings)return rb.totalRatings-ra.totalRatings}return a.localeCompare(b)})}
 function renderArtistResults(){let artists=artistNames();let grid=$("#artistResults");let count=$("#artistCount");if(count)count.textContent=artists.length+" artist"+(artists.length===1?"":"s");if(grid)grid.innerHTML=artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>'}
 function artistPage(){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=artistGenres();let artists=artistNames();let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${artists.length} artist${artists.length===1?"":"s"}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div><div id="artistResults" class="artistGrid">${artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>'}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;render()}
 window.setArtistGenre=function(genre){state.artistGenre=genre==="Popular"?"All":genre;render()}
 window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults()}
-function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let genres=[...new Set(d.map(a=>a.genre).filter(Boolean))].slice(0,3);let hero=d.find(a=>a.cover_url)||d[0]||{};let totalRatings=d.reduce((sum,a)=>sum+count(a),0);let featured=d.slice(0,4);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(hero.cover_url||"")}')"><div><h3>${escapeHtml(name)}</h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${d.length} album${d.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${artistScoreLabel(d)}${totalRatings?`<span>${totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${featured.map(artistAlbumRow).join("")}</div></section>`}
+function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let genres=[...new Set(d.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);let hero=d.find(a=>a.cover_url)||d[0]||{};let totalRatings=d.reduce((sum,a)=>sum+count(a),0);let featured=d.slice(0,4);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(hero.cover_url||"")}')"><div><h3>${escapeHtml(name)}</h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${d.length} album${d.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${artistScoreLabel(d)}${totalRatings?`<span>${totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${featured.map(artistAlbumRow).join("")}</div></section>`}
 
 window.openAlbum=function(id){
   let a=state.albums.find(x=>String(x.id)===String(id));
@@ -1916,11 +2282,15 @@ window.openAlbum=function(id){
   const heroFocus=escapeHtml(savedOverview.hero_focus||"50% 50%");
   const heroSceneUrl=escapeHtml(albumHeroSceneImage(a)||a.cover_url||"");
   const momentCoverUrl=escapeHtml(albumMomentImage(a)||a.cover_url||heroSceneUrl||"");
-  const pageImageStyle=` style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus};--moment-cover:url('${momentCoverUrl}')"`;
+  const pageImageStyle=` style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus};--moment-cover:url('${momentCoverUrl}')${albumAmbientStyleVars(a)}"`;
   const summary=albumHeroLine(a);
   const customOverview=albumCustomOverview(a);
   const canEditOverview=isAdminUnlocked();
-  const tags=[a.genre||"Album",a.year?String(a.year):"Classic","Community pick"].filter(Boolean).slice(0,4);
+  const tags=[albumGenreLabel(a),a.year?String(a.year):"Classic","Community pick"].filter(Boolean).slice(0,4);
+  const titleText=String(a.title||"").trim();
+  const titleWords=titleText.split(/\s+/).filter(Boolean).length;
+  const albumTitleClass=titleText.length>38||titleWords>=6?"albumTitleLong":titleText.length>26||titleWords>=4?"albumTitleMedium":"";
+  const albumTitleClassAttr=albumTitleClass?` class="${albumTitleClass}"`:"";
   const scoreMood=Number(albumScore)>=9.5?"classic album":Number(albumScore)>=9?"universally acclaimed":Number(albumScore)>=8?"deeply loved":"still dividing listeners";
   const vibeTags=albumVibeTags(a).map(tag=>`<span>${escapeHtml(tag)}</span>`).join("");
   const heroMoodTags=albumVibeTags(a).slice(0,4).map(tag=>`<span>${escapeHtml(tag)}</span>`).join("");
@@ -1938,7 +2308,9 @@ window.openAlbum=function(id){
   const countStat=canEditOverview?`<button class="linerStatEdit" onclick="setAlbumRatingsCountAdmin('${albumId}')"><span>Listeners</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small><em>Edit</em></button>`:`<div><span>Listeners</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small></div>`;
   const heroSavedStrip=`<div class="heroSavedStrip"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><span>Saved by <b>${total}</b> listeners</span></div>`;
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${escapeHtml(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${escapeHtml(albumVibeTags(a).slice(0,3).join(" · "))}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence"><h4><span>&#9733;</span>Sound & Influence</h4><p>${escapeHtml(albumCommunityPull(a))}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div></div></aside>`;
-  $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album · ${escapeHtml(a.year||"")}</p><h2>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${escapeHtml(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<div class="linerSocialProof"><span>Library</span><strong>${libraryHasAlbum(a)?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></div></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}</section><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${escapeHtml(returnHeadline)}</h3></div><p>${escapeHtml(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">‹</button><button aria-label="Next reaction">›</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} · ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
+  $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album · ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${escapeHtml(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<div class="linerSocialProof"><span>Library</span><strong>${libraryHasAlbum(a)?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></div></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}</section><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${escapeHtml(returnHeadline)}</h3></div><p>${escapeHtml(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">‹</button><button aria-label="Next reaction">›</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} · ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
+  const flip=$("#albumModalContent .linerCoverFlip");
+  if(flip)flip.dataset.flipped="0";
   $("#albumModal").classList.remove("hidden");
   applyBackCoverHero(a);
   loadAlbumExtras(a);
@@ -1980,6 +2352,7 @@ async function loadData(){
     $("#setupWarning").classList.remove("hidden");
     const localOnly=isLocalRuntime();
     state.albums=[...seedAlbums.filter(a=>!hiddenSeedAlbums().includes(a.id)),...(localOnly?localAlbums():[])];
+    state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
     state.ratingMap=localOnly?localRatings():{};
     await loadCustomOverviews();
     applyCachedCovers();
@@ -1997,6 +2370,7 @@ async function loadData(){
     state.albums=[...seedAlbums,...(albums||[])];
   }
   if(!state.albums.length){state.albums=seedAlbums}
+  state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
   let {data:ratings,error:ratingsError}=await db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId);
   state.ratingMap=ratingsError?{}:Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));
   await loadCustomOverviews();
@@ -2022,7 +2396,7 @@ async function searchSpotify(){
   $("#spotifyStatus").textContent="Searching Spotify...";
   $("#spotifyResults").innerHTML="";
   try{
-    const res=await fetch(`/.netlify/functions/album-search?q=${encodeURIComponent(q)}&v=final2`,{cache:"no-store"});
+    const res=await fetch(`/.netlify/functions/album-search?q=${encodeURIComponent(q)}&v=genre3`,{cache:"no-store"});
     const text=await res.text();
     let data;
     try{data=JSON.parse(text)}catch(parseError){throw new Error("Spotify function is not returning JSON yet. Open /.netlify/functions/album-search?q=rubber%20soul to test the function directly.")}
@@ -2046,7 +2420,7 @@ async function searchSpotify(){
 }
 window.addSpotifyAlbum=async function(a){
   if(extras.spotifyTarget==="library"&&!requireAuth("save",()=>window.addSpotifyAlbum(a)))return;
-  let album={title:a.title,artist:a.artist,year:a.year,genre:"",cover_url:a.cover_url,spotify_url:a.spotify_url,summary:spotifyAlbumSummary(a),spotify_id:a.spotify_id||""};
+  let album={title:a.title,artist:a.artist,year:a.year,genre:albumGenreLabel(a),cover_url:a.cover_url,spotify_url:a.spotify_url,summary:spotifyAlbumSummary(a),spotify_id:a.spotify_id||""};
   let duplicate=existingAlbumMatch(album);
   let savedAlbum=duplicate;
   if(!savedAlbum){

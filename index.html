@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Muze - Find Music Worth Listening To</title>
-  <link rel="stylesheet" href="styles.css?v=muze-lockup-refine1">
+  <link rel="stylesheet" href="styles.css?v=back-cover-fit-v1">
   <script>
     (function(){
       try{
@@ -25,7 +25,7 @@
     <header class="topbar">
       <button id="menuBtn" class="menuBtn">&#9776;</button>
       <div class="brandWrap">
-        <img class="brandLogo" src="Muze%20Logo%20Transparent%20Wordmark%20104.png" alt="Muze">
+        <img class="brandLogo" src="/muze-logo.png" alt="Muze">
         <div class="tagline">Know what's worth listening to.</div>
       </div>
       <div class="notificationWrap">
@@ -37,15 +37,21 @@
 
     <aside id="sideNav" class="sideNav">
       <button id="closeNav" class="closeNav">&times;</button>
-      <div class="navBrand">Muze</div>
-      <div class="navUserBox"><span id="navUsername">Not signed in</span><button id="navSetUsername" class="navTinyBtn">Set username</button></div>
+      <div class="navBrand"><img class="navBrandLogo" src="/muze-logo.png" alt="Muze"></div>
+      <div class="navUserBox">
+        <div class="navUserIcon" aria-hidden="true"></div>
+        <div class="navUserCopy">
+          <span class="navUserKicker">Your Muze profile</span>
+          <strong id="navUsername">Sign in to save albums, rate music, and build your library.</strong>
+        </div>
+        <button id="navSetUsername" class="navTinyBtn">Sign in / Create account</button>
+      </div>
       <button class="navItem active" data-view="rankings">Homepage</button>
       <button class="navItem" data-view="discover">Discover</button>
       <button class="navItem" data-view="artists">Artists</button>
       <button class="navItem" data-view="myratings">My Ratings</button>
       <button class="navItem" data-view="libraries">Libraries</button>
       <button class="navItem primary" id="navAddAlbum">+ Add Album</button>
-      <button class="navTinyBtn adminOverviewUnlock" id="adminOverviewUnlock">Admin overview</button>
       <button class="themeMoonOnly" id="themeToggle" aria-label="Toggle light mode">&#9790;</button>
       <div class="navNote">Search Spotify, add albums, and let friends rate them.</div>
     </aside>
@@ -133,13 +139,14 @@
         <p>Signed in as <strong id="authUserEmail"></strong></p>
         <button id="authLogout" class="bigBtn" type="button">Log Out</button>
       </div>
+      <button class="adminOverviewUnlock" id="adminOverviewUnlock" type="button">Admin overview</button>
       <p id="authStatus" class="authStatus" aria-live="polite"></p>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=popup-hero-gold4"></script>
+  <script src="app-final-spotify.js?v=back-cover-direct-fallback-v1"></script>
 </body>
 </html>
 
