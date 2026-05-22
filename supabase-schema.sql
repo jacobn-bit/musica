@@ -15,6 +15,8 @@ create table if not exists albums (
 );
 
 alter table albums add column if not exists spotify_id text;
+alter table albums add column if not exists wikipedia_url text;
+alter table albums add column if not exists source_url text;
 
 create table if not exists ratings (
   id uuid primary key default gen_random_uuid(),
@@ -36,6 +38,8 @@ select
   a.spotify_url,
   a.summary,
   a.spotify_id,
+  a.wikipedia_url,
+  a.source_url,
   coalesce(round(avg(r.rating)::numeric, 1), 0) as avg_rating,
   count(r.rating)::int as ratings_count
 from albums a
@@ -311,6 +315,9 @@ alter table album_overviews add column if not exists admin_ratings_count int;
 
 -- Admin-displayed album Musica score override
 alter table album_overviews add column if not exists admin_score numeric;
+
+-- Admin-adjustable Vibe & Mood bar position for album popups
+alter table album_overviews add column if not exists mood_score numeric;
 
 -- Admin-adjustable album popup image positions
 alter table album_overviews add column if not exists hero_focus text;
