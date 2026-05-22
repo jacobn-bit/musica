@@ -20,8 +20,8 @@
     const matchedPinSource = pinSources.find(([, value]) => normalizePin(value));
     const adminPin = matchedPinSource ? normalizePin(matchedPinSource[1]) : "";
     const adminPinSource = matchedPinSource ? matchedPinSource[0] : "none";
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
     const debug = {
       action,
       enteredPinLength: receivedPin.length,
@@ -51,7 +51,7 @@
     }
 
     if (!supabaseUrl || !serviceKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: "Supabase service role settings are missing in Netlify." }) };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Supabase admin settings are missing in Netlify. Add VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to Netlify environment variables." }) };
     }
 
     const api = async (path, options = {}) => {
@@ -85,6 +85,7 @@
     const loved_track_name = String(body.loved_track_name || "").trim();
     const admin_ratings_count = body.admin_ratings_count === undefined || body.admin_ratings_count === null || body.admin_ratings_count === "" ? null : Math.max(0, Math.round(Number(body.admin_ratings_count)));
     const admin_score = body.admin_score === undefined || body.admin_score === null || body.admin_score === "" ? null : Math.round(Number(body.admin_score) * 10) / 10;
+    const mood_score = body.mood_score === undefined || body.mood_score === null || body.mood_score === "" ? null : Math.max(0, Math.min(100, Math.round(Number(body.mood_score))));
     const hero_focus = String(body.hero_focus || "").trim();
     const moment_focus = String(body.moment_focus || "").trim();
 
@@ -144,7 +145,22 @@
         body: JSON.stringify({ album_key, title, artist, overview, admin_score, updated_at: new Date().toISOString() })
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
-    }    if (action === "set_rating_count") {
+    }
+
+    if (action === "set_mood_score") {
+      const overview = String(body.overview || "").trim();
+      if (!album_key || !title || mood_score === null || !Number.isFinite(mood_score)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and mood value from 0 to 100 are required." }) };
+      }
+      const rows = await api("album_overviews", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key, title, artist, overview, mood_score, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
+    }
+
+    if (action === "set_rating_count") {
       const overview = String(body.overview || "").trim();
       if (!album_key || !title || admin_ratings_count === null || !Number.isFinite(admin_ratings_count)) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and rating count are required." }) };
