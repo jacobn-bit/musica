@@ -105,7 +105,8 @@ async function startOAuthSignup(provider){
     setAuthStatus("Supabase is not connected. Check config.js locally and Netlify environment/config values in production.","error");
     return;
   }
-  const redirectTo=window.location.origin;
+  const localHosts=["localhost","127.0.0.1","::1"];
+  const redirectTo=localHosts.includes(window.location.hostname)?window.location.origin:"https://musica-rating.netlify.app";
   setAuthStatus(`Opening ${providerName} login...`,"");
   const {error}=await db.auth.signInWithOAuth({provider,options:{redirectTo}});
   if(error){
