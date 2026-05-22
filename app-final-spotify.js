@@ -8,8 +8,20 @@
 ];
 
 const cfg=window.MUSICA_CONFIG||{};
-const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.includes("PASTE_")&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_ANON_KEY.includes("PASTE_");
-const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
+const SUPABASE_URL=cfg.SUPABASE_URL||cfg.VITE_SUPABASE_URL||window.VITE_SUPABASE_URL||"";
+const SUPABASE_ANON_KEY=cfg.SUPABASE_ANON_KEY||cfg.VITE_SUPABASE_ANON_KEY||window.VITE_SUPABASE_ANON_KEY||"";
+function normalizeAdminPinValue(value){return String(value??"").replace(/[\u200B-\u200D\uFEFF]/g,"").trim().replace(/^['"]|['"]$/g,"").trim()}
+const ADMIN_PIN_CONFIG=cfg.VITE_ADMIN_PIN||cfg.ADMIN_PIN||cfg.MUSICA_ADMIN_PIN||cfg.NEXT_PUBLIC_ADMIN_PIN||window.VITE_ADMIN_PIN||window.ADMIN_PIN||window.MUSICA_ADMIN_PIN||window.NEXT_PUBLIC_ADMIN_PIN||"";
+const ADMIN_PIN_STORAGE_KEYS=["muzeAdminExpectedPin","muzeAdminPin","musicaAdminPinExpected"];
+const ADMIN_PIN_HASHES=["71bdc015e35ca2f9fbb2cfd5c82374fba64813d4a7a1baae09e29f27f46891c5"];
+function validSupabaseConfig(){
+  return /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(String(SUPABASE_URL||"").trim())
+    && String(SUPABASE_ANON_KEY||"").split(".").length===3
+    && !String(SUPABASE_URL).includes("PASTE_")
+    && !String(SUPABASE_ANON_KEY).includes("PASTE_");
+}
+const configured=validSupabaseConfig();
+const db=configured?window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim()):null;
 const MUSICA_CLIENT_DATA_VERSION="mobile-live-score-reset-2026-05-18-6";
 function isLocalRuntime(){return location.protocol==="file:"||["localhost","127.0.0.1",""].includes(location.hostname)}
 function resetStaleClientData(){
@@ -39,21 +51,78 @@ function setAuthStatus(message="",tone=""){
   status.textContent=message;
   status.dataset.tone=tone;
 }
+function authDebug(label,details){console.debug("[Muze auth]",label,details)}
+function supabaseUrlHost(){try{return SUPABASE_URL?new URL(SUPABASE_URL).host:null}catch(error){return "invalid-url"}}
+function authErrorMessage(error){
+  const message=String(error?.message||error||"Authentication failed. Please try again.");
+  if(/invalid api key|api key/i.test(message))return "Supabase rejected the public anon key. Replace config.js or Netlify VITE_SUPABASE_ANON_KEY with the anon key from your Supabase project settings.";
+  if(/rate limit|too many|over email send rate limit/i.test(message))return "Supabase is rate limiting confirmation emails. Wait a few minutes, then try again.";
+  if(/invalid login credentials/i.test(message))return "Email or password is incorrect.";
+  if(/user already registered|already registered|already exists/i.test(message))return "That email already has a Muze account. Try logging in instead.";
+  if(/password/i.test(message)&&/(weak|short|least|characters|min)/i.test(message))return message;
+  if(/email/i.test(message)&&/invalid/i.test(message))return "Enter a valid email address.";
+  return message;
+}
 function setAuthMode(mode){
   state.authMode=mode==="signup"?"signup":"login";
   $("#authLoginMode")?.classList.toggle("active",state.authMode==="login");
   $("#authSignupMode")?.classList.toggle("active",state.authMode==="signup");
   const title=$("#authTitle"), submit=$("#authSubmit"), password=$("#authPassword");
-  if(title)title.textContent=state.authMode==="signup"?"Create your Muze account":"Log in to Muze";
-  if(submit)submit.textContent=state.authMode==="signup"?"Sign Up":"Log In";
+  if(title)title.textContent=state.authMode==="signup"?"Create your Muze account":"Log in to your Muze account";
+  if(submit)submit.textContent=state.authMode==="signup"?"Create Account":"Log In";
   if(password)password.autocomplete=state.authMode==="signup"?"new-password":"current-password";
   setAuthStatus();
+}
+function setAuthEmailStep(enabled=true){
+  $("#authModal .authPanel")?.classList.toggle("authEmailStep",enabled);
+  const prompt=$("#authPrompt");
+  if(prompt)prompt.textContent=enabled
+    ?(state.authMode==="signup"?"Create a Muze account with your email.":"Enter your email to log in.")
+    :(state.authMode==="signup"?"Choose a password to create your account.":"Enter your password to log in.");
+}
+function continueAuthEmail(){
+  const email=($("#authEmail")?.value||"").trim();
+  if(!email){setAuthStatus("Enter your email to continue.","error");$("#authEmail")?.focus();return}
+  setAuthEmailStep(false);
+  setAuthStatus();
+  requestAnimationFrame(()=>$("#authPassword")?.focus());
+}
+function showAuthEmailForm(mode="login"){
+  $("#signupOnboarding")?.classList.add("hidden");
+  $(".authModes")?.classList.remove("hidden");
+  $("#authForm")?.classList.remove("hidden");
+  $("#authLoggedOut")?.classList.remove("hidden");
+  setAuthMode(mode);
+  setAuthEmailStep(true);
+  requestAnimationFrame(()=>$("#authEmail")?.focus());
+}
+function showSignupOnboarding(){
+  showAuthEmailForm("signup");
+}
+async function startOAuthSignup(provider){
+  const providerName={google:"Google",facebook:"Facebook",spotify:"Spotify"}[provider]||provider;
+  if(!db){
+    setAuthStatus("Supabase is not connected. Check config.js locally and Netlify environment/config values in production.","error");
+    return;
+  }
+  const redirectTo=window.location.origin;
+  setAuthStatus(`Opening ${providerName} login...`,"");
+  const {error}=await db.auth.signInWithOAuth({provider,options:{redirectTo}});
+  if(error){
+    const message=authErrorMessage(error);
+    const providerDisabled=/unsupported provider|provider is not enabled|not enabled|not configured/i.test(message);
+    setAuthStatus(providerDisabled?"This login option is not enabled yet.":message,"error");
+  }
 }
 function syncAuthUi(){
   const user=loggedInUser();
   const button=$("#authButton");
   const buttonLabel=button?.querySelector(".authButtonLabel");
   if(buttonLabel)buttonLabel.textContent=user?(currentUsername()?`@${currentUsername()}`:"Account"):"Login / Sign Up";
+  const title=$("#authTitle");
+  const prompt=$("#authPrompt");
+  if(user&&title)title.textContent="Your Muze account";
+  if(user&&prompt)prompt.textContent="Manage your Muze session.";
   $("#authLoggedOut")?.classList.toggle("hidden",!!user);
   $("#authLoggedIn")?.classList.toggle("hidden",!user);
   const email=$("#authUserEmail");
@@ -63,15 +132,24 @@ function syncAuthUi(){
 function openAuthModal(message="Log in to join the conversation."){
   const modal=$("#authModal");
   const prompt=$("#authPrompt");
+  modal?.classList.remove("libraryAccessModal");
+  modal?.classList.remove("libraryAuthFlow");
+  $("#authModal .authPanel")?.classList.remove("libraryAccessPanel");
+  $("#libraryAccessCard")?.classList.add("hidden");
+  $("#authLoggedOut")?.classList.toggle("hidden",!!loggedInUser());
   if(prompt)prompt.textContent=message;
   if(modal){modal.classList.remove("hidden");modal.setAttribute("aria-hidden","false")}
-  if(!loggedInUser())setAuthMode(state.authMode);
+  if(!loggedInUser())showAuthEmailForm("login");
   syncAuthUi();
-  if(!loggedInUser())requestAnimationFrame(()=>$("#authEmail")?.focus());
 }
 function closeAuthModal(){
   const modal=$("#authModal");
   if(modal){modal.classList.add("hidden");modal.setAttribute("aria-hidden","true")}
+  modal?.classList.remove("libraryAccessModal");
+  modal?.classList.remove("libraryAuthFlow");
+  $("#authModal .authPanel")?.classList.remove("libraryAccessPanel");
+  $("#libraryAccessCard")?.classList.add("hidden");
+  $("#signupOnboarding")?.classList.add("hidden");
   setAuthStatus();
 }
 function resumePendingAuthAction(){
@@ -81,39 +159,117 @@ function resumePendingAuthAction(){
 }
 function requireAuth(action,resume){
   if(loggedInUser())return true;
-  if(typeof resume==="function")state.pendingAuthAction=resume;
   const messages={
-    rate:"Log in to rate music.",
-    review:"Log in to share your review.",
-    chat:"Log in to join the conversation.",
-    save:"Log in to save albums to your library.",
-    like:"Log in to like music and reactions.",
-    follow:"Log in to follow libraries.",
-    profile:"Log in to create or edit your profile."
+    rate:"Rate albums, track your taste, and help shape the Muze community.",
+    review:"Share reviews, reactions, and the music moments that stayed with you.",
+    chat:"Join the conversation around the albums and tracks you love.",
+    save:"Save albums, build collections, and keep your music world in one place.",
+    like:"Like music moments, reviews, and community reactions.",
+    follow:"Follow libraries and keep up with other listeners.",
+    profile:"Create your profile and make your Muze identity your own."
   };
-  openAuthModal(messages[action]||"Log in to join the conversation.");
+  openAccessAuthPrompt({
+    title:"Login to continue",
+    text:messages[action]||"Log in to join the conversation.",
+    resume
+  });
   return false;
+}
+function openAccessAuthPrompt({title="Login to continue",text="Log in to join the conversation.",resume=null}={}){
+  state.pendingAuthAction=typeof resume==="function"?resume:null;
+  const modal=$("#authModal");
+  if(modal){modal.classList.add("libraryAccessModal","libraryAuthFlow");modal.classList.remove("hidden");modal.setAttribute("aria-hidden","false")}
+  $("#authModal .authPanel")?.classList.add("libraryAccessPanel");
+  const authTitle=$("#authTitle");
+  const prompt=$("#authPrompt");
+  if(authTitle)authTitle.textContent=title;
+  if(prompt)prompt.textContent="";
+  const card=$("#libraryAccessCard");
+  if(card){
+    card.classList.remove("hidden");
+    const cardTitle=card.querySelector("h3");
+    const cardText=card.querySelector("p");
+    if(cardTitle)cardTitle.textContent=title;
+    if(cardText)cardText.textContent=text;
+  }
+  $("#authLoggedOut")?.classList.add("hidden");
+  $("#authLoggedIn")?.classList.add("hidden");
+  setAuthStatus();
+}
+function openLibrariesAuthPrompt(){
+  openAccessAuthPrompt({
+    title:"Login to access your library",
+    text:"Log in to save albums, build collections, and keep your music world in one place.",
+    resume:()=>navigateToView("libraries")
+  });
+}
+function showLibraryAccessAuthForm(mode){
+  $("#authModal")?.classList.remove("libraryAccessModal");
+  $("#authModal .authPanel")?.classList.remove("libraryAccessPanel");
+  $("#libraryAccessCard")?.classList.add("hidden");
+  $("#authLoggedOut")?.classList.remove("hidden");
+  const title=$("#authTitle");
+  const prompt=$("#authPrompt");
+  if(mode==="signup"){
+    showSignupOnboarding();
+    return;
+  }
+  showAuthEmailForm("login");
+  if(title)title.textContent="Log in to Muze";
+  if(prompt)prompt.textContent="Log in to access your library.";
 }
 async function submitAuth(event){
   event?.preventDefault();
-  if(!db){setAuthStatus("Supabase is not connected, so login is unavailable here.","error");return}
+  if($("#authModal .authPanel")?.classList.contains("authEmailStep")){continueAuthEmail();return}
+  authDebug("submit start",{mode:state.authMode,configured,urlHost:supabaseUrlHost(),hasAnonKey:Boolean(SUPABASE_ANON_KEY),anonKeyParts:String(SUPABASE_ANON_KEY||"").split(".").length});
+  if(!db){
+    setAuthStatus("Supabase is not connected. Check config.js locally and Netlify environment/config values in production.","error");
+    authDebug("missing config",{SUPABASE_URL,hasAnonKey:Boolean(SUPABASE_ANON_KEY)});
+    return
+  }
   const email=($("#authEmail")?.value||"").trim();
   const password=$("#authPassword")?.value||"";
   if(!email||!password){setAuthStatus("Enter your email and password.","error");return}
+  if(password.length<6){setAuthStatus("Password must be at least 6 characters.","error");return}
   const submit=$("#authSubmit");
+  setAuthStatus(state.authMode==="signup"?"Creating your account...":"Logging in...","");
   if(submit)submit.disabled=true;
-  const result=state.authMode==="signup"?await db.auth.signUp({email,password}):await db.auth.signInWithPassword({email,password});
-  if(submit)submit.disabled=false;
-  if(result.error){setAuthStatus(result.error.message,"error");return}
-  if(state.authMode==="signup"&&!result.data.session){
-    setAuthStatus("Check your email to confirm your account, then log in.","success");
-    setAuthMode("login");
-    return;
+  try{
+    const redirectTo=new URL("index.html",location.origin+location.pathname.replace(/[^/]*$/,"")).href;
+    const result=state.authMode==="signup"
+      ?await db.auth.signUp({email,password,options:{emailRedirectTo:redirectTo}})
+      :await db.auth.signInWithPassword({email,password});
+    authDebug("submit result",{
+      mode:state.authMode,
+      redirectTo:state.authMode==="signup"?redirectTo:null,
+      error:result.error?{message:result.error.message,status:result.error.status,name:result.error.name,code:result.error.code}:null,
+      hasUser:Boolean(result.data?.user),
+      hasSession:Boolean(result.data?.session),
+      userEmail:result.data?.user?.email||null,
+      identitiesCount:Array.isArray(result.data?.user?.identities)?result.data.user.identities.length:null
+    });
+    if(result.error){setAuthStatus(authErrorMessage(result.error),"error");return}
+    if(state.authMode==="signup"&&!result.data?.session){
+      const identities=result.data?.user?.identities;
+      if(Array.isArray(identities)&&identities.length===0){
+        setAuthMode("login");
+        setAuthStatus("That email may already be registered. Try logging in, or check your inbox and spam/junk folder for a confirmation email.","error");
+        return;
+      }
+      setAuthMode("login");
+      setAuthStatus("Account created. Check your email to confirm your account, and check spam/junk too.","success");
+      return;
+    }
+    state.authSession=result.data.session||state.authSession;
+    syncAuthUi();
+    closeAuthModal();
+    resumePendingAuthAction();
+  }catch(error){
+    authDebug("submit exception",{message:error.message,stack:error.stack});
+    setAuthStatus(error.message||"Could not reach Supabase Auth. Check your internet connection and Supabase project settings.","error");
+  }finally{
+    if(submit)submit.disabled=false;
   }
-  state.authSession=result.data.session||state.authSession;
-  syncAuthUi();
-  closeAuthModal();
-  resumePendingAuthAction();
 }
 async function logoutAuth(){
   if(!db)return;
@@ -124,11 +280,14 @@ async function logoutAuth(){
   setAuthStatus("Logged out.","success");
 }
 async function initAuth(){
+  authDebug("init",{configured,urlHost:supabaseUrlHost(),hasAnonKey:Boolean(SUPABASE_ANON_KEY)});
   if(!db){syncAuthUi();return}
-  const {data}=await db.auth.getSession();
-  state.authSession=data.session||null;
+  const {data,error}=await db.auth.getSession();
+  if(error)authDebug("get session error",{message:error.message,status:error.status,name:error.name});
+  state.authSession=data?.session||null;
   syncAuthUi();
-  db.auth.onAuthStateChange((_event,session)=>{
+  db.auth.onAuthStateChange((event,session)=>{
+    authDebug("state change",{event,hasSession:Boolean(session),email:session?.user?.email||null});
     const wasLoggedOut=!loggedInUser();
     state.authSession=session||null;
     syncAuthUi();
@@ -377,29 +536,97 @@ const customAlbumOverviews={
 function normalizeOverviewTitle(value){return String(value||"").toLowerCase().replace(/&/g,"and").replace(/\([^)]*\)/g," ").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim()}
 function overviewKey(a){return normalizeOverviewTitle(a?.title)}
 function isAdminUnlocked(){return sessionStorage.getItem("musicaAdminUnlocked")==="1"}
-function syncAdminUnlockButton(){const btn=$("#adminOverviewUnlock");if(btn)btn.textContent=isAdminUnlocked()?"Admin overview unlocked":"Admin overview"}
+function syncAdminUnlockButton(){const btn=$("#adminOverviewUnlock");if(btn){btn.textContent="";btn.title=isAdminUnlocked()?"Admin overview unlocked":"Admin overview";btn.setAttribute("aria-label",btn.title)}}
 function adminDebug(label,details){console.debug("[Muze admin]",label,details)}
+function localAdminPinSource(){
+  const configured=normalizeAdminPinValue(ADMIN_PIN_CONFIG);
+  if(configured)return {pin:configured,source:cfg.VITE_ADMIN_PIN?"config.VITE_ADMIN_PIN":cfg.ADMIN_PIN?"config.ADMIN_PIN":cfg.MUSICA_ADMIN_PIN?"config.MUSICA_ADMIN_PIN":cfg.NEXT_PUBLIC_ADMIN_PIN?"config.NEXT_PUBLIC_ADMIN_PIN":window.VITE_ADMIN_PIN?"window.VITE_ADMIN_PIN":window.ADMIN_PIN?"window.ADMIN_PIN":window.MUSICA_ADMIN_PIN?"window.MUSICA_ADMIN_PIN":"window.NEXT_PUBLIC_ADMIN_PIN"};
+  for(const key of ADMIN_PIN_STORAGE_KEYS){
+    const stored=normalizeAdminPinValue(localStorage.getItem(key));
+    if(stored)return {pin:stored,source:`localStorage.${key}`};
+  }
+  return {pin:"",source:"none"};
+}
+async function sha256Hex(value){
+  const bytes=new TextEncoder().encode(normalizeAdminPinValue(value));
+  const hash=await crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(hash)).map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+window.debugMuzeAdminPin=function(){
+  const expected=localAdminPinSource();
+  const details={expectedPinExists:Boolean(expected.pin),expectedPinSource:expected.source,expectedPinLength:expected.pin.length,hashFallbackExists:Boolean(ADMIN_PIN_HASHES.length),isLocalRuntime:isLocalRuntime(),configHasVitePin:Boolean(normalizeAdminPinValue(cfg.VITE_ADMIN_PIN)),configHasAdminPin:Boolean(normalizeAdminPinValue(cfg.ADMIN_PIN)),configHasMusicaPin:Boolean(normalizeAdminPinValue(cfg.MUSICA_ADMIN_PIN)),storageKeys:ADMIN_PIN_STORAGE_KEYS.map(key=>({key,exists:Boolean(normalizeAdminPinValue(localStorage.getItem(key)))}))};
+  console.debug("[Muze admin] PIN debug",details);
+  return details;
+}
+window.setMuzeAdminPinForThisBrowser=function(pin){
+  const clean=normalizeAdminPinValue(pin);
+  if(!clean){localStorage.removeItem("muzeAdminExpectedPin");adminDebug("local pin cleared",{expectedPinExists:false,expectedPinSource:"localStorage.muzeAdminExpectedPin"});return false}
+  localStorage.setItem("muzeAdminExpectedPin",clean);
+  adminDebug("local pin saved",{expectedPinExists:true,expectedPinSource:"localStorage.muzeAdminExpectedPin",expectedPinLength:clean.length});
+  return true;
+}
+async function verifyAdminPinLocally(pin){
+  const entered=normalizeAdminPinValue(pin);
+  const expected=localAdminPinSource();
+  const enteredHash=entered&&crypto?.subtle?await sha256Hex(entered):"";
+  const hashMatched=Boolean(enteredHash)&&ADMIN_PIN_HASHES.includes(enteredHash);
+  const debug={enteredPinLength:entered.length,expectedPinExists:Boolean(expected.pin),expectedPinSource:expected.source,hashFallbackExists:Boolean(ADMIN_PIN_HASHES.length),hashMatched,isLocalRuntime:isLocalRuntime()};
+  adminDebug("local validation",debug);
+  return {ok:(Boolean(expected.pin)&&entered===expected.pin)||hashMatched,debug};
+}
+function setAdminInlineStatus(message="",tone="error"){
+  if($("#authStatus"))setAuthStatus(message,tone);
+  let toast=$("#adminInlineStatus");
+  if(!message){
+    toast?.classList.add("hidden");
+    return;
+  }
+  if(!toast){
+    toast=document.createElement("div");
+    toast.id="adminInlineStatus";
+    toast.className="adminInlineStatus";
+    toast.setAttribute("role","status");
+    toast.setAttribute("aria-live","polite");
+    document.body.appendChild(toast);
+  }
+  toast.textContent=message;
+  toast.dataset.tone=tone;
+  toast.classList.remove("hidden");
+  clearTimeout(window.__muzeAdminStatusTimer);
+  if(tone==="success")window.__muzeAdminStatusTimer=setTimeout(()=>toast.classList.add("hidden"),3600);
+}
 function finishAdminUnlock(pin,message){
   sessionStorage.setItem("musicaAdminUnlocked","1");
   sessionStorage.setItem("musicaAdminPin",String(pin||"").trim());
   syncAdminUnlockButton();
-  alert(message||"Admin overview editing is unlocked for this browser tab.");
+  setAdminInlineStatus(message||"Admin overview editing is unlocked for this browser tab.","success");
 }
 window.unlockOverviewAdmin=async function(){
-  const pin=String(prompt("Enter your Muze admin PIN:")||"").trim();
+  const pin=normalizeAdminPinValue(prompt("Enter your Muze admin PIN:")||"");
   if(!pin)return;
-  adminDebug("unlock start",{pinLength:pin.length,isLocalRuntime:isLocalRuntime(),hadCachedPin:Boolean(sessionStorage.getItem("musicaAdminPin"))});
+  const localExpected=localAdminPinSource();
+  adminDebug("unlock start",{enteredPinLength:pin.length,expectedPinExists:Boolean(localExpected.pin),expectedPinSource:localExpected.source,isLocalRuntime:isLocalRuntime(),hadCachedPin:Boolean(sessionStorage.getItem("musicaAdminPin"))});
   try{
     const res=await fetch("/.netlify/functions/admin-overview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"verify",pin})});
     const data=await res.json().catch(()=>({}));
     adminDebug("unlock response",{status:res.status,ok:res.ok,serverDebug:data.debug||null});
     if(!res.ok){
-      alert(data.error||"Admin PIN was not accepted.");return
+      const local=await verifyAdminPinLocally(pin);
+      if(local.ok){
+        finishAdminUnlock(pin,"Admin overview editing is unlocked locally.");
+        return;
+      }
+      setAdminInlineStatus(data.error||"Admin PIN was not accepted.","error");return
     }
     finishAdminUnlock(pin);
   }catch(error){
     adminDebug("unlock network error",{message:error.message,isLocalRuntime:isLocalRuntime()});
-    alert("Admin function could not be reached. Use Netlify Dev locally or the deployed Netlify site, and make sure MUSICA_ADMIN_PIN is configured.");
+    const local=await verifyAdminPinLocally(pin);
+    if(local.ok){
+      finishAdminUnlock(pin,"Admin overview editing is unlocked locally.");
+      return;
+    }
+    setAdminInlineStatus("Admin PIN was not accepted. Locally, set VITE_ADMIN_PIN in config.js; on Netlify, set the same PIN in Environment variables.","error");
   }
 }
 async function loadCustomOverviews(){
@@ -437,6 +664,54 @@ async function loadCustomOverviews(){
 }
 function musicaScoreMeaning(a){const value=Number(score(a)||a.avg_rating||0);if(!value)return "Muze Score: unrated. This album is still waiting for the community to define its place.";let meaning=value>=9?"an essential community favorite":value>=8?"a strongly loved record with broad support":value>=7?"a respected album with clear supporters":value>=6?"a divisive or developing community pick":"a niche pick that may connect with specific listeners";return `Muze Score: ${value.toFixed(1)}/10, meaning ${meaning} based on listener ratings on Muze.`}
 function albumCustomOverview(a){const text=albumBaseOverview(a);return text?`${text} ${musicaScoreMeaning(a)}`:""}
+function albumEditorialThesis(a){
+  const text=normalizeOverviewTitle(`${a?.title||""} ${a?.artist||""} ${albumGenreLabel(a||{})}`);
+  const lines=[
+    [/thriller|michael jackson/,"Thriller transformed pop music into global mythology."],
+    [/nevermind|nirvana/,"The sound of alternative music breaking into the mainstream."],
+    [/abbey road|the beatles/,"A final act of warmth, melody, and quiet perfection."],
+    [/lateralus|tool/,"A meditation on chaos, growth, and transcendence."],
+    [/ready to die|notorious big|biggie/,"A brutally human portrait of ambition, fear, and survival."],
+    [/pet sounds|beach boys/,"Pop innocence dissolving into orchestral longing."],
+    [/illmatic|nas/,"Street cinema sharpened into one of hip-hop's purest visions."],
+    [/ok computer|radiohead/,"A beautiful warning signal from the edge of modern life."],
+    [/revolver|the beatles/,"The studio becoming a doorway into the future of rock."],
+    [/rubber soul|the beatles/,"The moment pop songwriting started looking inward."],
+    [/sgt peppers|pepper lonely hearts|beatles/,"A technicolor reinvention of what an album could be."],
+    [/the beatles|white album/,"A restless universe of ideas pulling a legendary band apart."],
+    [/dark side of the moon|pink floyd/,"Human pressure, time, and fear suspended in cosmic motion."],
+    [/wish you were here|pink floyd/,"Absence turned into one of rock's most luminous elegies."],
+    [/master of puppets|metallica/,"Metal made architectural, furious, and emotionally immense."],
+    [/purple rain|prince/,"Desire, drama, and devotion burning at arena scale."],
+    [/rumours|fleetwood mac/,"Heartbreak turned into immaculate pop architecture."],
+    [/to pimp a butterfly|kendrick/,"A fearless reckoning with history, survival, and selfhood."],
+    [/blonde|frank ocean/,"Memory and heartbreak refracted into soft, unstable light."],
+    [/the chronic|dr dre/,"West Coast rap reshaped into cinematic funk and low-end gravity."],
+    [/blood on the tracks|bob dylan/,"Heartbreak transformed into wounded American folklore."],
+    [/highway 61 revisited|bob dylan/,"Folk tradition electrified into surreal rock prophecy."],
+    [/songs in the key of life|stevie wonder/,"A panoramic celebration of love, spirit, and human possibility."],
+    [/experience hendrix|jimi hendrix/,"Electric guitar mythology distilled into fire and freedom."],
+    [/pet sounds|brian wilson/,"Teenage longing expanded into a cathedral of sound."],
+    [/the score|fugees/,"Hip-hop, soul, and exile braided into communal memory."],
+    [/london calling|clash/,"Punk opening its borders to the whole restless world."],
+    [/ziggy stardust|david bowie/,"Stardom, alienation, and theater fused into rock mythology."],
+    [/back in black|ac dc/,"Grief and power converted into hard rock permanence."],
+    [/kind of blue|miles davis/,"Cool restraint becoming one of jazz's deepest emotional languages."]
+  ];
+  const found=lines.find(([pattern])=>pattern.test(text));
+  if(found)return found[1];
+  if(text.includes("hip hop")||text.includes("rap"))return "A voice-led world of rhythm, pressure, and lived truth.";
+  if(text.includes("metal"))return "Heavy music shaped into ritual, force, and catharsis.";
+  if(text.includes("punk"))return "Restless energy turned into identity, release, and resistance.";
+  if(text.includes("alternative"))return "A private emotional weather system breaking into public sound.";
+  if(text.includes("rock"))return "A record where volume, memory, and legacy move together.";
+  if(text.includes("pop"))return "Melody and feeling shaped into shared cultural memory.";
+  if(text.includes("soul")||text.includes("r&b")||text.includes("funk"))return "Human feeling carried through groove, warmth, and devotion.";
+  if(text.includes("folk"))return "Storytelling that turns private emotion into lasting myth.";
+  if(text.includes("jazz"))return "Improvisation, restraint, and atmosphere moving as one body.";
+  if(text.includes("electronic"))return "Texture and pulse building a world beyond ordinary song form.";
+  return "A defining mood piece with its own atmosphere, gravity, and afterlife.";
+}
 function overviewSentences(text){return String(text||"").replace(/\s+/g," ").split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean)}
 function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,canEditOverview}){
   if(!customOverview&&!canEditOverview)customOverview=cleanAlbumSummary(a)||`${a.title} by ${a.artist||"the artist"}.`;
@@ -445,12 +720,14 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const sound=sentences[1]||intro;
   const impact=sentences[2]||sentences[0]||intro;
   const legacy=sentences.slice(3,5).join(" ")||sentences[sentences.length-1]||intro;
-  const quote=sentences.find(s=>s.length>55)||intro;
+  const quote=albumEditorialThesis(a);
   const titleWords=String(a.title||"This album").split(" ");
   const lastWord=titleWords.length>1?titleWords.pop():"matters";
   const heading=`${escapeHtml(titleWords.join(" ")||a.title||"This album")} <span>${escapeHtml(lastWord)}</span>`;
+  const sourceUrl=String(a.wikipedia_url||a.source_url||"").trim();
+  const sourceLink=sourceUrl?`<a class="overviewSourceLink" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">Source: Wikipedia</a>`:"";
   const edit=canEditOverview?`<div class="overviewAdminControls"><button class="overviewEditBtn" onclick="editAlbumOverview('${albumId}')">Edit overview</button><button onclick="deleteAlbumOverview('${albumId}')">Clear custom overview</button><button onclick="clearAlbumReactionsAdmin('${albumId}')">Clear reactions</button><button onclick="clearAlbumTrackActivityAdmin('${albumId}')">Clear song ratings/comments</button><button onclick="setAlbumScoreAdmin('${albumId}')">Set Muze score</button><button onclick="setAlbumRatingsCountAdmin('${albumId}')">Set ratings count</button><button onclick="clearAlbumRatingsAdmin('${albumId}')">Clear album ratings</button><button class="danger" onclick="deleteAlbumAdmin('${albumId}')">Delete album</button></div>`:"";
-  return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" style="--overview-cover:url('${coverUrl}')"><div class="overviewCopy"><p class="eyebrow">Album overview</p><h3>${heading}</h3><p class="overviewIntro">${escapeHtml(intro)}</p><div class="overviewPoints"><div><span class="overviewIcon soundIcon" aria-hidden="true"></span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p></div></div><div><span class="overviewIcon impactIcon" aria-hidden="true"></span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p></div></div><div><span class="overviewIcon legacyIcon" aria-hidden="true"></span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p></div></div></div><div class="overviewScoreStrip"><span>Muze Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}</div><div class="overviewMood"><blockquote>${escapeHtml(quote)}</blockquote><div><p>Defining moments</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div><div class="overviewCommunityNote"><span></span><p>Join listeners who connect with this album every day.</p></div></div></section>`;
+  return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" style="--overview-cover:url('${coverUrl}')"><div class="overviewCopy"><p class="eyebrow">Album overview</p><h3>${heading}</h3><p class="overviewIntro">${escapeHtml(intro)}</p>${sourceLink}<div class="overviewPoints"><div><span class="overviewIcon soundIcon" aria-hidden="true"></span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p></div></div><div><span class="overviewIcon impactIcon" aria-hidden="true"></span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p></div></div><div><span class="overviewIcon legacyIcon" aria-hidden="true"></span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p></div></div></div><div class="overviewScoreStrip"><span>Muze Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}</div><div class="overviewMood"><blockquote>${escapeHtml(quote)}</blockquote><div><p>Defining moments</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div><div class="overviewCommunityNote"><span></span><p>Join listeners who connect with this album every day.</p></div></div></section>`;
 }
 function renderAlbumOverviewMoments(albumId,tracks){
   const host=$("#overviewMomentChips");
@@ -943,6 +1220,90 @@ function timeAgo(value){
   if(months<12)return `${months}mo ago`;
   return `${Math.floor(days/365)}y ago`;
 }
+function formatReviewDate(value){
+  const date=value?new Date(value):new Date();
+  if(Number.isNaN(date.getTime()))return "";
+  return date.toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"});
+}
+function localReviewMeta(){return JSON.parse(localStorage.getItem("muzeReviewMeta")||"{}")}
+function saveLocalReviewMeta(meta){localStorage.setItem("muzeReviewMeta",JSON.stringify(meta))}
+function reviewMetaKey(ref,comment){return String(comment.id||comment.local_id||`${ref}::${comment.name||""}::${comment.created_at||""}::${comment.comment||comment.text||""}`)}
+function reviewStarRow(comment){
+  const raw=comment.rating||comment.review_rating||comment.stars||comment.score;
+  const rating=Math.max(0,Math.min(10,Number(raw||0)));
+  if(!rating)return `<div class="reviewStars reviewStarsMuted"><span aria-hidden="true">&#9734;&#9734;&#9734;&#9734;&#9734;</span><em>Listener review</em></div>`;
+  const stars=[1,2,3,4,5].map(n=>{
+    const full=n*2<=rating;
+    const half=!full&&n*2-1<=rating;
+    return `<span class="reviewDisplayStar ${full?"full":half?"half":"empty"}" aria-hidden="true">&#9733;</span>`;
+  }).join("");
+  return `<div class="reviewStars" aria-label="${rating} out of 10"><span class="reviewDisplayStars">${stars}</span><em>${rating}/10</em></div>`;
+}
+function reviewComposerHtml(albumId){
+  const stars=[1,2,3,4,5].map(n=>`<span class="reviewStarShell" data-star="${n}"><span class="reviewStarGlyph">&#9733;</span></span>`).join("");
+  return `<div class="linerComposer reviewComposer"><div class="reviewComposerHead"><div><span class="reviewComposerEyebrow">Write a review</span><strong>Share your take on this album</strong></div><div class="reviewStarSelector" aria-label="Choose review rating" role="slider" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" tabindex="0" onpointerdown="startReviewRatingDrag(event)" onpointermove="moveReviewRatingPointer(event)" onpointerup="finishReviewRatingDrag(event)" onpointercancel="finishReviewRatingDrag(event)" onpointerleave="clearReviewRatingPreview(event)" onkeydown="handleReviewRatingKey(event)">${stars}</div></div><input id="commentReviewRating" type="hidden" value=""><input id="commentTitle" class="reviewTitleInput" maxlength="90" placeholder="Review title (optional)"><textarea id="commentText" maxlength="500" oninput="updateReviewCounter()" placeholder="Write your album review..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div class="reviewComposerFoot"><span>Keep it honest, useful, and specific.</span><em id="commentCounter">0/500</em><button onclick="addAlbumComment('${escapeJsString(albumId)}')">Post Review</button></div></div>`;
+}
+function reviewRatingFromPointer(event){
+  const host=event.currentTarget?.closest?.(".reviewStarSelector")||event.currentTarget;
+  if(!host)return 0;
+  const rect=host.getBoundingClientRect();
+  const x=Math.max(0,Math.min(rect.width,event.clientX-rect.left));
+  return Math.max(1,Math.min(10,Math.ceil((x/rect.width)*10)));
+}
+function paintReviewDraftRating(value,preview=false){
+  const rating=Math.max(0,Math.min(10,Number(value)||0));
+  document.querySelectorAll(".reviewStarShell").forEach(shell=>{
+    const star=Number(shell.dataset.star||0);
+    shell.classList.toggle(preview?"previewFull":"full",Boolean(rating)&&star*2<=rating);
+    shell.classList.toggle(preview?"previewHalf":"half",Boolean(rating)&&star*2-1===rating);
+    if(!preview){shell.classList.remove("previewFull","previewHalf")}
+  });
+  const selector=$(".reviewStarSelector");
+  if(selector)selector.setAttribute("aria-valuenow",String(rating));
+}
+window.setReviewDraftRating=function(value){
+  const input=$("#commentReviewRating");
+  const rating=Math.max(0,Math.min(10,Number(value)||0));
+  if(input)input.value=rating?String(rating):"";
+  paintReviewDraftRating(rating,false);
+}
+window.previewReviewDraftRating=function(value){
+  document.querySelectorAll(".reviewStarShell").forEach(shell=>shell.classList.remove("previewFull","previewHalf"));
+  paintReviewDraftRating(value,true);
+}
+window.startReviewRatingDrag=function(event){
+  const host=event.currentTarget;
+  host.dataset.dragging="true";
+  host.setPointerCapture?.(event.pointerId);
+  setReviewDraftRating(reviewRatingFromPointer(event));
+}
+window.moveReviewRatingPointer=function(event){
+  const rating=reviewRatingFromPointer(event);
+  if(event.currentTarget.dataset.dragging==="true")setReviewDraftRating(rating);
+  else previewReviewDraftRating(rating);
+}
+window.finishReviewRatingDrag=function(event){
+  const host=event.currentTarget;
+  if(host.dataset.dragging==="true")setReviewDraftRating(reviewRatingFromPointer(event));
+  host.dataset.dragging="false";
+  host.releasePointerCapture?.(event.pointerId);
+}
+window.clearReviewRatingPreview=function(event){
+  if(event.currentTarget.dataset.dragging==="true")return;
+  document.querySelectorAll(".reviewStarShell").forEach(shell=>shell.classList.remove("previewFull","previewHalf"));
+}
+window.handleReviewRatingKey=function(event){
+  if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+  event.preventDefault();
+  const current=Number($("#commentReviewRating")?.value||0);
+  const next=event.key==="Home"?0:event.key==="End"?10:event.key==="ArrowRight"?Math.min(10,current+1):Math.max(0,current-1);
+  setReviewDraftRating(next);
+}
+window.updateReviewCounter=function(){
+  const text=$("#commentText");
+  const counter=$("#commentCounter");
+  if(counter&&text)counter.textContent=`${text.value.length}/500`;
+}
 function renderComments(albumId){
   const host=$("#commentsList");
   if(!host)return;
@@ -957,7 +1318,9 @@ function renderComments(albumId){
   }
   const listenerPull=$("#listenerPull");
   if(listenerPull)listenerPull.innerHTML=`<strong>${comments.length}</strong><span>listener reaction${comments.length===1?"":"s"} so far</span>`;
-  host.innerHTML=comments.length?comments.map((c,i)=>{
+  const localMeta=localReviewMeta();
+  host.innerHTML=comments.length?comments.map((rawComment,i)=>{
+    const c={...rawComment,...(localMeta[reviewMetaKey(ref,rawComment)]||{})};
     const name=c.name||"Listener";
     const initial=String(name).trim().slice(0,1).toUpperCase()||"L";
     const commentId=String(c.id||c.local_id||`${ref}-${i}`);
@@ -967,7 +1330,9 @@ function renderComments(albumId){
     const adminDelete=isAdminUnlocked()&&commentId?`<button class="adminTinyDelete" onclick="deleteAlbumCommentAdmin('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Delete</button>`:"";
     const likeCount=Number(c.likes||c.like_count||0);
     const likes=likeCount>0?`<span>&#9825; ${likeCount}</span>`:"";
-    return `<article class="linerReaction" data-comment-id="${escapeHtml(commentId)}"><div class="reactionAvatar">${escapeHtml(initial)}</div><div class="reactionBody"><div class="reactionMeta"><strong>${escapeHtml(name)}</strong><span>${timeAgo(c.created_at)}</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><div class="reactionActions">${likes}<button onclick="openReactionReplyBox('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(name)}')">Reply</button>${adminDelete}</div>${replies.length?`<button class="viewReplies" onclick="toggleReactionReplies(this)">Hide ${replies.length} ${replies.length===1?"reply":"replies"}</button>`:""}<div id="reactionReplies-${safeId}" class="reactionReplies">${repliesHtml}</div><div id="reactionReplyBox-${safeId}" class="reactionReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${escapeHtml(name)}..."></textarea><div class="reactionReplyControls"><button onclick="submitReactionReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeReactionReplyBox('${escapeJsString(commentId)}')">Cancel</button></div></div></div><button class="reactionMore" onclick="toggleReactionMenu(this)">•••</button></article>`
+    const title=c.title||c.review_title||c.headline||"";
+    const reviewDate=formatReviewDate(c.created_at);
+    return `<article class="linerReaction reviewItem" data-comment-id="${escapeHtml(commentId)}"><div class="reactionAvatar reviewAvatar">${escapeHtml(initial)}</div><div class="reactionBody reviewBody"><div class="reactionMeta reviewMeta"><strong>${escapeHtml(name)}</strong><span class="verifiedListener">Verified Listener</span></div><div class="reviewRatingLine">${reviewStarRow(c)}${reviewDate?`<span class="reviewDate">Reviewed on ${escapeHtml(reviewDate)}</span>`:""}</div>${title?`<h4 class="reviewTitle">${escapeHtml(title)}</h4>`:""}<p>${escapeHtml(c.comment||c.text||"")}</p><div class="reactionActions reviewActions">${likes}<button onclick="openReactionReplyBox('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(name)}')">Reply</button>${adminDelete}</div>${replies.length?`<button class="viewReplies" onclick="toggleReactionReplies(this)">Hide ${replies.length} ${replies.length===1?"reply":"replies"}</button>`:""}<div id="reactionReplies-${safeId}" class="reactionReplies">${repliesHtml}</div><div id="reactionReplyBox-${safeId}" class="reactionReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${escapeHtml(name)}..."></textarea><div class="reactionReplyControls"><button onclick="submitReactionReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeReactionReplyBox('${escapeJsString(commentId)}')">Cancel</button></div></div></div><button class="reactionMore" onclick="toggleReactionMenu(this)">•••</button></article>`
   }).join(""):`<div class="emptyMini albumReactionEmpty">What moment on this album hits hardest?</div>`;
 }
 window.addAlbumComment=async function(albumId){
@@ -975,23 +1340,36 @@ window.addAlbumComment=async function(albumId){
   const nameInput=$("#commentName"), textInput=$("#commentText");
   const name=(nameInput?.value||"Listener").trim()||"Listener";
   const comment=(textInput?.value||"").trim();
+  const reviewTitle=($("#commentTitle")?.value||"").trim();
+  const reviewRating=Number($("#commentReviewRating")?.value||0);
   if(!comment)return;
   const ref=albumRef(albumId);
+  const reviewMeta={};
+  if(reviewTitle)reviewMeta.title=reviewTitle;
+  if(reviewRating)reviewMeta.rating=reviewRating;
   if(db){
-    const {error}=await db.from("album_comments").insert({album_ref:ref,device_id:state.deviceId,name,comment});
+    const {data,error}=await db.from("album_comments").insert({album_ref:ref,device_id:state.deviceId,name,comment}).select("id,name,comment,created_at").single();
     if(error){
       const all=localComments();
       all[ref]=all[ref]||[];
-      all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString()});
+      all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString(),...reviewMeta});
       saveLocalComments(all);
+    }else if(Object.keys(reviewMeta).length){
+      const meta=localReviewMeta();
+      meta[reviewMetaKey(ref,data||{})]=reviewMeta;
+      saveLocalReviewMeta(meta);
     }
   }else{
     const all=localComments();
     all[ref]=all[ref]||[];
-    all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString()});
+    all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString(),...reviewMeta});
     saveLocalComments(all);
   }
   textInput.value="";
+  if($("#commentTitle"))$("#commentTitle").value="";
+  if($("#commentReviewRating"))$("#commentReviewRating").value="";
+  window.setReviewDraftRating(0);
+  window.updateReviewCounter();
   await loadComments(albumId);
   renderComments(albumId);
 }
@@ -1401,22 +1779,32 @@ window.toggleAllReactions=function(){
   button.classList.toggle("expanded",expanded);
 }
 function canUseLocalAdminFallback(action){return ["set_album_score","set_rating_count","set_loved_track","set_hero_focus","set_moment_focus","set_hero_image","set_moment_image"].includes(action)}
+function localAdminFallbackResponse(payload,reason){
+  if(!isLocalRuntime()||!canUseLocalAdminFallback(payload?.action))return null;
+  adminDebug("request local fallback",{action:payload.action,reason});
+  setAdminInlineStatus("Saved locally in this browser. Use Netlify to save for everyone.","success");
+  return {ok:true,localOnly:true};
+}
 async function adminOverviewRequest(payload){
-  const pin=String(sessionStorage.getItem("musicaAdminPin")||"").trim();
-  if(!pin){alert("Please unlock admin mode first.");return null}
+  const pin=normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||"");
+  if(!pin){setAdminInlineStatus("Please unlock admin mode first.","error");return null}
   adminDebug("request start",{action:payload.action,pinLength:pin.length,isLocalRuntime:isLocalRuntime()});
   try{
     const res=await fetch("/.netlify/functions/admin-overview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,pin})});
     const data=await res.json().catch(()=>({}));
     adminDebug("request response",{action:payload.action,status:res.status,ok:res.ok,serverDebug:data.debug||null});
     if(!res.ok){
-      alert(data.error||"Admin action failed.");
+      const fallback=localAdminFallbackResponse(payload,`http ${res.status}`);
+      if(fallback)return fallback;
+      setAdminInlineStatus(data.error||"Admin action failed.","error");
       return null;
     }
     return data;
   }catch(error){
     adminDebug("request network error",{action:payload.action,message:error.message,isLocalRuntime:isLocalRuntime()});
-    alert("Admin action failed. Use Netlify Dev locally or the deployed Netlify site so the admin function can validate MUSICA_ADMIN_PIN.");
+    const fallback=localAdminFallbackResponse(payload,error.message);
+    if(fallback)return fallback;
+    setAdminInlineStatus("Admin action failed. Use Netlify Dev locally or the deployed Netlify site so the admin function can validate the admin PIN.","error");
     return null;
   }
 }
@@ -2310,6 +2698,10 @@ window.openAlbum=function(id){
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${escapeHtml(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${escapeHtml(albumVibeTags(a).slice(0,3).join(" · "))}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence"><h4><span>&#9733;</span>Sound & Influence</h4><p>${escapeHtml(albumCommunityPull(a))}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div></div></aside>`;
   $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album · ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${escapeHtml(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<div class="linerSocialProof"><span>Library</span><strong>${libraryHasAlbum(a)?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></div></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}</section><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${escapeHtml(returnHeadline)}</h3></div><p>${escapeHtml(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">‹</button><button aria-label="Next reaction">›</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} · ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
   const flip=$("#albumModalContent .linerCoverFlip");
+  const reviewAtmosphere=$("#albumModalContent .reactionsPanel .reactionAtmosphere");
+  const reviewComposer=$("#albumModalContent .reactionsPanel .linerComposer");
+  if(reviewAtmosphere)reviewAtmosphere.classList.add("reviewAtmosphere");
+  if(reviewComposer)reviewComposer.outerHTML=reviewComposerHtml(albumId);
   if(flip)flip.dataset.flipped="0";
   $("#albumModal").classList.remove("hidden");
   applyBackCoverHero(a);
@@ -2446,13 +2838,25 @@ window.addSpotifyAlbum=async function(a){
   await loadData();
 }
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
-updateNavUsername();$("#notificationBell").onclick=async e=>{e.stopPropagation();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>$("#notificationPanel")?.classList.add("hidden"));$("#navSetUsername").onclick=setLibraryUsername;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>setAuthMode("login");$("#authSignupMode").onclick=()=>setAuthMode("signup");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;
+updateNavUsername();$("#notificationBell").onclick=async e=>{e.stopPropagation();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>$("#notificationPanel")?.classList.add("hidden"));$("#navSetUsername").onclick=setLibraryUsername;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;
 function closeAlbumPopup(){stopTrackPreview();$("#albumModal").classList.add("hidden")}$("#closeAlbumModal").onclick=closeAlbumPopup;$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#closeAuthModal").onclick=closeAuthModal;$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")closeAlbumPopup()};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};$("#authModal").onclick=e=>{if(e.target.id==="authModal")closeAuthModal()};
 function goHome(){state.view="rankings";document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
+async function navigateToView(view){
+  if(view==="libraries"&&!loggedInUser()){
+    openLibrariesAuthPrompt();
+    closeNav();
+    return;
+  }
+  state.view=view;
+  if(state.view==="libraries")await loadLibraries();
+  document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));
+  render();
+  closeNav();
+}
 function rememberSiteState(){if(!history.state||!history.state.musica)history.replaceState({musica:"home"},"");history.pushState({musica:"inside"},"")}
 rememberSiteState();
 window.addEventListener("popstate",()=>{if(!$("#authModal").classList.contains("hidden")){closeAuthModal();history.pushState({musica:"inside"},"");return}if(!$("#albumModal").classList.contains("hidden")){closeAlbumPopup();history.pushState({musica:"inside"},"");return}if(!$("#addModal").classList.contains("hidden")){$("#addModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}goHome();history.pushState({musica:"inside"},"")});
-document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>t.onclick=async()=>{state.view=t.dataset.view;if(state.view==="libraries")await loadLibraries();document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));render();closeNav()});
+document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>t.onclick=async()=>navigateToView(t.dataset.view));
 $("#searchInput").oninput=e=>{state.search=e.target.value;render()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
 initAuth();
 loadData();

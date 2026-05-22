@@ -1,9 +1,10 @@
 [build]
   publish = "."
+  command = "node generate-config.js"
 
 [functions]
   directory = "netlify/functions"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY"
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY,VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,MUSICA_ADMIN_PIN,ADMIN_PIN,VITE_ADMIN_PIN,NEXT_PUBLIC_ADMIN_PIN"
 

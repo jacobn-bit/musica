@@ -4,7 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Muze - Find Music Worth Listening To</title>
-  <link rel="stylesheet" href="styles.css?v=mobile-back-cover-layout-v1">
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png" />
+  <link rel="stylesheet" href="styles.css?v=review-star-drag-v1">
   <script>
     (function(){
       try{
@@ -96,7 +99,6 @@
 
     <main id="content"></main>
   </div>
-
   <div id="albumModal" class="modal hidden">
     <div class="modalPanel">
       <button id="closeAlbumModal" class="close cleanClose" aria-label="Close album popup"><span class="cleanCloseIcon" aria-hidden="true"></span></button>
@@ -121,32 +123,73 @@
   <div id="authModal" class="modal authModal hidden" aria-hidden="true">
     <div class="modalPanel authPanel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button id="closeAuthModal" class="close cleanClose" aria-label="Close login popup"><span class="cleanCloseIcon" aria-hidden="true"></span></button>
-      <p class="eyebrow">Muze account</p>
-      <h2 id="authTitle">Log in to Muze</h2>
-      <p id="authPrompt" class="authPrompt">Log in to join the conversation.</p>
-      <div id="authLoggedOut">
-        <div class="authModes" role="tablist" aria-label="Authentication mode">
-          <button id="authLoginMode" class="active" type="button">Log In</button>
-          <button id="authSignupMode" type="button">Sign Up</button>
+      <div class="authEditorialLeft">
+        <img class="authEditorialLogo" src="/Muze%20correct%20logo.png?v=transparent-logo-v1" alt="Muze">
+        <p class="eyebrow">Muze account</p>
+        <h2 id="authTitle">Log in or create your Muze account</h2>
+        <p id="authPrompt" class="authPrompt">Enter your email to continue.</p>
+        <div class="authBenefitStack" aria-label="Muze account benefits">
+          <span>Save albums</span>
+          <span>Rate records</span>
+          <span>Build your library</span>
         </div>
-        <form id="authForm" class="authForm">
-          <label>Email<input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></label>
-          <label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Password"></label>
-          <button id="authSubmit" class="bigBtn" type="submit">Log In</button>
-        </form>
+        <div id="libraryAccessCard" class="libraryAccessCard hidden">
+          <div class="libraryAccessIcon" aria-hidden="true"></div>
+          <h3>Login to access your library</h3>
+          <p>Log in to save albums, build collections, and keep your music world in one place.</p>
+          <div class="libraryAccessActions">
+            <button id="libraryAccessLogin" type="button">Log In</button>
+            <button id="libraryAccessSignup" type="button">Create Account</button>
+          </div>
+        </div>
+        <div id="authLoggedOut">
+          <div id="signupOnboarding" class="signupOnboarding hidden">
+            <div class="signupOnboardingIcon" aria-hidden="true"></div>
+            <h3>Build your music identity.</h3>
+            <p>Save albums. Rate records. Build your library. Track your taste.</p>
+            <div class="signupOnboardingActions">
+              <button id="continueEmailSignup" type="button">Continue with Email</button>
+              <button id="continueGoogleSignup" class="authSocialBtn" type="button"><span class="providerIcon googleIcon" aria-hidden="true"></span><span>Continue with Google</span></button>
+              <button id="continueSpotifySignup" class="authSocialBtn" type="button"><span class="providerIcon spotifyIcon" aria-hidden="true"></span><span>Continue with Spotify</span></button>
+              <button id="continueFacebookSignup" class="authSocialBtn" type="button"><span class="providerIcon facebookIcon" aria-hidden="true"></span><span>Continue with Facebook</span></button>
+            </div>
+          </div>
+          <div class="authModes" role="tablist" aria-label="Authentication mode">
+            <button id="authLoginMode" class="active" type="button">Log In</button>
+            <button id="authSignupMode" type="button">Create Account</button>
+          </div>
+          <form id="authForm" class="authForm">
+            <label>Email<input id="authEmail" type="email" autocomplete="email" required placeholder="Enter your email"></label>
+            <button id="authEmailContinue" class="authLineBtn" type="button">Continue</button>
+            <div class="authDivider"><span>or</span></div>
+            <div class="authProviderStack">
+              <button id="authGoogleLogin" class="authSocialBtn" type="button"><span class="providerIcon googleIcon" aria-hidden="true"></span><span>Continue with Google</span></button>
+              <button id="authSpotifyLogin" class="authSocialBtn" type="button"><span class="providerIcon spotifyIcon" aria-hidden="true"></span><span>Continue with Spotify</span></button>
+              <button id="authFacebookLogin" class="authSocialBtn" type="button"><span class="providerIcon facebookIcon" aria-hidden="true"></span><span>Continue with Facebook</span></button>
+            </div>
+            <label class="authPasswordRow">Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Password"></label>
+            <button id="authSubmit" class="bigBtn authPasswordRow" type="submit">Continue</button>
+          </form>
+        </div>
+        <div id="authLoggedIn" class="authLoggedIn hidden">
+          <p>Signed in as <strong id="authUserEmail"></strong></p>
+          <button id="authLogout" class="bigBtn" type="button">Log Out</button>
+        </div>
+        <button class="tinyAdminOverview" id="adminOverviewUnlock" type="button" title="Admin overview" aria-label="Admin overview"></button>
+        <p id="authStatus" class="authStatus" aria-live="polite"></p>
       </div>
-      <div id="authLoggedIn" class="authLoggedIn hidden">
-        <p>Signed in as <strong id="authUserEmail"></strong></p>
-        <button id="authLogout" class="bigBtn" type="button">Log Out</button>
+      <div class="authEditorialVisual" aria-hidden="true">
+        <div class="authAlbumWall">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <p>Build your music identity.</p>
       </div>
-      <button class="adminOverviewUnlock" id="adminOverviewUnlock" type="button">Admin overview</button>
-      <p id="authStatus" class="authStatus" aria-live="polite"></p>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=back-cover-direct-fallback-v1"></script>
+  <script src="app-final-spotify.js?v=review-star-drag-v1"></script>
 </body>
 </html>
 
