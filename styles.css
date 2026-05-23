@@ -11637,3 +11637,38 @@ body{
     pointer-events:none!important;
   }
 }
+
+/* Keep auth/profile benefit pills compact while preserving descriptive copy in markup. */
+.authPanel:not(.avatarEditorMode) .authBenefitStack{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  grid-template-columns:none!important;
+  gap:7px!important;
+  margin:0 0 22px!important;
+}
+.authPanel:not(.avatarEditorMode) .authBenefitStack span{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:auto!important;
+  min-width:0!important;
+  min-height:24px!important;
+  padding:0 12px!important;
+  grid-template-columns:none!important;
+  column-gap:0!important;
+  border-radius:999px!important;
+  white-space:nowrap!important;
+}
+.authPanel:not(.avatarEditorMode) .authBenefitStack span:before,
+.authPanel:not(.avatarEditorMode) .authBenefitStack span:after,
+.authPanel:not(.avatarEditorMode) .authBenefitStack small{
+  display:none!important;
+}
+.authPanel:not(.avatarEditorMode) .authBenefitStack strong{
+  display:inline!important;
+  grid-column:auto!important;
+  color:inherit!important;
+  font-size:inherit!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
