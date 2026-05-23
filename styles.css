@@ -11636,6 +11636,17 @@ body{
   #saveAvatarButton:after{
     pointer-events:none!important;
   }
+  #profileUsernameEditor{
+    isolation:isolate!important;
+    scroll-margin-bottom:130px!important;
+  }
+  #profileUsernameInput,
+  #saveUsernameButton{
+    position:relative!important;
+    z-index:31!important;
+    pointer-events:auto!important;
+    touch-action:manipulation!important;
+  }
 }
 
 /* Keep auth/profile benefit pills compact while preserving descriptive copy in markup. */
