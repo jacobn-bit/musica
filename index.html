@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="shortcut icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/public/apple-touch-icon.png" />
-  <link rel="stylesheet" href="styles.css?v=admin-mood-score-v2">
+  <link rel="stylesheet" href="styles.css?v=muze-icon-avatar">
   <script>
     (function(){
       try{
@@ -121,7 +121,7 @@
   </div>
 
   <div id="authModal" class="modal authModal hidden" aria-hidden="true">
-    <div class="modalPanel authPanel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div id="authPanel" class="modalPanel authPanel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button id="closeAuthModal" class="close cleanClose" aria-label="Close login popup"><span class="cleanCloseIcon" aria-hidden="true"></span></button>
       <div class="authEditorialLeft">
         <img class="authEditorialLogo" src="/Muze%20correct%20logo.png?v=transparent-logo-v1" alt="Muze">
@@ -129,9 +129,9 @@
         <h2 id="authTitle">Log in or create your Muze account</h2>
         <p id="authPrompt" class="authPrompt">Enter your email to continue.</p>
         <div class="authBenefitStack" aria-label="Muze account benefits">
-          <span>Save albums</span>
-          <span>Rate records</span>
-          <span>Build your library</span>
+          <span><strong>Save albums</strong><small>Keep your favorite albums organized.</small></span>
+          <span><strong>Rate records</strong><small>Rate and review the records you love.</small></span>
+          <span><strong>Build your library</strong><small>Create and manage your collection.</small></span>
         </div>
         <div id="libraryAccessCard" class="libraryAccessCard hidden">
           <div class="libraryAccessIcon" aria-hidden="true"></div>
@@ -172,9 +172,100 @@
           </form>
         </div>
         <div id="authLoggedIn" class="authLoggedIn hidden">
-          <p>Signed in as <strong id="authUserEmail"></strong></p>
-          <button id="authLogout" class="bigBtn" type="button">Log Out</button>
+          <div id="profileAvatarPreview" class="profileAvatarPreview"></div>
+          <span id="profileUsernameDisplay" class="profileUsernameDisplay hidden"></span>
+          <span id="profileMemberSinceDisplay" class="profileMemberSinceDisplay hidden"></span>
+          <span class="accountAvatarKicker">Profile setup</span>
+          <h3 class="accountAvatarTitle">Create your Muze Avatar</h3>
+          <p class="accountAvatarSubtitle">Upload a photo or design a custom face for your profile.</p>
+          <button id="editAvatarButton" class="authLineBtn" type="button">Edit Profile Avatar</button>
         </div>
+        <div id="avatarSetup" class="avatarSetup hidden">
+          <button id="avatarEditorBack" class="avatarEditorBack" type="button">Back to account</button>
+          <div class="avatarEditorHero">
+            <div>
+              <h2 id="avatarEditorTitle">Edit profile avatar</h2>
+              <p id="avatarEditorSubtitle">Choose or create your avatar.</p>
+            </div>
+            <button id="avatarEditReveal" class="avatarEditReveal" type="button" aria-expanded="false" aria-label="Edit avatar">
+              <span id="avatarEditorHeroPreview" class="avatarEditorHeroPreview" aria-label="Avatar preview"></span>
+              <span class="avatarEditRevealLabel">Edit Avatar</span>
+            </button>
+          </div>
+          <div class="avatarSetupHead">
+            <div id="avatarPreview" class="avatarPreview" aria-label="Avatar preview"></div>
+            <div>
+              <span>Profile setup</span>
+              <h3>Create your Muze avatar</h3>
+              <p>Upload a photo or design a custom face for your listener profile.</p>
+            </div>
+          </div>
+          <div id="profileUsernameEditor" class="profileUsernameEditor">
+            <label class="profileUsernameField">Username<input id="profileUsernameInput" type="text" maxlength="32" autocomplete="nickname" placeholder="Choose your username"></label>
+            <button id="saveUsernameButton" type="button">Save Username</button>
+          </div>
+          <div id="avatarEditorUsernameDisplay" class="avatarEditorUsernameDisplay hidden">
+            <strong id="avatarEditorUsernameText"></strong>
+            <span id="avatarEditorMemberSince"></span>
+          </div>
+          <div class="avatarChoiceTabs" role="tablist" aria-label="Avatar setup options">
+            <button id="avatarCreateTab" type="button">Choose icon</button>
+            <button id="avatarUploadTab" class="active" type="button">Upload photo</button>
+          </div>
+          <div id="avatarCreatorPreviewCard" class="avatarCreatorPreview hidden">
+            <div id="avatarCreatorPreview" class="avatarPreview" aria-label="Custom avatar live preview"></div>
+            <div>
+              <span>Muze profile icon</span>
+              <p>Pick a polished profile icon or upload your own photo.</p>
+            </div>
+          </div>
+          <div class="avatarStyleSection hidden" id="avatarStyleSection">
+            <h3>Choose a style</h3>
+            <div class="avatarStyleRow" aria-label="Avatar style choices">
+              <button class="avatarStyleChoice active" type="button" data-avatar-style="editorial" aria-label="Editorial avatar style"></button>
+              <button class="avatarStyleChoice" type="button" data-avatar-style="soft" aria-label="Soft avatar style"></button>
+              <button class="avatarStyleChoice" type="button" data-avatar-style="mono" aria-label="Monochrome avatar style"></button>
+              <button class="avatarStyleChoice" type="button" data-avatar-style="classic" aria-label="Classic avatar style"></button>
+              <button class="avatarStyleChoice" type="button" data-avatar-style="pixel" aria-label="Pixel avatar style"></button>
+            </div>
+          </div>
+          <div class="avatarColorSection hidden" id="avatarColorSection">
+            <h3>Customize</h3>
+            <div class="avatarColorRow" aria-label="Avatar skin tone choices">
+              <button class="avatarColorChoice active" type="button" data-avatar-skin="#c98f63" style="--swatch:#c98f63" aria-label="Warm skin tone"></button>
+              <button class="avatarColorChoice" type="button" data-avatar-skin="#a96a34" style="--swatch:#a96a34" aria-label="Bronze skin tone"></button>
+              <button class="avatarColorChoice" type="button" data-avatar-skin="#8f633f" style="--swatch:#8f633f" aria-label="Deep tan skin tone"></button>
+              <button class="avatarColorChoice" type="button" data-avatar-skin="#3b2414" style="--swatch:#3b2414" aria-label="Dark skin tone"></button>
+              <button class="avatarColorChoice" type="button" data-avatar-skin="#111111" style="--swatch:#111111" aria-label="Black shade"></button>
+              <button class="avatarColorChoice" type="button" data-avatar-skin="#c9b8a0" style="--swatch:#c9b8a0" aria-label="Light skin tone"></button>
+              <button class="avatarColorChoice" type="button" data-avatar-skin="#8f8b83" style="--swatch:#8f8b83" aria-label="Grey tone"></button>
+            </div>
+          </div>
+          <div class="avatarPreviewSection hidden" id="avatarPreviewSection">
+            <h3>Preview</h3>
+            <div class="avatarPreviewSizes" aria-label="Avatar preview sizes">
+              <div id="avatarEditorPreviewLarge" class="avatarEditorPreviewSize large"></div>
+              <div id="avatarEditorPreviewMedium" class="avatarEditorPreviewSize medium"></div>
+              <div id="avatarEditorPreviewSmall" class="avatarEditorPreviewSize small"></div>
+            </div>
+          </div>
+          <div id="avatarUploadPanel" class="avatarPanel">
+            <label class="avatarUploadDrop">Choose profile photo<input id="avatarPhotoInput" type="file" accept="image/*"></label>
+            <p>Photos are saved to Supabase Storage when the avatar bucket is configured.</p>
+          </div>
+          <div id="avatarCreatePanel" class="avatarPanel hidden">
+            <div class="avatarIconIntro">
+              <span>Profile icons</span>
+              <p>Choose one of the Muze profile icons below.</p>
+            </div>
+            <div id="avatarIconGrid" class="avatarIconGrid" aria-label="Muze profile icon choices"></div>
+          </div>
+          <div class="avatarActions">
+            <button id="saveAvatarButton" class="bigBtn" type="button">Save Avatar</button>
+            <button id="skipAvatarButton" type="button">Cancel</button>
+          </div>
+        </div>
+        <button id="authLogout" class="bigBtn authLogoutAction hidden" type="button">Log Out</button>
         <button class="tinyAdminOverview" id="adminOverviewUnlock" type="button" title="Admin overview" aria-label="Admin overview"></button>
         <p id="authStatus" class="authStatus" aria-live="polite"></p>
       </div>
@@ -189,7 +280,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=admin-mood-score-v2"></script>
+  <script src="app-final-spotify.js?v=muze-icon-avatar"></script>
 </body>
 </html>
 

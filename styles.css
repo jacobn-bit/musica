@@ -11,6 +11,345 @@
   --glow:0 0 20px rgba(242,201,76,.25);
   --shadow:0 18px 60px rgba(0,0,0,.45)
 }
+
+/* Premium account modal refresh */
+.authPanel.accountProfileMode:not(.avatarEditorMode){
+  width:min(832px,calc(100vw - 48px))!important;
+  min-height:min(1180px,calc(100vh - 30px))!important;
+  max-height:calc(100vh - 30px)!important;
+  border-radius:34px!important;
+  border:1px solid rgba(212,175,55,.45)!important;
+  background:#090909!important;
+  box-shadow:0 36px 140px rgba(0,0,0,.82),0 0 80px rgba(212,175,55,.08),inset 0 1px 0 rgba(245,241,232,.05)!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft{
+  padding:72px 86px 54px!important;
+  overflow:auto!important;
+  background:
+    radial-gradient(circle at 28% 16%,rgba(244,211,94,.12),transparent 20%),
+    radial-gradient(circle at 94% 56%,rgba(212,175,55,.09),transparent 26%),
+    linear-gradient(145deg,#111 0%,#090909 54%,#050505 100%)!important;
+  overflow:visible!important;
+  transform:scale(.87)!important;
+  transform-origin:top center!important;
+  width:114.943%!important;
+  min-height:114.943%!important;
+  margin-left:-7.471%!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft:before{
+  content:""!important;
+  position:absolute!important;
+  inset:-12% auto auto -18%!important;
+  width:620px!important;
+  height:620px!important;
+  border-radius:50%!important;
+  z-index:-2!important;
+  background:repeating-radial-gradient(circle,rgba(244,211,94,.09) 0 1px,transparent 1px 7px),radial-gradient(circle,rgba(212,175,55,.14),transparent 62%)!important;
+  filter:blur(.2px)!important;
+  opacity:.38!important;
+  animation:none!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft:after{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:-1!important;
+  background:linear-gradient(125deg,rgba(245,241,232,.055),transparent 22%,rgba(212,175,55,.035) 62%,transparent 84%),radial-gradient(circle at 0 82%,rgba(212,175,55,.13),transparent 22%)!important;
+  opacity:.72!important;
+  pointer-events:none!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .cleanClose{
+  right:36px!important;
+  top:34px!important;
+  width:60px!important;
+  height:60px!important;
+  border:1px solid rgba(212,175,55,.40)!important;
+  background:rgba(255,255,255,.035)!important;
+  color:#f4d35e!important;
+  box-shadow:0 0 26px rgba(212,175,55,.10),inset 0 1px 0 rgba(245,241,232,.08)!important;
+  backdrop-filter:blur(12px)!important;
+  transition:border-color .24s ease,box-shadow .24s ease,background .24s ease,color .24s ease,transform .24s ease!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .cleanClose:hover{
+  color:#ffe89c!important;
+  border-color:rgba(244,211,94,.70)!important;
+  background:rgba(212,175,55,.08)!important;
+  box-shadow:0 0 34px rgba(212,175,55,.18),inset 0 1px 0 rgba(245,241,232,.12)!important;
+  transform:translateY(-1px)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLogo{
+  width:154px!important;
+  margin:0 0 48px 0!important;
+  filter:drop-shadow(0 18px 34px rgba(0,0,0,.46)) drop-shadow(0 0 18px rgba(212,175,55,.12))!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .eyebrow{
+  margin:0 0 20px!important;
+  color:#d4af37!important;
+  font-size:13px!important;
+  line-height:1!important;
+  font-weight:820!important;
+  letter-spacing:.20em!important;
+  text-shadow:0 0 18px rgba(212,175,55,.18)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #authTitle{
+  max-width:560px!important;
+  margin:0 0 18px!important;
+  color:#f5f1e8!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:52px!important;
+  line-height:1.02!important;
+  font-weight:700!important;
+  letter-spacing:-.045em!important;
+  text-shadow:0 18px 44px rgba(0,0,0,.48),0 0 24px rgba(212,175,55,.08)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authPrompt{
+  max-width:420px!important;
+  margin:0 0 40px!important;
+  color:#b8b0a3!important;
+  font-size:21px!important;
+  line-height:1.42!important;
+  font-weight:470!important;
+  letter-spacing:-.01em!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:16px!important;
+  margin:0 0 32px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:34px minmax(0,1fr) 18px!important;
+  grid-template-rows:auto auto!important;
+  column-gap:16px!important;
+  row-gap:7px!important;
+  align-items:start!important;
+  min-height:132px!important;
+  padding:27px 23px!important;
+  border:1px solid rgba(212,175,55,.30)!important;
+  border-radius:15px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),rgba(9,9,9,.56)!important;
+  color:#f5f1e8!important;
+  text-align:left!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.06),0 18px 46px rgba(0,0,0,.26),0 0 28px rgba(212,175,55,.035)!important;
+  backdrop-filter:blur(16px)!important;
+  transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s ease,box-shadow .28s ease,background .28s ease!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:hover{
+  transform:translateY(-2px)!important;
+  border-color:rgba(244,211,94,.58)!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(212,175,55,.035)),rgba(9,9,9,.62)!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.10),0 24px 54px rgba(0,0,0,.32),0 0 34px rgba(212,175,55,.13)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:before{
+  grid-row:1 / span 2!important;
+  grid-column:1!important;
+  margin:0!important;
+  color:#d4af37!important;
+  font-size:30px!important;
+  line-height:1!important;
+  text-shadow:0 0 18px rgba(212,175,55,.22)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:after{
+  content:">"!important;
+  grid-column:3!important;
+  grid-row:1 / span 2!important;
+  align-self:center!important;
+  color:#f4d35e!important;
+  font-size:28px!important;
+  line-height:1!important;
+  font-weight:300!important;
+  text-shadow:0 0 16px rgba(212,175,55,.20)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:nth-child(1):before{content:"▣"!important}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:nth-child(2):before{content:"★"!important}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:nth-child(3):before{content:"▥"!important}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack strong{
+  grid-column:2!important;
+  display:block!important;
+  color:#e3c56a!important;
+  font-size:18px!important;
+  line-height:1.12!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-weight:700!important;
+  letter-spacing:-.01em!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack small{
+  grid-column:2!important;
+  display:block!important;
+  color:#c8c0b3!important;
+  font-size:15px!important;
+  line-height:1.45!important;
+  font-weight:470!important;
+  letter-spacing:0!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLoggedIn{
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  width:100%!important;
+  min-height:440px!important;
+  margin:0 0 44px!important;
+  padding:40px 44px 44px!important;
+  border:1px solid rgba(245,241,232,.16)!important;
+  border-radius:24px!important;
+  background:radial-gradient(circle at 50% 19%,rgba(244,211,94,.20),transparent 23%),linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025)),rgba(17,17,17,.72)!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.055),0 24px 70px rgba(0,0,0,.34),0 0 46px rgba(212,175,55,.055)!important;
+  backdrop-filter:blur(18px)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview{
+  width:132px!important;
+  height:132px!important;
+  margin:0 0 28px!important;
+  border:2px solid rgba(244,211,94,.96)!important;
+  background:radial-gradient(circle at 50% 50%,rgba(10,10,10,.96),rgba(5,5,5,.98))!important;
+  box-shadow:0 0 0 1px rgba(245,241,232,.18),0 0 18px rgba(244,211,94,.72),0 0 58px rgba(212,175,55,.38),0 20px 50px rgba(0,0,0,.44),inset 0 0 0 1px rgba(0,0,0,.48)!important;
+  filter:none!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview:before{
+  inset:-36px!important;
+  background:radial-gradient(circle,rgba(244,211,94,.28),rgba(212,175,55,.09) 42%,transparent 69%)!important;
+  filter:blur(12px)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarKicker{
+  margin:0 0 14px!important;
+  color:#d4af37!important;
+  font-size:13px!important;
+  font-weight:850!important;
+  letter-spacing:.34em!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarTitle{
+  margin:0 0 18px!important;
+  color:#f5f1e8!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:34px!important;
+  line-height:1.1!important;
+  font-weight:700!important;
+  letter-spacing:-.035em!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarSubtitle{
+  max-width:620px!important;
+  margin:0 auto 42px!important;
+  color:#b8b0a3!important;
+  font-size:19px!important;
+  line-height:1.45!important;
+  font-weight:430!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton{
+  width:min(460px,100%)!important;
+  min-height:68px!important;
+  margin:0 auto!important;
+  padding:0 30px!important;
+  border:1px solid rgba(212,175,55,.72)!important;
+  border-radius:14px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012)),rgba(0,0,0,.24)!important;
+  color:#d4af37!important;
+  font-size:18px!important;
+  font-weight:760!important;
+  letter-spacing:.18em!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.07),0 16px 42px rgba(0,0,0,.30),0 0 22px rgba(212,175,55,.08)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton:before{
+  margin-right:18px!important;
+  color:#e8c760!important;
+  font-size:24px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton:hover{
+  border-color:rgba(244,211,94,.92)!important;
+  color:#f4d35e!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.11),0 20px 48px rgba(0,0,0,.34),0 0 30px rgba(212,175,55,.16)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction{
+  width:100%!important;
+  min-height:78px!important;
+  margin:0 auto!important;
+  border:1px solid rgba(244,211,94,.78)!important;
+  border-radius:16px!important;
+  color:#0b0b0b!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:25px!important;
+  font-weight:800!important;
+  letter-spacing:.005em!important;
+  background:linear-gradient(100deg,#f7e17a 0%,#d4af37 46%,#a97916 100%)!important;
+  box-shadow:0 22px 58px rgba(0,0,0,.38),0 0 34px rgba(212,175,55,.20),inset 0 1px 0 rgba(255,255,255,.48),inset 0 -1px 0 rgba(0,0,0,.12)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction:before{
+  margin-right:18px!important;
+  font-size:30px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction:hover{
+  transform:translateY(-1px)!important;
+  filter:saturate(1.04) brightness(1.04)!important;
+  box-shadow:0 26px 66px rgba(0,0,0,.42),0 0 42px rgba(212,175,55,.28),inset 0 1px 0 rgba(255,255,255,.56)!important;
+}
+
+@media(max-width:850px){
+  .authPanel.accountProfileMode:not(.avatarEditorMode){
+    width:min(100%,calc(100vw - 18px))!important;
+    min-height:auto!important;
+    max-height:calc(100vh - 18px)!important;
+    border-radius:28px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft{
+    padding:32px 22px 28px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .cleanClose{
+    right:18px!important;
+    top:18px!important;
+    width:48px!important;
+    height:48px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLogo{
+    width:118px!important;
+    margin-bottom:34px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) #authTitle{
+    font-size:38px!important;
+    max-width:calc(100% - 56px)!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authPrompt{
+    font-size:17px!important;
+    margin-bottom:28px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack{
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+    margin-bottom:24px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span{
+    min-height:112px!important;
+    padding:22px 18px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authLoggedIn{
+    min-height:auto!important;
+    padding:34px 20px 28px!important;
+    margin-bottom:26px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview{
+    width:110px!important;
+    height:110px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarTitle{
+    font-size:28px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarSubtitle{
+    font-size:16px!important;
+    margin-bottom:30px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton{
+    min-height:58px!important;
+    font-size:14px!important;
+    letter-spacing:.14em!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction{
+    min-height:64px!important;
+    font-size:21px!important;
+  }
+}
 .light{--bg:#f6f5f2;--panel:#fff;--panel2:#f0efeb;--text:#151515;--muted:#6f6f76;--line:#dedbd2;--accent:#111;--shadow:0 18px 60px rgba(0,0,0,.12)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}button,input,select{font:inherit}
 .app{width:min(1120px,92vw);margin:0 auto;padding:24px 0 60px}.topbar{display:flex;align-items:center;gap:14px;margin-bottom:24px}.brandWrap{flex:1}
@@ -103,9 +442,628 @@
 .authPanel:not(.authEmailStep) .authProviderStack{display:none!important}
 .authForm .bigBtn,.authLoggedIn .bigBtn{width:100%;margin-top:4px;border-radius:0;min-height:44px}
 .authForm .bigBtn:disabled{opacity:.62;cursor:wait;transform:none}
-.authLoggedIn{display:grid;gap:12px}
+.authLoggedIn{display:flex;flex-direction:column;gap:12px;padding-bottom:2px}
 .authLoggedIn p{margin:2px 0;color:var(--muted);overflow-wrap:anywhere}
 .authLoggedIn strong{color:var(--text)}
+.authLogoutAction{width:100%;margin-top:28px!important;margin-bottom:16px!important;border-radius:0;min-height:44px}
+.profileAvatarPreview,.avatarPreview{width:82px;height:82px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:radial-gradient(circle at 35% 20%,rgba(242,201,76,.20),rgba(12,12,18,.92));border:1px solid rgba(242,201,76,.22);box-shadow:0 18px 42px rgba(0,0,0,.30),0 0 24px rgba(242,201,76,.08),inset 0 1px 0 rgba(255,255,255,.10)}
+.profileAvatarPreview img,.avatarPreview img,.profileAvatarPreview svg,.avatarPreview svg,.navUserIcon.hasAvatar img,.navUserIcon.hasAvatar svg,.authButtonIcon.hasAvatar img,.authButtonIcon.hasAvatar svg{width:100%;height:100%;object-fit:cover;display:block}
+.navUserIcon.hasAvatar,.authButtonIcon.hasAvatar{overflow:hidden;background:transparent!important;border-color:rgba(242,201,76,.38)!important;padding:0!important}
+.navUserIcon.hasAvatar:before,.navUserIcon.hasAvatar:after,.authButtonIcon.hasAvatar:before,.authButtonIcon.hasAvatar:after{display:none!important}
+.authPanel.accountProfileMode .authEditorialLeft{min-height:inherit;background:radial-gradient(circle at 50% 34%,rgba(246,210,91,.14),transparent 20%),radial-gradient(circle at 50% 76%,rgba(242,201,76,.07),transparent 32%),radial-gradient(circle at 28% 16%,rgba(255,255,255,.055),transparent 28%),linear-gradient(180deg,#131826 0%,#080b13 56%,#04060b 100%);}
+.authPanel.accountProfileMode{width:min(590px,calc(100vw - 32px))!important;min-height:min(890px,calc(100vh - 24px))!important;max-height:calc(100vh - 24px)!important;grid-template-columns:1fr!important;border-radius:28px!important;overflow:hidden!important;background:#070a12!important;box-shadow:0 34px 120px rgba(0,0,0,.74),0 0 0 1px rgba(255,255,255,.06),0 0 0 1px rgba(242,201,76,.05) inset!important}
+.authPanel.accountProfileMode .authEditorialVisual{display:none!important}
+.authPanel.accountProfileMode .authEditorialLeft{display:flex;flex-direction:column;border-right:0!important;padding:33px 78px 33px!important;position:relative;isolation:isolate;overflow:hidden}
+.authPanel.accountProfileMode .authEditorialLeft:before{content:"";position:absolute;inset:-22% -18%;z-index:-2;background:radial-gradient(circle at 50% 28%,rgba(255,217,84,.18),transparent 18%),radial-gradient(circle at 78% 68%,rgba(107,125,167,.11),transparent 30%),radial-gradient(circle at 22% 80%,rgba(242,201,76,.09),transparent 28%);filter:blur(2px);opacity:.9;animation:accountProfileAura 16s ease-in-out infinite alternate}
+.authPanel.accountProfileMode .authEditorialLeft:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(115deg,rgba(255,255,255,.055),transparent 28%,rgba(242,201,76,.035) 54%,transparent 78%),repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 14px);mix-blend-mode:screen;opacity:.34;pointer-events:none}
+.authPanel.accountProfileMode .authEditorialLogo{width:100px!important;margin:10px 0 -6px -8px!important}
+.authPanel.accountProfileMode .eyebrow{margin-bottom:7px;font-size:9.3px;letter-spacing:.11em;color:rgba(244,231,193,.86);text-shadow:0 10px 24px rgba(0,0,0,.38)}
+.authPanel.accountProfileMode #authTitle{font-size:28.8px;line-height:.98;margin-top:14px;margin-bottom:12px;font-weight:820;letter-spacing:-.025em;color:#fffaf0;text-shadow:0 2px 0 rgba(0,0,0,.28),0 14px 36px rgba(0,0,0,.46),0 0 28px rgba(242,201,76,.07)}
+.authPanel.accountProfileMode .authPrompt{font-size:11.9px;font-weight:670;color:rgba(238,232,220,.68);margin-bottom:24px;letter-spacing:.005em}
+.authPanel.accountProfileMode .authBenefitStack{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:48px}
+.authPanel.accountProfileMode .authBenefitStack span{justify-content:center;min-height:26px;padding:0 8px;border-color:rgba(255,218,89,.36);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),rgba(0,0,0,.16);color:#f9e7a2;font-size:9.3px;font-weight:790;letter-spacing:.018em;text-align:center;text-shadow:0 1px 0 rgba(0,0,0,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.075),0 10px 28px rgba(0,0,0,.18),0 0 18px rgba(242,201,76,.035);backdrop-filter:blur(8px);transition:border-color .24s ease,background .24s ease,box-shadow .24s ease,transform .24s ease}
+.authPanel.accountProfileMode .authBenefitStack span:hover{transform:translateY(-1px);border-color:rgba(255,225,109,.58);background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.026)),rgba(0,0,0,.15);box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 14px 34px rgba(0,0,0,.22),0 0 22px rgba(242,201,76,.08)}
+.authPanel.accountProfileMode .authBenefitStack span:nth-child(1):before{content:"▣";margin-right:7px;color:#ffed9a;font-size:12.6px}
+.authPanel.accountProfileMode .authBenefitStack span:nth-child(2):before{content:"☆";margin-right:7px;color:#ffed9a;font-size:13.6px}
+.authPanel.accountProfileMode .authBenefitStack span:nth-child(3):before{content:"▥";margin-right:7px;color:#ffed9a;font-size:12.6px}
+.authPanel.accountProfileMode .authLoggedIn{align-items:center;gap:0}
+.authPanel.accountProfileMode .profileAvatarPreview{width:90px;height:90px;margin-bottom:15px;position:relative;overflow:visible!important;background:radial-gradient(circle at 50% 50%,rgba(8,10,16,.96),rgba(4,5,9,.98))!important;border:1.5px solid rgba(255,221,63,.98);filter:drop-shadow(0 0 18px rgba(255,218,69,.38)) drop-shadow(0 18px 34px rgba(0,0,0,.44));box-shadow:0 0 0 1px rgba(255,244,158,.28),0 0 11px rgba(255,227,98,.72),0 0 34px rgba(242,201,76,.43),0 0 70px rgba(242,173,20,.18),inset 0 0 0 1px rgba(0,0,0,.42)}
+.authPanel.accountProfileMode .profileAvatarPreview img,.authPanel.accountProfileMode .profileAvatarPreview svg{border-radius:50%;position:relative;z-index:1}
+.authPanel.accountProfileMode .profileAvatarPreview:before{content:"";position:absolute;inset:-18px;border-radius:50%;z-index:-1;background:radial-gradient(circle,rgba(242,201,76,.22),rgba(242,201,76,.08) 36%,transparent 68%);filter:blur(8px);animation:accountAvatarHalo 9s ease-in-out infinite alternate}
+.authPanel.accountProfileMode .profileUsernameDisplay{display:block;margin:-3px 0 14px;color:#fff4d0;font-size:14px;font-weight:780;letter-spacing:.015em;text-align:center;text-shadow:0 8px 24px rgba(0,0,0,.35)}
+.authPanel.accountProfileMode .profileUsernameDisplay.hidden{display:none!important}
+.authPanel.accountProfileMode .profileMemberSinceDisplay{display:block;margin:-10px 0 14px;color:rgba(238,232,220,.52);font-size:10.5px;font-weight:700;letter-spacing:.035em;text-align:center}
+.authPanel.accountProfileMode .profileMemberSinceDisplay.hidden{display:none!important}
+.authPanel.accountProfileMode .accountAvatarKicker{display:block;margin-bottom:10px;color:#f4c94f;font-size:9.3px;font-weight:820;letter-spacing:.205em;text-transform:uppercase;text-align:center;text-shadow:0 0 18px rgba(242,201,76,.18)}
+.authPanel.accountProfileMode .accountAvatarTitle{margin:0 0 10px;color:#fffaf0;font-size:18.8px;line-height:1.05;font-weight:820;letter-spacing:-.018em;text-align:center;text-shadow:0 8px 24px rgba(0,0,0,.42)}
+.authPanel.accountProfileMode .accountAvatarSubtitle{max-width:338px;margin:0 auto 30px!important;text-align:center;color:rgba(238,232,220,.67)!important;font-size:12.5px;line-height:1.42;font-weight:560}
+.authPanel.accountProfileMode #editAvatarButton{width:auto;min-width:255px;max-width:100%;min-height:38px;margin:0 auto 42px;padding:0 24px;border-radius:12px;border-color:rgba(255,218,89,.52);background:linear-gradient(180deg,rgba(255,255,255,.052),rgba(255,255,255,.014)),rgba(0,0,0,.16);color:#fff0b8;font-size:11.4px;font-weight:850;letter-spacing:.075em;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 12px 34px rgba(0,0,0,.24),0 0 20px rgba(242,201,76,.055);backdrop-filter:blur(10px);transition:transform .26s cubic-bezier(.16,1,.3,1),border-color .26s ease,box-shadow .26s ease,background .26s ease}
+.authPanel.accountProfileMode #editAvatarButton:before{content:"✎";margin-right:8px;color:#fff0a5;font-size:15px;vertical-align:-1px}
+.authPanel.accountProfileMode #editAvatarButton:hover{transform:translateY(-1px);border-color:rgba(255,230,125,.76);background:linear-gradient(180deg,rgba(255,255,255,.078),rgba(255,255,255,.02)),rgba(0,0,0,.15);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 16px 40px rgba(0,0,0,.28),0 0 26px rgba(242,201,76,.11)}
+.authPanel.accountProfileMode .accountProfileSetup{margin-top:38px;text-align:center}
+.authPanel.accountProfileMode .accountProfileSetup h3{margin:0;color:#fff9ec;font-size:18.8px;line-height:1.05;font-weight:820;letter-spacing:-.018em;text-shadow:0 8px 22px rgba(0,0,0,.38)}
+.authPanel.accountProfileMode .avatarSetup{margin-top:18px;text-align:center;gap:8px}
+.authPanel.accountProfileMode .avatarSetupHead{display:block}
+.authPanel.accountProfileMode .avatarSetupHead .avatarPreview{display:none}
+.authPanel.accountProfileMode .avatarSetupHead span{font-size:10px;color:#f2c94c;letter-spacing:.18em;margin-bottom:7px}
+.authPanel.accountProfileMode .avatarSetupHead h3{font-size:18px;margin:0 0 6px;text-shadow:0 6px 18px rgba(0,0,0,.35)}
+.authPanel.accountProfileMode .avatarSetupHead p{max-width:360px;margin:0 auto;color:rgba(232,226,216,.74);font-size:11.5px;line-height:1.3}
+.authPanel.accountProfileMode .avatarChoiceTabs{max-width:420px;margin:12px auto 0;width:100%}
+.authPanel.accountProfileMode .avatarPanel{max-width:420px;margin:0 auto;width:100%;text-align:left}
+.authPanel.accountProfileMode .avatarActions{max-width:420px;margin:0 auto;width:100%}
+.authPanel.accountProfileMode .authLogoutAction{width:min(317px,100%);margin:0 auto!important;margin-top:auto!important;margin-bottom:0!important;min-height:40px;border-radius:10px;font-size:13.8px;letter-spacing:.06em;background:linear-gradient(90deg,#fff176,#f3ca43 48%,#c99600)!important;box-shadow:0 14px 34px rgba(0,0,0,.34),0 0 28px rgba(242,201,76,.18),inset 0 1px 0 rgba(255,255,255,.45)!important;transition:transform .26s cubic-bezier(.16,1,.3,1),box-shadow .26s ease,filter .26s ease}
+.authPanel.accountProfileMode .authLogoutAction:before{content:"↪";margin-right:10px;font-size:17px;vertical-align:-1px}
+.authPanel.accountProfileMode .authLogoutAction:hover{transform:translateY(-1px);filter:saturate(1.04) brightness(1.03);box-shadow:0 18px 42px rgba(0,0,0,.38),0 0 36px rgba(242,201,76,.23),inset 0 1px 0 rgba(255,255,255,.52)!important}
+@keyframes accountProfileAura{0%{transform:translate3d(-1.5%,0,0) scale(1);opacity:.72}100%{transform:translate3d(1.5%,-1%,0) scale(1.025);opacity:.95}}
+@keyframes accountAvatarHalo{0%{transform:scale(.96);opacity:.58}100%{transform:scale(1.06);opacity:.86}}
+@media(prefers-reduced-motion:reduce){.authPanel.accountProfileMode .authEditorialLeft:before,.authPanel.accountProfileMode .profileAvatarPreview:before{animation:none!important}.authPanel.accountProfileMode .authBenefitStack span,.authPanel.accountProfileMode #editAvatarButton,.authPanel.accountProfileMode .authLogoutAction{transition:none!important}}
+.avatarSetup{display:grid;gap:15px;margin-top:4px}
+.avatarSetupHead{display:grid;grid-template-columns:82px minmax(0,1fr);gap:16px;align-items:center}
+.avatarSetupHead span{display:block;color:rgba(242,201,76,.76);font-size:10px;font-weight:900;letter-spacing:.11em;text-transform:uppercase}
+.avatarSetupHead h3{margin:4px 0 6px;color:#f5f3ed;font-size:22px;line-height:1.05;letter-spacing:-.02em}
+.avatarSetupHead p{margin:0;color:rgba(232,226,216,.60);font-size:13px;line-height:1.35}
+.profileUsernameEditor{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;width:100%;max-width:420px;margin:0 auto}
+.profileUsernameEditor.hidden{display:none!important}
+.profileUsernameEditor,.profileUsernameEditor *{position:relative;z-index:5}
+.profileUsernameField{display:grid;gap:8px;width:100%;margin:0;color:rgba(255,255,255,.58);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.075em}
+.profileUsernameField input{width:100%;min-height:42px;border:1px solid rgba(242,201,76,.26);border-radius:14px;background:rgba(6,8,13,.58);color:#f7f1e3;padding:0 14px;font-size:14px;font-weight:760;letter-spacing:.02em;outline:none}
+.profileUsernameField input:focus{border-color:rgba(255,226,116,.62);box-shadow:0 0 22px rgba(242,201,76,.10)}
+.profileUsernameEditor button{min-height:42px;border:1px solid rgba(242,201,76,.42);border-radius:14px;background:linear-gradient(145deg,rgba(242,201,76,.13),rgba(255,255,255,.025));color:#ffe175;padding:0 16px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;pointer-events:auto;touch-action:manipulation}
+.profileUsernameEditor button:hover{border-color:rgba(255,226,116,.72);box-shadow:0 0 22px rgba(242,201,76,.12)}
+.avatarEditorUsernameDisplay{display:grid;gap:5px;justify-items:center;width:100%;max-width:420px;margin:0 auto;text-align:center;text-shadow:0 8px 24px rgba(0,0,0,.35)}
+.avatarEditorUsernameDisplay.hidden{display:none!important}
+.avatarEditorUsernameDisplay strong{color:#fff4d0;font-size:15px;font-weight:820;letter-spacing:.015em}
+.avatarEditorUsernameDisplay span{color:rgba(238,232,220,.54);font-size:10.5px;font-weight:760;letter-spacing:.04em}
+.avatarEditorUsernameDisplay span.hidden{display:none!important}
+.avatarChoiceTabs{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:3px;border:1px solid rgba(242,201,76,.20);border-radius:999px;background:rgba(0,0,0,.22)}
+.avatarChoiceTabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:rgba(232,226,216,.62);font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.045em;cursor:pointer}
+.avatarChoiceTabs button.active{background:linear-gradient(90deg,#ffec82,#f2c94c,#c99508);color:#111;box-shadow:0 0 18px rgba(242,201,76,.16)}
+.avatarPanel{border:1px solid rgba(255,255,255,.10);border-radius:18px;background:rgba(0,0,0,.20);padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.avatarPanel p{grid-column:1/-1;margin:0;color:rgba(232,226,216,.52);font-size:12px;line-height:1.35}
+.avatarPanel label{display:grid;gap:6px;color:rgba(255,255,255,.58);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.075em}
+.avatarPanel select,.avatarPanel input[type="color"],.avatarPanel input[type="range"]{width:100%}
+.avatarPanel select,.avatarPanel input[type="color"]{min-height:38px;border:1px solid rgba(255,255,255,.14);background:rgba(9,10,15,.72);color:#f5f3ed;border-radius:12px;padding:0 10px}
+.avatarPanel input[type="color"]{padding:4px}
+.avatarPanel input[type="range"]{accent-color:#f2c94c;cursor:pointer}
+.avatarCreatorPreview{grid-column:1/-1;display:grid;grid-template-columns:82px minmax(0,1fr);gap:14px;align-items:center;border:1px solid rgba(242,201,76,.16);border-radius:18px;background:linear-gradient(145deg,rgba(242,201,76,.08),rgba(255,255,255,.025));padding:12px}
+.avatarCreatorPreview span{display:block;color:#f2c94c;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.avatarCreatorPreview p{margin:0!important;color:rgba(232,226,216,.62)!important;font-size:12px!important;line-height:1.35!important}
+.avatarToolRow{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.avatarToolRow button{border:1px solid rgba(242,201,76,.24);background:linear-gradient(135deg,rgba(242,201,76,.10),rgba(255,255,255,.025));color:#f7edc7;border-radius:999px;min-height:34px;padding:0 11px;font-size:10px;font-weight:850;letter-spacing:.055em;text-transform:uppercase;cursor:pointer;transition:border-color .18s ease,background .18s ease,transform .18s ease}
+.avatarToolRow button:hover{border-color:rgba(242,201,76,.46);background:linear-gradient(135deg,rgba(242,201,76,.16),rgba(255,255,255,.04));transform:translateY(-1px)}
+.avatarPanel fieldset{grid-column:1/-1;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(0,0,0,.14));padding:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.avatarPanel legend{padding:0 8px;color:#f2c94c;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.avatarUploadDrop{grid-column:1/-1;min-height:92px;border:1px dashed rgba(242,201,76,.36);border-radius:16px;background:linear-gradient(145deg,rgba(242,201,76,.07),rgba(255,255,255,.02));display:grid!important;place-items:center;text-align:center;color:#f7edc7!important;font-size:13px!important;cursor:pointer}
+.avatarUploadDrop input{display:none}
+.avatarActions{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.avatarActions .bigBtn{min-height:42px!important;margin:0!important}
+.avatarActions>button:not(.bigBtn){border:1px solid rgba(255,255,255,.14);background:transparent;color:rgba(232,226,216,.68);border-radius:999px;padding:11px 14px;font-size:12px;font-weight:850;cursor:pointer}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .avatarEditorBack,
+.authPanel.accountProfileMode:not(.avatarEditorMode) .avatarEditorHero,
+.authPanel.accountProfileMode:not(.avatarEditorMode) .avatar3dPanel,
+.authPanel.accountProfileMode:not(.avatarEditorMode) .avatarStyleSection,
+.authPanel.accountProfileMode:not(.avatarEditorMode) .avatarColorSection,
+.authPanel.accountProfileMode:not(.avatarEditorMode) .avatarPreviewSection{display:none!important}
+.authPanel.accountProfileMode.avatarEditorMode{width:min(980px,calc(100vw - 30px))!important;min-height:min(1180px,calc(100vh - 18px))!important;max-height:calc(100vh - 18px)!important;border-radius:34px!important;background:#070a12!important;box-shadow:0 38px 130px rgba(0,0,0,.78),0 0 0 1px rgba(255,255,255,.065),0 0 0 1px rgba(242,201,76,.07) inset!important;overflow:hidden!important}
+.authPanel.accountProfileMode.avatarEditorMode .authEditorialLeft{height:calc(100vh - 18px)!important;max-height:calc(100vh - 18px)!important;min-height:0!important;padding:42px 68px 96px!important;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;scroll-padding:42px 0 96px!important;background:radial-gradient(circle at 50% 24%,rgba(242,201,76,.16),transparent 19%),radial-gradient(circle at 22% 18%,rgba(255,255,255,.065),transparent 28%),radial-gradient(circle at 84% 64%,rgba(93,115,158,.12),transparent 30%),linear-gradient(160deg,#111724 0%,#080b13 52%,#03050a 100%)!important}
+.authPanel.accountProfileMode.avatarEditorMode>.eyebrow,
+.authPanel.accountProfileMode.avatarEditorMode .authEditorialLeft>.eyebrow,
+.authPanel.accountProfileMode.avatarEditorMode #authTitle,
+.authPanel.accountProfileMode.avatarEditorMode #authPrompt,
+.authPanel.accountProfileMode.avatarEditorMode .authBenefitStack,
+.authPanel.accountProfileMode.avatarEditorMode #authLoggedIn,
+.authPanel.accountProfileMode.avatarEditorMode .authLogoutAction,
+.authPanel.accountProfileMode.avatarEditorMode .tinyAdminOverview,
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetupHead{display:none!important}
+.authPanel.accountProfileMode.avatarEditorMode .authEditorialLogo{display:block!important;width:118px!important;height:auto!important;margin:0 0 32px!important;object-fit:contain;object-position:left center;filter:drop-shadow(0 16px 28px rgba(0,0,0,.42)) drop-shadow(0 0 16px rgba(242,201,76,.12))!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetup{display:grid;gap:30px;margin:0!important;text-align:left;width:100%;padding-bottom:34px!important}
+.avatarEditorBack{justify-self:start;border:0;background:transparent;color:#ffdf62;padding:0;font-size:20px;font-weight:760;letter-spacing:-.015em;cursor:pointer;text-shadow:0 0 18px rgba(242,201,76,.20);transition:transform .24s cubic-bezier(.16,1,.3,1),color .24s ease}
+.avatarEditorBack:before{content:"←";margin-right:14px;font-size:28px;font-weight:420;vertical-align:-2px}
+.avatarEditorBack:hover{color:#fff1a7;transform:translateX(-2px)}
+.avatarEditorHero{display:grid;grid-template-columns:1fr;justify-items:center;gap:26px}
+.avatarEditorHero>div:first-child{justify-self:start}
+.avatarEditorHero h2{margin:0;color:#fffaf3;font-size:64px;line-height:.94;font-weight:860;letter-spacing:-.055em;text-shadow:0 3px 0 rgba(0,0,0,.22),0 20px 48px rgba(0,0,0,.54),0 0 26px rgba(242,201,76,.08)}
+.avatarEditorHero p{margin:18px 0 0;color:rgba(238,232,220,.72);font-size:29px;line-height:1.1;font-weight:680;letter-spacing:-.025em}
+.avatarEditReveal{position:relative;display:block;justify-self:center;width:max-content;border:0;background:transparent;padding:0;border-radius:50%;cursor:default}
+.avatarEditReveal.canEditAvatar{cursor:pointer}
+.avatarEditRevealLabel{position:absolute;left:50%;bottom:22px;transform:translateX(-50%) translateY(4px);z-index:3;display:inline-grid;place-items:center;min-height:34px;padding:0 16px;border:1px solid rgba(255,226,116,.62);border-radius:999px;background:rgba(5,7,12,.74);color:#ffe175;font-size:11px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;opacity:0;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.35),0 0 24px rgba(242,201,76,.18);backdrop-filter:blur(10px);transition:opacity .22s ease,transform .22s ease}
+.avatarEditReveal.canEditAvatar:hover .avatarEditRevealLabel,.avatarEditReveal.canEditAvatar:focus-visible .avatarEditRevealLabel{opacity:1;transform:translateX(-50%) translateY(0)}
+.avatarEditorHeroPreview,.avatarEditorPreviewSize{position:relative;overflow:visible!important;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(8,10,16,.98),rgba(3,5,10,.99));border:2px solid rgba(255,229,49,.96);box-shadow:0 0 0 1px rgba(255,244,158,.23),0 0 16px rgba(255,229,80,.72),0 0 46px rgba(242,201,76,.38),0 0 92px rgba(242,173,20,.18),0 24px 48px rgba(0,0,0,.46),inset 0 0 0 1px rgba(0,0,0,.44)}
+.avatarEditorHeroPreview:before,.avatarEditorPreviewSize:before{content:"";position:absolute;inset:-26px;border-radius:50%;z-index:-1;background:radial-gradient(circle,rgba(242,201,76,.22),rgba(242,201,76,.08) 42%,transparent 70%);filter:blur(10px)}
+.avatarEditorHeroPreview{width:238px;height:238px;margin-top:-4px}
+.avatarEditorHeroPreview img,.avatarEditorHeroPreview svg,.avatarEditorPreviewSize img,.avatarEditorPreviewSize svg,.avatarStyleChoice img,.avatarStyleChoice svg{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs{display:grid;grid-template-columns:1fr 1fr;width:100%;max-width:none;margin:4px 0 6px;padding:0;border:0;border-bottom:1px solid rgba(255,255,255,.16);border-radius:0;background:transparent}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button{position:relative;min-height:58px;border-radius:0;color:rgba(238,232,220,.62);font-size:24px;font-weight:760;text-align:left;text-transform:none;letter-spacing:-.02em;background:transparent;transition:color .24s ease,text-shadow .24s ease}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button:first-child:before{content:"◌";margin-right:18px;font-size:31px;vertical-align:-3px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button:last-child:before{content:"↥";margin-right:18px;font-size:31px;vertical-align:-3px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button.active{background:transparent;color:#ffe36d;box-shadow:none;text-shadow:0 0 22px rgba(242,201,76,.18)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button.active:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:4px;background:linear-gradient(90deg,#fff176,#f2c94c,#c99508);box-shadow:0 0 18px rgba(242,201,76,.28)}
+.avatarStyleSection,.avatarColorSection,.avatarPreviewSection{display:grid;gap:22px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarStyleSection.hidden,
+.authPanel.accountProfileMode.avatarEditorMode .avatarColorSection.hidden,
+.authPanel.accountProfileMode.avatarEditorMode .avatarPreviewSection.hidden,
+.authPanel.accountProfileMode.avatarEditorMode #avatarUploadPanel.hidden{display:none!important}
+.avatarStyleSection h3,.avatarColorSection h3,.avatarPreviewSection h3{margin:0;color:#fffaf0;font-size:25px;line-height:1.08;font-weight:820;letter-spacing:-.025em;text-shadow:0 10px 28px rgba(0,0,0,.42)}
+.avatarStyleRow,.avatarColorRow,.avatarPreviewSizes{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.avatarStyleChoice{width:108px;height:108px;border-radius:50%;border:1px solid rgba(255,255,255,.18);padding:0;background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 16px 38px rgba(0,0,0,.25);cursor:pointer;transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s ease,box-shadow .28s ease,filter .28s ease;overflow:visible}
+.avatarStyleChoice:hover{transform:translateY(-2px);border-color:rgba(255,225,104,.56);box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 20px 46px rgba(0,0,0,.30),0 0 28px rgba(242,201,76,.13)}
+.avatarStyleChoice.active{border:3px solid #ffea3f;box-shadow:0 0 0 1px rgba(255,246,160,.22),0 0 22px rgba(255,229,80,.60),0 0 44px rgba(242,201,76,.22),0 18px 42px rgba(0,0,0,.34)}
+.avatarColorChoice{width:64px;height:64px;border-radius:50%;border:1px solid rgba(255,255,255,.20);padding:0;background:var(--swatch);box-shadow:inset 0 1px 0 rgba(255,255,255,.26),0 16px 34px rgba(0,0,0,.28);cursor:pointer;transition:transform .26s cubic-bezier(.16,1,.3,1),border-color .26s ease,box-shadow .26s ease}
+.avatarColorChoice:hover{transform:translateY(-2px);border-color:rgba(255,225,104,.62);box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 18px 40px rgba(0,0,0,.32),0 0 24px rgba(242,201,76,.13)}
+.avatarColorChoice.active{border:4px solid #ffea3f;box-shadow:0 0 0 4px rgba(8,10,16,.96),0 0 0 6px rgba(255,235,87,.45),0 0 28px rgba(242,201,76,.28),0 18px 40px rgba(0,0,0,.34)}
+.avatarEditorPreviewSize.large{width:190px;height:190px}
+.avatarEditorPreviewSize.medium{width:112px;height:112px}
+.avatarEditorPreviewSize.small{width:58px;height:58px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel{width:100%;max-width:none;margin:0;padding:22px;border-radius:24px;border:1px dashed rgba(242,201,76,.32);background:linear-gradient(145deg,rgba(242,201,76,.08),rgba(255,255,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.055)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel p{text-align:center;color:rgba(238,232,220,.62);font-size:14px;line-height:1.4}
+.authPanel.accountProfileMode.avatarEditorMode .avatarUploadDrop{min-height:138px;border-radius:20px;border-color:rgba(255,222,95,.36);background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(0,0,0,.16));font-size:17px!important;font-weight:820!important}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatorPreviewCard.hidden{display:none!important}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatorPreviewCard{display:grid;grid-template-columns:112px minmax(0,1fr);align-items:center;gap:18px;width:100%;padding:18px;border:1px solid rgba(242,201,76,.24);border-radius:24px;background:radial-gradient(circle at 20% 10%,rgba(242,201,76,.12),transparent 40%),linear-gradient(145deg,rgba(255,255,255,.065),rgba(0,0,0,.16));box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 18px 44px rgba(0,0,0,.24)}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatorPreviewCard .avatarPreview{width:112px;height:112px}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatePanel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:24px;border-style:solid;background:radial-gradient(circle at 50% 0%,rgba(242,201,76,.13),transparent 34%),linear-gradient(145deg,rgba(255,255,255,.055),rgba(0,0,0,.18))}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatePanel.hidden{display:none!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconIntro{grid-column:1/-1;display:grid;gap:6px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconIntro span{color:#ffe175;font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconIntro p{margin:0!important;text-align:left!important;color:rgba(238,232,220,.68)!important;font-size:15px!important;line-height:1.4!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconGrid{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:18px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconChoice{aspect-ratio:1;border-radius:50%;border:1px solid rgba(255,255,255,.16);padding:0;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(0,0,0,.18));box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 16px 34px rgba(0,0,0,.26);cursor:pointer;overflow:hidden;transition:transform .26s cubic-bezier(.16,1,.3,1),border-color .26s ease,box-shadow .26s ease,filter .26s ease}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconChoice:hover{transform:translateY(-2px);border-color:rgba(255,225,104,.62);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 20px 42px rgba(0,0,0,.30),0 0 26px rgba(242,201,76,.14)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconChoice.active{border-color:#ffea3f;box-shadow:0 0 0 3px rgba(255,235,87,.24),0 0 28px rgba(242,201,76,.35),0 18px 40px rgba(0,0,0,.34)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarIconChoice img{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%}
+.authPanel.accountProfileMode.avatarEditorMode .avatarTypeSelector{grid-column:1/-1;display:grid;gap:10px;padding:15px;border:1px solid rgba(242,201,76,.24);border-radius:18px;background:linear-gradient(145deg,rgba(242,201,76,.075),rgba(255,255,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.055)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarTypeSelector>span{color:#ffe175;font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.authPanel.accountProfileMode.avatarEditorMode .avatarTypeNative{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarTypeButtons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarTypeButtons button{min-height:44px;border:1px solid rgba(242,201,76,.24);border-radius:999px;background:rgba(0,0,0,.18);color:rgba(238,232,220,.72);font-size:13px;font-weight:850;cursor:pointer;transition:border-color .22s ease,background .22s ease,color .22s ease,box-shadow .22s ease}
+.authPanel.accountProfileMode.avatarEditorMode .avatarTypeButtons button:hover,.authPanel.accountProfileMode.avatarEditorMode .avatarTypeButtons button.active{border-color:rgba(255,226,116,.68);background:linear-gradient(90deg,rgba(255,236,130,.18),rgba(242,201,76,.10));color:#ffe175;box-shadow:0 0 24px rgba(242,201,76,.10),inset 0 1px 0 rgba(255,255,255,.08)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryDropdown{position:relative;grid-column:1/-1;justify-self:start;z-index:8}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryToggle{position:relative;min-width:190px;min-height:44px;padding:0 44px 0 18px;border:1px solid rgba(242,201,76,.38);border-radius:999px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(0,0,0,.20));color:#ffe175;font-size:13px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;text-align:left;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 12px 30px rgba(0,0,0,.20)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryToggle:after{content:"⌄";position:absolute;right:18px;top:50%;transform:translateY(-52%);font-size:19px;color:#f2c94c}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryMenu{position:absolute;left:0;top:calc(100% + 8px);width:min(240px,calc(100vw - 56px));padding:8px;border:1px solid rgba(242,201,76,.34);border-radius:18px;background:rgba(8,9,13,.96);box-shadow:0 22px 54px rgba(0,0,0,.45),0 0 28px rgba(242,201,76,.10);backdrop-filter:blur(16px)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryMenu.hidden{display:none!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryMenu button{display:block;width:100%;min-height:38px;padding:0 13px;border:0;border-radius:12px;background:transparent;color:rgba(238,232,220,.70);font-size:13px;font-weight:780;text-align:left;cursor:pointer}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryMenu button:hover,.authPanel.accountProfileMode.avatarEditorMode .avatarCategoryMenu button.active{background:rgba(242,201,76,.12);color:#ffe175}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatePanel fieldset[data-avatar-section]{display:none!important}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatePanel fieldset[data-avatar-section].active{display:grid!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCreatorPreview span{font-size:11px;letter-spacing:.16em;color:#ffe27b}
+.authPanel.accountProfileMode.avatarEditorMode .avatarCreatorPreview p{text-align:left!important;font-size:16px!important;color:rgba(238,232,220,.68)!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel fieldset{border-color:rgba(255,255,255,.11);background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(0,0,0,.16));gap:12px 14px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel label{font-size:11px;color:rgba(244,238,226,.68)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel select,
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel input[type="color"]{min-height:42px;border-color:rgba(255,255,255,.16);background:rgba(5,7,12,.74)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions{position:relative;z-index:6;grid-template-columns:1fr;gap:26px;width:100%;margin-top:18px;padding-top:4px;pointer-events:auto}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions .bigBtn{position:relative;z-index:1;overflow:hidden;min-height:78px!important;border-radius:20px!important;border:1px solid rgba(255,236,144,.62)!important;background:linear-gradient(180deg,rgba(255,251,205,.96) 0%,#f7d765 18%,#d6a619 58%,#b98806 100%)!important;color:#0b0904!important;font-size:26px!important;font-weight:820!important;letter-spacing:.055em!important;text-transform:uppercase!important;text-shadow:0 1px 0 rgba(255,255,255,.28);box-shadow:0 22px 48px rgba(0,0,0,.36),0 16px 48px rgba(214,166,25,.18),0 0 46px rgba(242,201,76,.16),inset 0 1px 0 rgba(255,255,255,.76),inset 0 -16px 28px rgba(97,61,0,.13)!important;transition:transform .34s cubic-bezier(.16,1,.3,1),box-shadow .34s ease,filter .34s ease;pointer-events:auto;touch-action:manipulation}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions .bigBtn:before{content:"";position:absolute;inset:1px 1px auto;height:45%;border-radius:19px 19px 42% 42%;background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0));pointer-events:none}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions .bigBtn:after{content:"";position:absolute;top:-40%;bottom:-40%;left:-38%;width:32%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.32),transparent);opacity:0;pointer-events:none}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions .bigBtn:hover{transform:translateY(-2px);filter:saturate(1.04) brightness(1.025);box-shadow:0 26px 58px rgba(0,0,0,.40),0 20px 58px rgba(214,166,25,.23),0 0 54px rgba(242,201,76,.22),inset 0 1px 0 rgba(255,255,255,.82),inset 0 -16px 28px rgba(97,61,0,.12)!important}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions .bigBtn:hover:after{animation:avatarButtonShimmer 1.15s cubic-bezier(.16,1,.3,1)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions>button:not(.bigBtn){position:relative;z-index:1;min-height:68px;border-radius:20px;border:1px solid rgba(242,201,76,.30);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.016)),rgba(0,0,0,.18);color:#f4d76f;font-size:22px;font-weight:760;text-transform:uppercase;letter-spacing:.075em;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 14px 34px rgba(0,0,0,.24),0 0 18px rgba(242,201,76,.04);backdrop-filter:blur(10px);transition:transform .34s cubic-bezier(.16,1,.3,1),border-color .34s ease,background .34s ease,box-shadow .34s ease,color .34s ease;pointer-events:auto;touch-action:manipulation}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions>button:hover{transform:translateY(-1px);border-color:rgba(255,226,116,.56);background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.024)),rgba(0,0,0,.16);color:#ffe58d;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 18px 42px rgba(0,0,0,.28),0 0 26px rgba(242,201,76,.10)}
+@keyframes avatarButtonShimmer{0%{left:-38%;opacity:0}18%{opacity:.9}100%{left:112%;opacity:0}}
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetup.avatarControlsCollapsed .avatarChoiceTabs,
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetup.avatarControlsCollapsed #avatarCreatorPreviewCard,
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetup.avatarControlsCollapsed #avatarUploadPanel,
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetup.avatarControlsCollapsed #avatarCreatePanel,
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetup.avatarControlsCollapsed .avatarActions{display:none!important}
+
+/* Final premium scale refinement for account and avatar editor */
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft{
+  padding:84px 56px 74px!important;
+  box-sizing:border-box!important;
+  transform:scale(.78)!important;
+  transform-origin:top left!important;
+  width:128.205%!important;
+  min-height:128.205%!important;
+  margin-left:-2.5%!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft:before{
+  background:repeating-radial-gradient(circle,rgba(244,211,94,.055) 0 1px,transparent 1px 7px),radial-gradient(circle,rgba(212,175,55,.10),transparent 62%)!important;
+  opacity:.30!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft:after{
+  opacity:.50!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLogo{
+  width:138px!important;
+  margin:0 0 58px!important;
+  filter:drop-shadow(0 14px 28px rgba(0,0,0,.42)) drop-shadow(0 0 12px rgba(212,175,55,.08))!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .eyebrow{
+  margin-bottom:17px!important;
+  font-size:11.5px!important;
+  letter-spacing:.22em!important;
+  text-shadow:0 0 12px rgba(212,175,55,.12)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #authTitle{
+  margin-bottom:16px!important;
+  font-size:45px!important;
+  text-shadow:0 14px 36px rgba(0,0,0,.44),0 0 16px rgba(212,175,55,.055)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authPrompt{
+  margin-bottom:56px!important;
+  font-size:17px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack{
+  gap:24px!important;
+  margin-bottom:54px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span{
+  grid-template-columns:28px minmax(0,1fr) 14px!important;
+  column-gap:14px!important;
+  row-gap:5px!important;
+  min-height:108px!important;
+  padding:22px 20px!important;
+  border-color:rgba(212,175,55,.24)!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.055),0 14px 34px rgba(0,0,0,.22),0 0 18px rgba(212,175,55,.025)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:hover{
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.09),0 18px 42px rgba(0,0,0,.28),0 0 24px rgba(212,175,55,.10)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:before{
+  font-size:24px!important;
+  text-shadow:0 0 12px rgba(212,175,55,.16)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:after{
+  font-size:22px!important;
+  text-shadow:0 0 10px rgba(212,175,55,.14)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack strong{
+  font-size:16px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack small{
+  font-size:13px!important;
+  line-height:1.42!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLoggedIn{
+  min-height:380px!important;
+  margin-bottom:58px!important;
+  padding:42px 56px 48px!important;
+  background:radial-gradient(circle at 50% 19%,rgba(244,211,94,.12),transparent 24%),linear-gradient(145deg,rgba(255,255,255,.052),rgba(255,255,255,.02)),rgba(17,17,17,.70)!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.05),0 18px 54px rgba(0,0,0,.30),0 0 30px rgba(212,175,55,.04)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview{
+  width:116px!important;
+  height:116px!important;
+  margin-bottom:36px!important;
+  background:radial-gradient(circle at 50% 50%,rgba(6,7,10,.98),rgba(3,4,7,.99))!important;
+  box-shadow:0 0 0 1px rgba(245,241,232,.14),0 0 12px rgba(244,211,94,.58),0 0 38px rgba(212,175,55,.24),0 18px 42px rgba(0,0,0,.42),inset 0 0 0 1px rgba(0,0,0,.50)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview:before{
+  inset:-28px!important;
+  background:radial-gradient(circle,rgba(244,211,94,.18),rgba(212,175,55,.055) 42%,transparent 69%)!important;
+  filter:blur(10px)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarKicker{
+  margin-bottom:12px!important;
+  font-size:10.8px!important;
+  letter-spacing:.34em!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarTitle{
+  margin-bottom:14px!important;
+  font-size:29px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarSubtitle{
+  margin-bottom:44px!important;
+  font-size:15.5px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton{
+  width:min(400px,100%)!important;
+  min-height:56px!important;
+  padding:0 26px!important;
+  font-size:14.5px!important;
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.065),0 12px 32px rgba(0,0,0,.26),0 0 16px rgba(212,175,55,.055)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton:before{
+  margin-right:14px!important;
+  font-size:20px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton:hover{
+  box-shadow:inset 0 1px 0 rgba(245,241,232,.10),0 16px 38px rgba(0,0,0,.30),0 0 22px rgba(212,175,55,.12)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction{
+  min-height:64px!important;
+  font-size:21px!important;
+  box-shadow:0 16px 42px rgba(0,0,0,.34),0 0 22px rgba(212,175,55,.14),inset 0 1px 0 rgba(255,255,255,.42),inset 0 -1px 0 rgba(0,0,0,.12)!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction:before{
+  margin-right:14px!important;
+  font-size:24px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction:hover{
+  box-shadow:0 20px 50px rgba(0,0,0,.38),0 0 30px rgba(212,175,55,.22),inset 0 1px 0 rgba(255,255,255,.52)!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .authEditorialLeft{
+  padding:52px 84px 110px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarSetup{
+  gap:34px!important;
+}
+.avatarEditorBack{
+  font-size:17px!important;
+  text-shadow:0 0 12px rgba(242,201,76,.14)!important;
+}
+.avatarEditorBack:before{
+  font-size:24px!important;
+}
+.avatarEditorHero{
+  gap:32px!important;
+}
+.avatarEditorHero h2{
+  font-size:52px!important;
+  line-height:.98!important;
+  text-shadow:0 14px 38px rgba(0,0,0,.48),0 0 16px rgba(242,201,76,.055)!important;
+}
+.avatarEditorHero p{
+  margin-top:14px!important;
+  font-size:23px!important;
+}
+.avatarEditorHeroPreview{
+  width:198px!important;
+  height:198px!important;
+}
+.avatarEditorHeroPreview,.avatarEditorPreviewSize{
+  box-shadow:0 0 0 1px rgba(255,244,158,.16),0 0 12px rgba(255,229,80,.50),0 0 34px rgba(242,201,76,.24),0 18px 40px rgba(0,0,0,.42),inset 0 0 0 1px rgba(0,0,0,.44)!important;
+}
+.avatarEditorHeroPreview:before,.avatarEditorPreviewSize:before{
+  opacity:.72!important;
+  filter:blur(8px)!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs{
+  margin:10px 0 10px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button{
+  min-height:50px!important;
+  font-size:20px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button:first-child:before,
+.authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button:last-child:before{
+  font-size:25px!important;
+  margin-right:14px!important;
+}
+.avatarStyleSection h3,.avatarColorSection h3,.avatarPreviewSection h3{
+  font-size:22px!important;
+}
+.avatarStyleRow,.avatarColorRow,.avatarPreviewSizes{
+  gap:24px!important;
+}
+.avatarStyleChoice{
+  width:94px!important;
+  height:94px!important;
+}
+.avatarColorChoice{
+  width:56px!important;
+  height:56px!important;
+}
+.avatarEditorPreviewSize.large{
+  width:162px!important;
+  height:162px!important;
+}
+.avatarEditorPreviewSize.medium{
+  width:96px!important;
+  height:96px!important;
+}
+.avatarEditorPreviewSize.small{
+  width:50px!important;
+  height:50px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatorPreviewCard{
+  grid-template-columns:96px minmax(0,1fr)!important;
+  padding:16px!important;
+  border-radius:20px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 14px 34px rgba(0,0,0,.20)!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatorPreviewCard .avatarPreview{
+  width:96px!important;
+  height:96px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode #avatarCreatePanel{
+  gap:16px!important;
+  padding:20px!important;
+  border-radius:22px!important;
+  background:radial-gradient(circle at 50% 0%,rgba(242,201,76,.08),transparent 34%),linear-gradient(145deg,rgba(255,255,255,.045),rgba(0,0,0,.16))!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel fieldset{
+  padding:11px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel label{
+  font-size:10px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel select,
+.authPanel.accountProfileMode.avatarEditorMode .avatarPanel input[type="color"]{
+  min-height:38px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions{
+  gap:24px!important;
+  margin-top:18px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions .bigBtn{
+  min-height:68px!important;
+  font-size:21px!important;
+  font-weight:800!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarActions>button:not(.bigBtn){
+  min-height:58px!important;
+  font-size:17px!important;
+  font-weight:740!important;
+}
+
+/* Narrow account modal flow: no scaling, reflow content inside the slimmer panel */
+.authPanel.accountProfileMode:not(.avatarEditorMode){
+  width:min(760px,calc(100vw - 48px))!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-height:auto!important;
+  margin-left:0!important;
+  padding:70px 64px 56px!important;
+  transform:none!important;
+  transform-origin:initial!important;
+  overflow:visible!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLogo{
+  margin-bottom:48px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:16px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span{
+  min-width:0!important;
+  padding-left:16px!important;
+  padding-right:16px!important;
+}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLoggedIn,
+.authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction{
+  width:100%!important;
+}
+
+@media(max-width:700px){
+  .authModal:has(.authPanel.accountProfileMode:not(.avatarEditorMode)){
+    align-items:flex-start!important;
+    justify-content:center!important;
+    padding:10px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode){
+    width:min(100%,calc(100vw - 20px))!important;
+    max-width:430px!important;
+    min-height:auto!important;
+    max-height:calc(100dvh - 20px)!important;
+    border-radius:26px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLeft{
+    width:100%!important;
+    min-height:auto!important;
+    margin:0!important;
+    padding:34px 22px 30px!important;
+    transform:none!important;
+    overflow:visible!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .cleanClose{
+    top:16px!important;
+    right:16px!important;
+    width:46px!important;
+    height:46px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authEditorialLogo{
+    width:112px!important;
+    margin:0 0 32px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .eyebrow{
+    margin-bottom:13px!important;
+    font-size:10.5px!important;
+    letter-spacing:.20em!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) #authTitle{
+    max-width:calc(100% - 54px)!important;
+    margin-bottom:14px!important;
+    font-size:34px!important;
+    line-height:1.06!important;
+    letter-spacing:-.035em!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authPrompt{
+    max-width:100%!important;
+    margin-bottom:28px!important;
+    font-size:16px!important;
+    line-height:1.45!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+    width:100%!important;
+    margin-bottom:28px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span{
+    width:100%!important;
+    min-height:92px!important;
+    grid-template-columns:28px minmax(0,1fr) 16px!important;
+    column-gap:14px!important;
+    padding:20px 18px!important;
+    border-radius:15px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:before{
+    font-size:23px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack span:after{
+    font-size:20px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack strong{
+    font-size:17px!important;
+    line-height:1.12!important;
+    white-space:normal!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authBenefitStack small{
+    font-size:13.5px!important;
+    line-height:1.35!important;
+    white-space:normal!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authLoggedIn{
+    width:100%!important;
+    min-height:auto!important;
+    margin-bottom:28px!important;
+    padding:32px 18px 28px!important;
+    border-radius:22px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview{
+    width:108px!important;
+    height:108px!important;
+    margin-bottom:28px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview:before{
+    inset:-24px!important;
+    filter:blur(9px)!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarKicker{
+    font-size:10px!important;
+    letter-spacing:.28em!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarTitle{
+    font-size:27px!important;
+    line-height:1.12!important;
+    margin-bottom:13px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .accountAvatarSubtitle{
+    max-width:270px!important;
+    margin-bottom:30px!important;
+    font-size:15px!important;
+    line-height:1.42!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton{
+    width:100%!important;
+    min-height:56px!important;
+    padding:0 18px!important;
+    font-size:12.5px!important;
+    line-height:1.15!important;
+    letter-spacing:.12em!important;
+    white-space:nowrap!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) #editAvatarButton:before{
+    margin-right:10px!important;
+    font-size:18px!important;
+  }
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .authLogoutAction{
+    width:90%!important;
+    min-height:56px!important;
+    padding:0 16px!important;
+    font-size:19px!important;
+    white-space:nowrap!important;
+  }
+}
 .authStatus{min-height:20px;margin:18px 0 0;color:var(--muted);font-size:13px;font-weight:750;line-height:1.4}
 .authStatus[data-tone="error"]{color:#ff9696}
 .authStatus[data-tone="success"]{color:#ffe27b}
@@ -215,6 +1173,178 @@ body.light .tinyAdminOverview:hover{color:rgba(138,101,0,.75)}
   }
   .authEditorialVisual p{
     font-size:23px!important;
+  }
+  .avatarSetupHead{
+    grid-template-columns:64px minmax(0,1fr)!important;
+    gap:13px!important;
+  }
+  .avatarPreview,.profileAvatarPreview{
+    width:64px!important;
+    height:64px!important;
+  }
+  .authPanel.accountProfileMode .profileAvatarPreview{
+    width:83px!important;
+    height:83px!important;
+    margin-bottom:14px!important;
+  }
+  .authPanel.accountProfileMode .accountAvatarKicker{
+    margin-bottom:9px!important;
+  }
+  .authPanel.accountProfileMode .accountAvatarTitle{
+    margin-bottom:9px!important;
+  }
+  .authPanel.accountProfileMode .accountAvatarSubtitle{
+    margin-bottom:29px!important;
+  }
+  .authPanel.accountProfileMode{
+    width:min(590px,calc(100vw - 24px))!important;
+    min-height:min(820px,calc(100vh - 24px))!important;
+    max-height:calc(100vh - 24px)!important;
+  }
+  .authPanel.accountProfileMode #authTitle{
+    font-size:25px!important;
+  }
+  .authPanel.accountProfileMode .authBenefitStack{
+    grid-template-columns:1fr!important;
+    margin-bottom:40px!important;
+  }
+  .authPanel.accountProfileMode .authEditorialLeft{
+    padding-left:34px!important;
+    padding-right:34px!important;
+    padding-top:33px!important;
+    padding-bottom:33px!important;
+  }
+  .authPanel.accountProfileMode .authBenefitStack span{
+    min-height:33px!important;
+    font-size:11.2px!important;
+    padding:0 10px!important;
+  }
+  .authPanel.accountProfileMode #editAvatarButton,
+  .authPanel.accountProfileMode .authLogoutAction{
+    min-height:48px!important;
+    font-size:13.8px!important;
+  }
+  .authPanel.accountProfileMode #editAvatarButton{
+    margin-bottom:38px!important;
+    min-width:255px!important;
+    padding-left:24px!important;
+    padding-right:24px!important;
+  }
+  .authPanel.accountProfileMode .avatarSetup{
+    margin-top:14px!important;
+  }
+  .authPanel.accountProfileMode .accountProfileSetup{
+    margin-top:34px!important;
+  }
+  .authPanel.accountProfileMode .authLogoutAction{
+    margin-top:auto!important;
+    width:min(317px,100%)!important;
+  }
+  .avatarPanel{
+    grid-template-columns:1fr!important;
+    padding:12px!important;
+  }
+  .avatarToolRow,.avatarPanel fieldset{
+    grid-template-columns:1fr!important;
+  }
+  .avatarCreatorPreview{
+    grid-template-columns:64px minmax(0,1fr)!important;
+  }
+  .avatarActions{
+    grid-template-columns:1fr!important;
+  }
+}
+
+@media(max-width:850px){
+  .authPanel.accountProfileMode.avatarEditorMode{
+    width:min(100%,calc(100vw - 20px))!important;
+    min-height:calc(100vh - 20px)!important;
+    max-height:calc(100vh - 20px)!important;
+    border-radius:28px!important;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .authEditorialLeft{
+    height:calc(100vh - 20px)!important;
+    max-height:calc(100vh - 20px)!important;
+    min-height:0!important;
+    padding:30px 26px 86px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    scroll-padding:30px 0 86px!important;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .avatarSetup{
+    gap:24px!important;
+  }
+  .avatarEditorBack{
+    font-size:17px!important;
+  }
+  .avatarEditorBack:before{
+    font-size:25px!important;
+    margin-right:10px!important;
+  }
+  .avatarEditorHero{
+    gap:22px!important;
+  }
+  .avatarEditorHero h2{
+    font-size:44px!important;
+    letter-spacing:-.05em!important;
+  }
+  .avatarEditorHero p{
+    margin-top:12px!important;
+    font-size:22px!important;
+  }
+  .avatarEditorHeroPreview{
+    width:176px!important;
+    height:176px!important;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button{
+    min-height:50px!important;
+    font-size:18px!important;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .avatarChoiceTabs button:before{
+    margin-right:10px!important;
+    font-size:24px!important;
+  }
+  .avatarStyleSection h3,.avatarColorSection h3,.avatarPreviewSection h3{
+    font-size:22px!important;
+  }
+  .avatarStyleRow,.avatarColorRow,.avatarPreviewSizes{
+    gap:17px!important;
+    justify-content:space-between!important;
+  }
+  .avatar3dFrameShell{
+    min-height:520px!important;
+    border-radius:22px!important;
+  }
+  .avatar3dStatus p{
+    font-size:13px!important;
+  }
+  .avatarStyleChoice{
+    width:74px!important;
+    height:74px!important;
+  }
+  .avatarColorChoice{
+    width:45px!important;
+    height:45px!important;
+  }
+  .avatarEditorPreviewSize.large{
+    width:136px!important;
+    height:136px!important;
+  }
+  .avatarEditorPreviewSize.medium{
+    width:82px!important;
+    height:82px!important;
+  }
+  .avatarEditorPreviewSize.small{
+    width:46px!important;
+    height:46px!important;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .avatarActions .bigBtn{
+    min-height:62px!important;
+    font-size:20px!important;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .avatarActions>button:not(.bigBtn){
+    min-height:54px!important;
+    font-size:16px!important;
   }
 }
 
@@ -885,7 +2015,7 @@ body.light .dangerBtn{background:#fff1f1!important;color:#b91c1c!important;borde
   margin-left:8px!important;
   margin-top:0!important;
   align-self:center!important;
-  transform:translateY(-28px)!important;
+  transform:translateY(-22px)!important;
   position:relative!important;
   z-index:1!important;
 }
@@ -2149,6 +3279,8 @@ body.light .artistAZMenu summary{background:#ffffff!important;border-color:#e5e1
 .notificationBell{display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;background:var(--panel)!important;font-size:0!important;line-height:1!important}
 .notificationBellGlyph{display:block;color:#fff!important;font-family:"Segoe UI Symbol","Arial Unicode MS",Arial,sans-serif!important;font-size:22px!important;line-height:1!important;transform:translateY(-1px)}
 body.light .notificationBellGlyph{color:#fff!important}
+.topbar .authButton:has(.authButtonIcon.hasAvatar){min-height:42px!important;padding:0 17px 0 9px!important;gap:11px!important}
+.topbar .authButtonIcon.hasAvatar{width:24px!important;height:24px!important;flex:0 0 24px!important;border-color:rgba(242,201,76,.58)!important;box-shadow:0 0 0 1px rgba(242,201,76,.16),0 0 16px rgba(242,201,76,.12)!important}
 .themeMoonOnly{width:auto;height:auto;margin:4px 0 0 4px;padding:0;border:0;background:transparent;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;opacity:.55}
 .themeMoonOnly:hover{opacity:.9;color:var(--text)}
 body.light .themeMoonOnly{color:#6b7280!important;background:transparent!important}
@@ -5722,7 +6854,7 @@ body.light .authPanel .adminOverviewUnlock{
   background:#ffd51f!important;
   border-radius:24px 24px 24px 6px!important;
   box-shadow:0 0 26px rgba(242,201,76,.35)!important;
-  transform:rotate(-6deg)!important;
+  transform:none!important;
 }
 .albumOverviewSleeve .overviewMood blockquote:after{
   content:""!important;
@@ -5734,7 +6866,7 @@ body.light .authPanel .adminOverviewUnlock{
   border-radius:50%!important;
   background:#15120a!important;
   box-shadow:13px 0 0 #15120a!important;
-  transform:rotate(-6deg)!important;
+  transform:none!important;
 }
 .albumOverviewClose{
   font-size:0!important;
@@ -5787,8 +6919,6 @@ body.light .authPanel .adminOverviewUnlock{
   background:transparent!important;
   transform:skew(-18deg) rotate(-18deg)!important;
 }
-
-
 /* Ratings panels only appear when Ratings & Reviews is selected */
 .linerAlbumPage:not(.showRatingsPanels) .linerContentGrid{
   display:none!important;
@@ -7414,7 +8544,7 @@ body.light .authPanel .adminOverviewUnlock{
   }
   .moodMeter span{
     display:block!important;
-    width:62%!important;
+    width:var(--mood-score,62%)!important;
     height:100%!important;
     border-radius:999px!important;
     background:linear-gradient(90deg,#ffd51f,#fff0a0)!important;
@@ -7423,7 +8553,7 @@ body.light .authPanel .adminOverviewUnlock{
   .moodMeter:after{
     content:""!important;
     position:absolute!important;
-    left:61%!important;
+    left:var(--mood-score,62%)!important;
     top:50%!important;
     width:8px!important;
     height:8px!important;
@@ -8829,6 +9959,16 @@ body{
     height:17px!important;
     flex-basis:17px!important;
   }
+  .topbar .authButton:has(.authButtonIcon.hasAvatar){
+    min-height:39px!important;
+    padding-left:9px!important;
+    gap:10px!important;
+  }
+  .topbar .authButtonIcon.hasAvatar{
+    width:23px!important;
+    height:23px!important;
+    flex-basis:23px!important;
+  }
   .hero{
     grid-template-columns:1fr!important;
     gap:17px!important;
@@ -9891,9 +11031,63 @@ body{
   object-fit:contain!important;
   object-position:center center!important;
   border-radius:inherit!important;
+  transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(1)!important;
+  transition:transform .34s cubic-bezier(.2,.8,.2,1), filter .34s ease!important;
+}
+.linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover img{
+  transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(2.15)!important;
+  filter:saturate(1.04) contrast(1.03)!important;
+}
+.linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover{
+  cursor:grab!important;
+  pointer-events:auto!important;
+  touch-action:none!important;
+  user-select:none!important;
+}
+.linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover img{
+  pointer-events:none!important;
+}
+.linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover.backCoverDragging{
+  cursor:grabbing!important;
+}
+.linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover.backCoverDragging img{
+  transition:filter .34s ease!important;
+}
+.backCoverInlineZoomButton{
+  position:absolute!important;
+  right:14px!important;
+  bottom:14px!important;
+  z-index:4!important;
+  width:34px!important;
+  height:34px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:999px!important;
+  border:1px solid rgba(255,213,31,.38)!important;
+  background:rgba(5,5,8,.58)!important;
+  color:rgba(255,231,126,.92)!important;
+  font-size:18px!important;
+  line-height:1!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.28)!important;
+  transition:background .22s ease,border-color .22s ease,color .22s ease,transform .22s ease!important;
+}
+.backCoverInlineZoomButton:hover,
+.linerCoverFlip.backCoverInlineZoomed .backCoverInlineZoomButton{
+  background:rgba(255,213,31,.14)!important;
+  border-color:rgba(255,213,31,.62)!important;
+  color:#ffe777!important;
+  transform:translateY(-1px)!important;
 }
 
 @media(max-width:850px){
+  .backCoverInlineZoomButton{
+    display:none!important;
+  }
+  .linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover img{
+    transform:translate3d(0,0,0) scale(1)!important;
+  }
   .linerCoverFlipCard .linerCoverBack .cover img,
   .linerCoverFlip .linerCoverBack .cover img{
     object-fit:cover!important;
@@ -10217,6 +11411,26 @@ body{
   background:rgba(242,201,76,.08)!important;
   transform:translateY(-1px)!important;
 }
+
+/* Album-specific back-cover crop: hide the Mobile Fidelity banner on Freewheelin' Bob Dylan only. */
+.linerCoverFlip.freewheelinBackCrop .linerCoverBack .cover img{
+  object-fit:cover!important;
+  object-position:center 61%!important;
+  transform:scale(1.13)!important;
+  transform-origin:center 61%!important;
+}
+.linerCoverFlip.freewheelinBackCrop.backCoverInlineZoomed .linerCoverBack .cover img{
+  transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(2.15)!important;
+}
+@media(max-width:850px){
+  .linerCoverFlip.freewheelinBackCrop .linerCoverBack .cover img{
+    object-position:center 62%!important;
+    transform:scale(1.15)!important;
+  }
+  .linerCoverFlip.freewheelinBackCrop.backCoverInlineZoomed .linerCoverBack .cover img{
+    transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(2.15)!important;
+  }
+}
 #albumModal .reactionsPanel .reviewTitleInput,
 #albumModal .reactionsPanel .reviewComposer textarea{
   width:100%!important;
@@ -10295,5 +11509,131 @@ body{
   }
   #albumModal .reactionsPanel .reviewComposerFoot button{
     width:100%!important;
+  }
+}
+
+/* Mobile album-popup containment: keep hero copy and controls inside the viewport. */
+@media(max-width:850px){
+  #albumModal,
+  #albumModal .modalPanel,
+  #albumModalContent,
+  #albumModal .linerAlbumPage,
+  #albumModal .linerHero,
+  #albumModal .linerHeroCopy{
+    width:100%!important;
+    max-width:100vw!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    overflow-x:hidden!important;
+  }
+  #albumModal .linerAlbumPage{
+    padding-left:14px!important;
+    padding-right:18px!important;
+  }
+  #albumModal .linerHero{
+    grid-template-columns:minmax(0,1fr)!important;
+    padding-right:0!important;
+  }
+  #albumModal .linerHeroCopy{
+    padding-right:4px!important;
+    justify-self:stretch!important;
+  }
+  #albumModal .linerHeroCopy h2,
+  #albumModal .linerHeroCopy h3,
+  #albumModal .linerHeroCopy p,
+  #albumModal .linerHeroCopy span,
+  #albumModal .linerHeroCopy small,
+  #albumModal .linerTags,
+  #albumModal .linerMoodTags,
+  #albumModal .linerStats,
+  #albumModal .linerStats > *,
+  #albumModal .linerActions,
+  #albumModal .linerActions button,
+  #albumModal .linerActions a{
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+  }
+  #albumModal .linerTags,
+  #albumModal .linerMoodTags{
+    display:flex!important;
+    flex-wrap:wrap!important;
+  }
+  #albumModal .linerStats{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:6px!important;
+  }
+  #albumModal .linerStats > *,
+  #albumModal .linerStats div,
+  #albumModal .linerStats .linerStatEdit,
+  #albumModal .linerStats .linerSocialProof{
+    width:auto!important;
+    max-width:100%!important;
+    padding:10px 7px!important;
+    border-right:0!important;
+  }
+  #albumModal .linerStats strong,
+  #albumModal .linerStats .linerStatEdit strong{
+    font-size:21px!important;
+  }
+  #albumModal .linerStats span,
+  #albumModal .linerStats .linerStatEdit span,
+  #albumModal .linerStats .linerSocialProof span{
+    font-size:8px!important;
+    line-height:1.18!important;
+  }
+  #albumModal .linerStats small,
+  #albumModal .linerStats .linerStatEdit small,
+  #albumModal .linerStats .linerSocialProof small{
+    font-size:11px!important;
+    line-height:1.2!important;
+  }
+  #albumModal .linerHeroCopy .linerStats small,
+  #albumModal .linerHeroCopy .linerStats .linerStatEdit small,
+  #albumModal .linerHeroCopy .linerStats .linerSocialProof small{
+    font-size:11px!important;
+    line-height:1.2!important;
+    font-weight:750!important;
+  }
+  #albumModal .linerActions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    justify-items:stretch!important;
+  }
+  #albumModal .linerHeroCopy .linerActions button,
+  #albumModal .linerHeroCopy .linerActions a{
+    width:100%!important;
+    justify-self:stretch!important;
+    min-height:40px!important;
+    padding:10px 9px!important;
+    font-size:11.5px!important;
+    white-space:nowrap!important;
+  }
+  #albumModal .linerHeroCopy .linerActions .spotifyMark{
+    width:15px!important;
+    height:15px!important;
+    margin-right:5px!important;
+  }
+}
+
+/* Mobile profile editor tap fix: keep real action buttons above decorative layers. */
+@media(max-width:850px){
+  #profileUsernameEditor,
+  #profileUsernameEditor button,
+  .authPanel.accountProfileMode.avatarEditorMode .avatarActions,
+  #saveAvatarButton,
+  #skipAvatarButton{
+    position:relative!important;
+    z-index:30!important;
+    pointer-events:auto!important;
+    touch-action:manipulation!important;
+  }
+  #saveAvatarButton:before,
+  #saveAvatarButton:after{
+    pointer-events:none!important;
   }
 }

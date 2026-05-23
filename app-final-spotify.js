@@ -10,6 +10,13 @@
 const cfg=window.MUSICA_CONFIG||{};
 const SUPABASE_URL=cfg.SUPABASE_URL||cfg.VITE_SUPABASE_URL||window.VITE_SUPABASE_URL||"";
 const SUPABASE_ANON_KEY=cfg.SUPABASE_ANON_KEY||cfg.VITE_SUPABASE_ANON_KEY||window.VITE_SUPABASE_ANON_KEY||"";
+function firstConfigValue(keys){
+  for(const key of keys){
+    const value=cfg[key]??window[key];
+    if(String(value||"").trim())return String(value).trim();
+  }
+  return "";
+}
 function normalizeAdminPinValue(value){return String(value??"").replace(/[\u200B-\u200D\uFEFF]/g,"").trim().replace(/^['"]|['"]$/g,"").trim()}
 const ADMIN_PIN_CONFIG=cfg.VITE_ADMIN_PIN||cfg.ADMIN_PIN||cfg.MUSICA_ADMIN_PIN||cfg.NEXT_PUBLIC_ADMIN_PIN||window.VITE_ADMIN_PIN||window.ADMIN_PIN||window.MUSICA_ADMIN_PIN||window.NEXT_PUBLIC_ADMIN_PIN||"";
 const ADMIN_PIN_STORAGE_KEYS=["muzeAdminExpectedPin","muzeAdminPin","musicaAdminPinExpected"];
@@ -36,8 +43,10 @@ function resetStaleClientData(){
   }catch(error){}
 }
 resetStaleClientData();
-const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null};
+const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],overviews:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
+const MUZE_AVATAR_ICONS=Array.from({length:33},(_,i)=>`assets/avatar-icons/avatar-icon-${String(i+1).padStart(2,"0")}.png`);
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -55,6 +64,8 @@ function authDebug(label,details){console.debug("[Muze auth]",label,details)}
 function supabaseUrlHost(){try{return SUPABASE_URL?new URL(SUPABASE_URL).host:null}catch(error){return "invalid-url"}}
 function authErrorMessage(error){
   const message=String(error?.message||error||"Authentication failed. Please try again.");
+  if(/bucket|storage/i.test(message))return "Avatar photo storage is not configured yet. Create the avatars bucket in Supabase Storage, or use the custom avatar creator for now.";
+  if(/user_profiles|schema cache|column|relation/i.test(message))return "Profile storage is not ready yet. Run the user_profiles SQL in Supabase, then refresh Muze.";
   if(/invalid api key|api key/i.test(message))return "Supabase rejected the public anon key. Replace config.js or Netlify VITE_SUPABASE_ANON_KEY with the anon key from your Supabase project settings.";
   if(/rate limit|too many|over email send rate limit/i.test(message))return "Supabase is rate limiting confirmation emails. Wait a few minutes, then try again.";
   if(/invalid login credentials/i.test(message))return "Email or password is incorrect.";
@@ -62,6 +73,473 @@ function authErrorMessage(error){
   if(/password/i.test(message)&&/(weak|short|least|characters|min)/i.test(message))return message;
   if(/email/i.test(message)&&/invalid/i.test(message))return "Enter a valid email address.";
   return message;
+}
+function defaultAvatarConfig(){
+  return {
+    avatarType:"androgynous",preset:"editorial",faceShape:"oval",jawWidth:0,cheekFullness:0,chinShape:"soft",headScale:0,age:24,
+    skinColor:"#c98f63",freckles:"none",blush:22,beautyMark:"none",skinSoftness:68,
+    hairStyle:"waves",hairColor:"#2b1710",hairVolume:2,hairHighlight:"#8a5a2d",
+    eyes:"calm",eyeColor:"#211512",eyeSize:0,eyeSpacing:0,eyelids:"soft",lashes:"none",
+    brows:"soft",browThickness:0,browAngle:0,
+    nose:"line",noseWidth:0,noseBridge:0,
+    mouth:"smile",lipFullness:0,mouthWidth:0,smileIntensity:55,
+    ears:"standard",facialHair:"none",beardDensity:55,beardColor:"#2b1710",accessory:"none"
+  };
+}
+let avatarSvgInstance=0;
+function uniqueAvatarSvgIds(svg){
+  const suffix=`muzeAvatar${++avatarSvgInstance}`;
+  ["bg3d","skin3d","cheekLight","cheekWarm","chinShade","noseBulb","noseShade","hairSurface","hairRaised","headCast","hairDrop","tinyCast"].forEach(id=>{
+    const unique=`${id}-${suffix}`;
+    svg=svg.replaceAll(`id="${id}"`,`id="${unique}"`).replaceAll(`url(#${id})`,`url(#${unique})`);
+  });
+  return svg;
+}
+function cleanAvatarSvgOverlays(svg){
+  return svg
+    .replace(/<ellipse cx="(?:65|67)"[^>]*fill="url\(#noseShade\)"\/>/g,"")
+    .replace(/<path d="M[^"]+" stroke="#fff6ed"[^>]*\/>/g,"")
+    .replace(/<path d="M(?:47|52) 84 C55 95 73 95 81 84"[^>]*\/>/g,"")
+    .replace(/<path d="M55 83 C61 88 67 88 73 83"[^>]*\/>/g,"")
+    .replaceAll('stop-opacity=".30"/><stop offset=".46"','stop-opacity=".10"/><stop offset=".46"')
+    .replaceAll('stop-opacity=".32"/><stop offset=".6"','stop-opacity=".14"/><stop offset=".6"')
+    .replaceAll('stop-opacity=".34"/><stop offset=".24"','stop-opacity=".14"/><stop offset=".24"')
+    .replaceAll('stop-opacity=".38"/><stop offset=".35"','stop-opacity=".16"/><stop offset=".35"')
+    .replaceAll('opacity=".13" fill="none" stroke-linecap="round"','opacity=".04" fill="none" stroke-linecap="round"')
+    .replaceAll('opacity=".7"/><path d="M44 36','opacity=".18"/><path d="M44 36')
+    .replaceAll('stroke-width="6" opacity=".10"','stroke-width="6" opacity="0"')
+    .replaceAll('stroke-width="5" opacity=".09"','stroke-width="5" opacity="0"')
+    .replaceAll('fill="#fff" opacity=".12"','fill="#fff" opacity=".04"')
+    .replaceAll('opacity=".32" fill="none"/></g>`','opacity=".12" fill="none"/></g>`');
+}
+function activeAvatarConfig(){
+  return state.avatarConfig||state.userProfile?.avatar_config||defaultAvatarConfig();
+}
+function selectedAvatarIcon(){
+  const saved=String(state.userProfile?.avatar_url||"");
+  if(state.selectedAvatarIcon)return state.selectedAvatarIcon;
+  if(MUZE_AVATAR_ICONS.includes(saved))return saved;
+  return MUZE_AVATAR_ICONS[0];
+}
+function avatarIconMarkup(url=selectedAvatarIcon(),alt="Selected Muze profile icon"){
+  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}">`;
+}
+function selectAvatarIcon(url){
+  state.selectedAvatarIcon=url;
+  state.avatarPhotoFile=null;
+  setAvatarMode("create");
+  renderAvatarIconGrid();
+  syncAvatarControls();
+}
+function renderAvatarIconGrid(){
+  const grid=$("#avatarIconGrid");
+  if(!grid)return;
+  const selected=selectedAvatarIcon();
+  grid.innerHTML=MUZE_AVATAR_ICONS.map((url,index)=>`
+    <button class="avatarIconChoice ${url===selected?"active":""}" type="button" data-avatar-icon="${escapeHtml(url)}" aria-label="Choose profile icon ${index+1}">
+      <img src="${escapeHtml(url)}" alt="">
+    </button>
+  `).join("");
+  grid.querySelectorAll("[data-avatar-icon]").forEach(button=>{
+    button.onclick=()=>selectAvatarIcon(button.dataset.avatarIcon||MUZE_AVATAR_ICONS[0]);
+  });
+}
+function avatarSvg(config=defaultAvatarConfig()){
+  const c={...defaultAvatarConfig(),...(config||{})};
+  const rawSkin=String(c.skinColor||"#c98f63").trim().toLowerCase();
+  const visibleSkin=/^#?(000|000000|111|111111)$/.test(rawSkin)?"#342821":c.skinColor;
+  const safeSkin=escapeHtml(visibleSkin);
+  const safeHair=escapeHtml(c.hairColor);
+  const safeEye=escapeHtml(c.eyeColor||"#211512");
+  const safeBeard=escapeHtml(c.beardColor||c.hairColor);
+  const safeHighlight=escapeHtml(c.hairHighlight||"#8a5a2d");
+  const jaw=Number(c.jawWidth||0);
+  const cheek=Number(c.cheekFullness||0);
+  const head=Number(c.headScale||0);
+  const eyeScale=1+Number(c.eyeSize||0)/28;
+  const eyeSpace=Number(c.eyeSpacing||0);
+  const noseW=Number(c.noseWidth||0);
+  const bridge=Number(c.noseBridge||0);
+  const mouthW=Number(c.mouthWidth||0);
+  const lip=Number(c.lipFullness||0);
+  const smile=Number(c.smileIntensity||55);
+  const browWidth=2.65+Number(c.browThickness||0)*.13;
+  const browAngle=Number(c.browAngle||0)*.22;
+  const volume=Number(c.hairVolume||0);
+  const age=Number(c.age||24);
+  const skinSoft=Number(c.skinSoftness||68)/100;
+  const facePath={
+    oval:`M64 ${25-head*.18} C${42-jaw*.15} ${25-head*.14} ${29-jaw*.28} 43 ${29-jaw*.12} 68 C${29-jaw*.08} ${98+cheek*.12} ${44-jaw*.38} 114 ${64} ${114+head*.18} C${84+jaw*.38} 114 ${99+jaw*.08} ${98+cheek*.12} ${99+jaw*.12} 68 C${99+jaw*.28} 43 ${86+jaw*.15} ${25-head*.14} 64 ${25-head*.18}Z`,
+    round:`M64 ${27-head*.16} C${40-jaw*.18} 27 ${27-jaw*.24} 46 ${27-jaw*.12} 69 C${27-jaw*.08} ${95+cheek*.2} ${43-jaw*.28} 112 64 ${112+head*.12} C${85+jaw*.28} 112 ${101+jaw*.08} ${95+cheek*.2} ${101+jaw*.12} 69 C${101+jaw*.24} 46 ${88+jaw*.18} 27 64 ${27-head*.16}Z`,
+    heart:`M64 ${25-head*.16} C42 24 28 42 29 66 C30 91 ${48-jaw*.18} 107 64 ${116+head*.1} C${80+jaw*.18} 107 98 91 99 66 C100 42 86 24 64 ${25-head*.16}Z`,
+    diamond:`M64 ${23-head*.16} C44 26 31 43 30 67 C31 90 48 106 64 ${116+head*.12} C80 106 97 90 98 67 C97 43 84 26 64 ${23-head*.16}Z`,
+    long:`M64 ${20-head*.18} C43 20 31 40 31 67 C31 101 46 119 64 ${120+head*.1} C82 119 97 101 97 67 C97 40 85 20 64 ${20-head*.18}Z`,
+    "soft-square":`M64 ${27-head*.16} C${44-jaw*.1} 27 ${31-jaw*.22} 40 ${30-jaw*.18} 62 C${29-jaw*.16} 84 ${34-jaw*.42} 107 ${52-jaw*.25} 113 C60 ${116+head*.12} 70 ${116+head*.12} ${78+jaw*.25} 113 C${96+jaw*.42} 107 ${101+jaw*.16} 84 ${98+jaw*.18} 62 C${96+jaw*.22} 40 ${84+jaw*.1} 27 64 ${27-head*.16}Z`
+  }[c.faceShape]||"M64 25 C42 25 29 43 29 68 C29 98 44 114 64 114 C84 114 99 98 99 68 C99 43 86 25 64 25Z";
+  const eyeY=c.eyes==="focused"?61:c.eyes==="sleepy"?62:60;
+  const leftEye=49-eyeSpace*.32, rightEye=79+eyeSpace*.32;
+  const eyeRx=(c.eyes==="wide"?6.9:6.1)*eyeScale, eyeRy=(c.eyes==="sleepy"?3.45:4.25)*eyeScale;
+  const eyelid=c.eyelids==="hooded"?`<path d="M${leftEye-7} ${eyeY-3} Q${leftEye} ${eyeY-7} ${leftEye+7} ${eyeY-3}" stroke="#2a1712" stroke-width="1.45" opacity=".28" fill="none"/><path d="M${rightEye-7} ${eyeY-3} Q${rightEye} ${eyeY-7} ${rightEye+7} ${eyeY-3}" stroke="#2a1712" stroke-width="1.45" opacity=".28" fill="none"/>`:c.eyelids==="sharp"?`<path d="M${leftEye-7} ${eyeY-4} L${leftEye+7} ${eyeY-3}" stroke="#2a1712" stroke-width="1.35" opacity=".28"/><path d="M${rightEye-7} ${eyeY-3} L${rightEye+7} ${eyeY-4}" stroke="#2a1712" stroke-width="1.35" opacity=".28"/>`:c.eyelids==="open"?`<path d="M${leftEye-7} ${eyeY-5} Q${leftEye} ${eyeY-8} ${leftEye+7} ${eyeY-5}" stroke="#2a1712" stroke-width=".95" opacity=".20" fill="none"/><path d="M${rightEye-7} ${eyeY-5} Q${rightEye} ${eyeY-8} ${rightEye+7} ${eyeY-5}" stroke="#2a1712" stroke-width=".95" opacity=".20" fill="none"/>`:"";
+  const lashes=c.lashes==="defined"?`<path d="M${leftEye-7} ${eyeY-4} l-2 -2 M${leftEye+7} ${eyeY-4} l2 -2 M${rightEye-7} ${eyeY-4} l-2 -2 M${rightEye+7} ${eyeY-4} l2 -2" stroke="${safeHair}" stroke-width=".85" opacity=".38"/>`:c.lashes==="subtle"?`<path d="M${leftEye-7} ${eyeY-4} l-1.6 -1.6 M${rightEye+7} ${eyeY-4} l1.6 -1.6" stroke="${safeHair}" stroke-width=".75" opacity=".30"/>`:"";
+  const eyeShape=`<g filter="url(#tinyCast)"><ellipse cx="${leftEye}" cy="${eyeY}" rx="${eyeRx}" ry="${eyeRy}" fill="#f4eadf"/><ellipse cx="${rightEye}" cy="${eyeY}" rx="${eyeRx}" ry="${eyeRy}" fill="#f4eadf"/><circle cx="${leftEye}" cy="${eyeY+.25}" r="${2.85*eyeScale}" fill="${safeEye}"/><circle cx="${rightEye}" cy="${eyeY+.25}" r="${2.85*eyeScale}" fill="${safeEye}"/><circle cx="${leftEye-1}" cy="${eyeY-1}" r=".82" fill="#fff" opacity=".82"/><circle cx="${rightEye-1}" cy="${eyeY-1}" r=".82" fill="#fff" opacity=".82"/>${eyelid}${lashes}</g>`;
+  const brow={soft:['M41 51 C46 48 52 47 57 49','M71 49 C76 47 82 48 87 51'],bold:['M40 49 C46 46 53 45 58 47','M70 47 C76 45 83 46 88 49'],arched:['M40 52 C47 44 53 44 59 50','M69 50 C75 44 82 44 88 52'],straight:['M40 49 C46 49 52 49 58 49','M70 49 C76 49 82 49 88 49'],feathered:['M40 51 C46 47 52 47 58 50','M70 50 C76 47 82 47 88 51']}[c.brows]||['M41 51 C46 48 52 47 57 49','M71 49 C76 47 82 48 87 51'];
+  const noseRx=7+noseW*.45;
+  const noseY=77-bridge*.35;
+  const nose={line:`<g><path d="M65 ${63-bridge*.35} C61 70 61 78 67 80" stroke="#7b4b33" stroke-width="${2.2+noseW*.04}" fill="none" stroke-linecap="round"/><ellipse cx="67" cy="80" rx="${noseRx}" ry="3.1" fill="url(#noseShade)"/><circle cx="${61-noseW*.18}" cy="80" r="1.4" fill="#4e251c" opacity=".25"/><circle cx="${70+noseW*.18}" cy="80" r="1.4" fill="#4e251c" opacity=".25"/></g>`,soft:`<g><path d="M64 ${62-bridge*.35} C58 72 60 79 68 81" stroke="#7b4b33" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="65" cy="80.5" rx="${noseRx+.7}" ry="3.3" fill="url(#noseShade)"/></g>`,round:`<g><ellipse cx="64" cy="${noseY}" rx="${noseRx+.8}" ry="8.8" fill="url(#noseBulb)"/><ellipse cx="64" cy="82" rx="${noseRx}" ry="3.1" fill="#6d3427" opacity=".15"/></g>`,wide:`<g><ellipse cx="64" cy="${noseY+1}" rx="${noseRx+3.5}" ry="7.2" fill="url(#noseBulb)"/><ellipse cx="64" cy="82" rx="${noseRx+3}" ry="3.2" fill="#6d3427" opacity=".16"/></g>`,button:`<g><ellipse cx="64" cy="${noseY+2}" rx="${noseRx}" ry="6.5" fill="url(#noseBulb)"/><circle cx="61" cy="82" r="1.2" fill="#4e251c" opacity=".26"/><circle cx="68" cy="82" r="1.2" fill="#4e251c" opacity=".26"/></g>`}[c.nose];
+  const mw=mouthW*.45, lipStroke=3.1+lip*.12, smileLift=(smile-50)*.06;
+  const mouth={smile:`<g><path d="M${54-mw*.7} ${90-smileLift*.45} C59 ${94+smileLift*.45} 69 ${94+smileLift*.45} ${74+mw*.7} ${90-smileLift*.45}" stroke="#6b3029" stroke-width="${Math.max(2.1,lipStroke*.72)}" fill="none" stroke-linecap="round"/></g>`,neutral:`<g><path d="M${56-mw*.65} 91 C61 90.5 67 90.5 ${72+mw*.65} 91" stroke="#6b3029" stroke-width="${Math.max(2,lipStroke*.68)}" fill="none" stroke-linecap="round"/></g>`,wide:`<g><path d="M${52-mw*.7} 89 C58 ${97+smileLift*.55} 70 ${97+smileLift*.55} ${76+mw*.7} 89" fill="#5a201e" opacity=".86"/></g>`,serious:`<g><path d="M${56-mw*.65} 92 C61 90.8 67 90.8 ${72+mw*.65} 92" stroke="#542722" stroke-width="${Math.max(2,lipStroke*.68)}" fill="none" stroke-linecap="round"/></g>`,smirk:`<g><path d="M${54-mw*.65} 91 C60 93 69 91 ${75+mw*.65} 88" stroke="#6b3029" stroke-width="${Math.max(2.1,lipStroke*.68)}" fill="none" stroke-linecap="round"/></g>`}[c.mouth];
+  const hairLayer='fill="url(#hairSurface)" filter="url(#hairDrop)"';
+  const hairHighlight='stroke="#fff" stroke-width="5" opacity=".13" fill="none" stroke-linecap="round"';
+  const hair={
+    waves:`<g><path d="M24 ${61+volume*.15} C23 ${34-volume*.24} 42 ${16-volume*.2} 64 ${16-volume*.18} C90 ${16-volume*.2} 105 ${35-volume*.22} 103 ${62+volume*.14} C91 49 78 43 64 44 C48 45 36 50 24 ${61+volume*.15}Z" ${hairLayer}/><path d="M32 48 C40 28 55 23 68 27 C80 31 87 26 93 35 C82 29 74 40 62 39 C49 37 41 39 32 48Z" fill="url(#hairRaised)"/><path d="M42 27 C51 38 70 40 83 25" ${hairHighlight}/></g>`,
+    short:`<g><path d="M29 56 C31 ${33-volume*.18} 46 ${20-volume*.12} 65 ${20-volume*.12} C86 ${20-volume*.12} 99 ${34-volume*.18} 100 56 C81 46 49 46 29 56Z" ${hairLayer}/><path d="M37 39 C50 27 75 27 91 41 C75 36 53 36 37 39Z" fill="url(#hairRaised)"/><path d="M44 31 C58 27 77 28 90 38" ${hairHighlight}/></g>`,
+    medium:`<g><path d="M23 ${63+volume*.14} C22 ${32-volume*.2} 43 ${14-volume*.2} 64 ${15-volume*.16} C91 ${15-volume*.18} 106 ${34-volume*.18} 104 ${66+volume*.14} C91 50 78 43 64 44 C48 45 36 50 23 ${63+volume*.14}Z" ${hairLayer}/><path d="M28 66 C25 82 31 96 42 102 C38 81 42 61 51 45" fill="url(#hairSurface)" opacity=".88"/><path d="M100 66 C103 84 96 98 85 103 C91 81 86 61 77 45" fill="url(#hairSurface)" opacity=".88"/></g>`,
+    long:`<g><path d="M22 ${64+volume*.14} C20 ${31-volume*.2} 42 ${13-volume*.2} 64 ${14-volume*.16} C92 ${14-volume*.18} 108 ${34-volume*.18} 106 ${68+volume*.14} C94 52 80 43 64 44 C47 45 34 52 22 ${64+volume*.14}Z" ${hairLayer}/><path d="M24 60 C16 89 26 115 44 120 C39 90 43 59 54 41" fill="url(#hairSurface)"/><path d="M104 60 C113 90 102 115 84 120 C90 90 85 59 74 41" fill="url(#hairSurface)"/><path d="M45 24 C55 39 72 40 86 26" ${hairHighlight}/></g>`,
+    straight:`<g><path d="M26 60 C24 34 43 17 64 17 C88 17 104 35 102 61 C84 45 45 45 26 60Z" ${hairLayer}/><path d="M30 60 C27 83 31 99 44 106 C41 82 45 58 55 40" fill="url(#hairSurface)" opacity=".85"/><path d="M98 60 C101 83 96 100 84 106 C87 82 83 58 73 40" fill="url(#hairSurface)" opacity=".85"/></g>`,
+    curly:`<g><path d="M25 ${59+volume*.12} C20 ${34-volume*.24} 40 ${15-volume*.2} 64 ${15-volume*.18} C91 ${15-volume*.2} 108 ${37-volume*.22} 101 ${61+volume*.12} C91 48 80 40 65 41 C49 39 37 47 25 ${59+volume*.12}Z" ${hairLayer}/><g fill="url(#hairRaised)" filter="url(#hairDrop)"><circle cx="36" cy="33" r="${10+volume*.12}"/><circle cx="49" cy="24" r="${9+volume*.12}"/><circle cx="64" cy="22" r="${10+volume*.12}"/><circle cx="80" cy="25" r="${9+volume*.12}"/><circle cx="92" cy="36" r="${10+volume*.12}"/><circle cx="30" cy="46" r="${9+volume*.1}"/><circle cx="99" cy="49" r="${8+volume*.1}"/></g><circle cx="50" cy="23" r="3.1" fill="#fff" opacity=".12"/></g>`,
+    fade:`<g><path d="M31 52 C34 31 47 21 64 21 C82 21 95 32 97 52 C80 42 49 42 31 52Z" fill="url(#hairSurface)" opacity=".92"/><path d="M31 54 C43 48 84 48 97 54" stroke="${safeHighlight}" stroke-width="2" opacity=".32" fill="none"/></g>`,
+    buzz:`<path d="M31 51 C34 31 47 21 64 21 C82 21 95 32 97 51 C79 41 50 41 31 51Z" fill="url(#hairSurface)" opacity=".88"/>`,
+    bald:''
+  }[c.hairStyle]||'';
+  const density=Math.max(.18,Number(c.beardDensity||55)/100);
+  const beard=c.facialHair==="beard"?`<path d="M40 83 C43 110 85 110 88 83 C78 100 51 100 40 83Z" fill="${safeBeard}" opacity="${.45+density*.38}" filter="url(#tinyCast)"/>`:c.facialHair==="stubble"?`<path d="M47 84 C55 95 73 95 81 84" stroke="${safeBeard}" stroke-width="8" opacity="${.12+density*.24}" fill="none" stroke-linecap="round"/>`:c.facialHair==="mustache"?`<path d="M52 82 C58 78 62 79 64 83 C66 79 70 78 76 82" stroke="${safeBeard}" stroke-width="${4+density*2}" opacity=".78" fill="none" stroke-linecap="round"/>`:c.facialHair==="goatee"?`<path d="M55 83 C61 88 67 88 73 83" stroke="${safeBeard}" stroke-width="4" opacity=".72" fill="none" stroke-linecap="round"/><path d="M59 98 C62 104 66 104 69 98" stroke="${safeBeard}" stroke-width="5" opacity=".68" fill="none" stroke-linecap="round"/>`:'';
+  const accessory=c.accessory==="glasses"?'<g filter="url(#tinyCast)"><circle cx="49" cy="60" r="9" fill="rgba(255,255,255,.06)" stroke="#f1d46b" stroke-width="2.1"/><circle cx="79" cy="60" r="9" fill="rgba(255,255,255,.06)" stroke="#f1d46b" stroke-width="2.1"/><path d="M58 60 H70" stroke="#f1d46b" stroke-width="2.1"/><path d="M43 57 L31 54" stroke="#f1d46b" stroke-width="1.7"/><path d="M85 57 L97 54" stroke="#f1d46b" stroke-width="1.7"/></g>':c.accessory==="round-glasses"?'<g filter="url(#tinyCast)"><circle cx="49" cy="60" r="10" fill="rgba(255,255,255,.05)" stroke="#f1d46b" stroke-width="2"/><circle cx="79" cy="60" r="10" fill="rgba(255,255,255,.05)" stroke="#f1d46b" stroke-width="2"/><path d="M59 60 H69" stroke="#f1d46b" stroke-width="2"/></g>':c.accessory==="earring"?'<g filter="url(#tinyCast)"><circle cx="95" cy="74" r="3.5" fill="#f2c94c"/><circle cx="94" cy="73" r="1" fill="#fff" opacity=".72"/></g>':c.accessory==="piercing"?'<circle cx="70" cy="82" r="1.8" fill="#f2c94c" filter="url(#tinyCast)"/>':c.accessory==="headphones"?'<g filter="url(#tinyCast)"><path d="M31 59 C31 31 97 31 97 59" stroke="#f2c94c" stroke-width="5" fill="none"/><rect x="24" y="58" width="9" height="22" rx="5" fill="#111"/><rect x="95" y="58" width="9" height="22" rx="5" fill="#111"/></g>':c.accessory==="beanie"?'<path d="M30 45 C35 20 91 20 98 45 C80 38 48 38 30 45Z" fill="url(#hairSurface)" filter="url(#hairDrop)"/><path d="M29 46 C44 39 82 39 99 46" stroke="#f2c94c" stroke-width="6" opacity=".85"/>':'';
+  const earSize=c.ears==="small"?5:c.ears==="visible"?9:c.ears==="round"?8:7;
+  const ears=c.ears==="standard"?"":`<g filter="url(#tinyCast)"><ellipse cx="29" cy="70" rx="${earSize*.7}" ry="${earSize}" fill="url(#skin3d)"/><ellipse cx="99" cy="70" rx="${earSize*.7}" ry="${earSize}" fill="url(#skin3d)"/></g>`;
+  const freckleCount={none:0,light:4,medium:8,heavy:14}[c.freckles]||0;
+  const freckles=Array.from({length:freckleCount}).map((_,i)=>`<circle cx="${43+(i*7)%42}" cy="${69+(i%3)*5}" r="${i%2?1:.8}" fill="#6b3527" opacity=".28"/>`).join("");
+  const mark={left:'<circle cx="48" cy="83" r="1.5" fill="#3c1a15" opacity=".62"/>',right:'<circle cx="81" cy="82" r="1.5" fill="#3c1a15" opacity=".62"/>',chin:'<circle cx="66" cy="101" r="1.4" fill="#3c1a15" opacity=".55"/>'}[c.beautyMark]||"";
+  const ageLines=age>55?'<path d="M46 52 C52 50 56 51 60 53 M70 53 C74 51 79 50 84 52" stroke="#5b2d23" stroke-width="1" opacity=".22" fill="none"/><path d="M54 78 C60 80 68 80 74 78" stroke="#5b2d23" stroke-width="1" opacity=".16" fill="none"/>':"";
+  const svg=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Muze avatar"><defs><radialGradient id="bg3d" cx="35%" cy="18%" r="88%"><stop offset="0" stop-color="#f2c94c" stop-opacity=".30"/><stop offset=".46" stop-color="#171821"/><stop offset="1" stop-color="#05060a"/></radialGradient><radialGradient id="skin3d" cx="36%" cy="24%" r="78%"><stop offset="0" stop-color="#fff0df" stop-opacity="${.45+skinSoft*.38}"/><stop offset=".30" stop-color="${safeSkin}"/><stop offset=".76" stop-color="${safeSkin}"/><stop offset="1" stop-color="#5c2c22" stop-opacity=".62"/></radialGradient><radialGradient id="cheekLight" cx="40%" cy="36%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset=".6" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><radialGradient id="cheekWarm" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#e96f74" stop-opacity="${Number(c.blush||0)/260}"/><stop offset="1" stop-color="#e96f74" stop-opacity="0"/></radialGradient><radialGradient id="chinShade" cx="50%" cy="20%" r="78%"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#4c2119" stop-opacity=".32"/></radialGradient><radialGradient id="noseBulb" cx="38%" cy="24%" r="70%"><stop offset="0" stop-color="#fff0df" stop-opacity=".42"/><stop offset=".42" stop-color="${safeSkin}"/><stop offset="1" stop-color="#7b392c" stop-opacity=".48"/></radialGradient><radialGradient id="noseShade" cx="35%" cy="20%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".55" stop-color="${safeSkin}" stop-opacity=".75"/><stop offset="1" stop-color="#5c2e22" stop-opacity=".28"/></radialGradient><linearGradient id="hairSurface" x1="27" y1="14" x2="101" y2="64"><stop offset="0" stop-color="${safeHighlight}" stop-opacity=".34"/><stop offset=".24" stop-color="${safeHair}"/><stop offset=".72" stop-color="${safeHair}"/><stop offset="1" stop-color="#060302"/></linearGradient><radialGradient id="hairRaised" cx="36%" cy="20%" r="80%"><stop offset="0" stop-color="${safeHighlight}" stop-opacity=".38"/><stop offset=".35" stop-color="${safeHair}"/><stop offset="1" stop-color="#050302"/></radialGradient><filter id="headCast" x="-35%" y="-30%" width="170%" height="170%"><feDropShadow dx="0" dy="10" stdDeviation="7" flood-color="#000" flood-opacity=".34"/></filter><filter id="hairDrop" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="5" stdDeviation="3.2" flood-color="#000" flood-opacity=".34"/></filter><filter id="tinyCast" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.8" stdDeviation="1.2" flood-color="#000" flood-opacity=".22"/></filter></defs><rect width="128" height="128" rx="64" fill="url(#bg3d)"/><ellipse cx="64" cy="114" rx="36" ry="7" fill="#000" opacity=".24"/>${ears}<g filter="url(#headCast)"><path d="${facePath}" fill="url(#skin3d)"/></g><path d="${facePath}" fill="url(#chinShade)" opacity=".72"/><ellipse cx="${48-cheek*.12}" cy="73" rx="${13+cheek*.22}" ry="${8+cheek*.12}" fill="url(#cheekWarm)"/><ellipse cx="${80+cheek*.12}" cy="73" rx="${13+cheek*.22}" ry="${8+cheek*.12}" fill="url(#cheekWarm)"/><ellipse cx="50" cy="55" rx="20" ry="28" fill="url(#cheekLight)" opacity=".7"/><path d="M44 36 C53 29 75 29 86 38" stroke="#fff" stroke-width="6" opacity=".10" fill="none" stroke-linecap="round"/>${hair}<path d="${brow[0]}" stroke="${safeHair}" stroke-width="${browWidth}" fill="none" stroke-linecap="round" filter="url(#tinyCast)"/><path d="${brow[1]}" stroke="${safeHair}" stroke-width="${browWidth}" fill="none" stroke-linecap="round" filter="url(#tinyCast)"/>${eyeShape}${nose}${beard}${mouth}${freckles}${mark}${ageLines}${accessory}<path d="M39 45 C44 33 54 28 66 27" stroke="#fff" stroke-width="5" opacity=".09" fill="none" stroke-linecap="round"/></svg>`;
+  return uniqueAvatarSvgIds(cleanAvatarSvgOverlays(svg));
+}
+function currentAvatarMarkup(extraClass=""){
+  const profile=state.userProfile||{};
+  const label=escapeHtml(authDisplayName()||"Muze profile");
+  if(profile.avatar_url)return `<img class="${extraClass}" src="${escapeHtml(profile.avatar_url)}" alt="${label}">`;
+  if(profile.avatar_config)return avatarSvg(profile.avatar_config);
+  if(profile.avatar_svg&&String(profile.avatar_svg).trim().startsWith("<svg"))return profile.avatar_svg;
+  return `<img class="${extraClass}" src="${escapeHtml(DEFAULT_AVATAR_URL)}" alt="${label}">`;
+}
+function renderAvatarTargets(){
+  const hasAvatar=Boolean(state.userProfile?.avatar_url||state.userProfile?.avatar_svg||state.userProfile?.avatar_config);
+  const targets=[$("#profileAvatarPreview"),$("#avatarPreview"),$("#avatarCreatorPreview")];
+  targets.forEach(target=>{if(target)target.innerHTML=currentAvatarMarkup()});
+  const navIcon=$("#sideNav .navUserIcon");
+  if(navIcon){navIcon.classList.toggle("hasAvatar",hasAvatar);navIcon.innerHTML=hasAvatar?currentAvatarMarkup():""}
+  const authIcon=$("#authButton .authButtonIcon");
+  if(authIcon){authIcon.classList.toggle("hasAvatar",hasAvatar);authIcon.innerHTML=hasAvatar?currentAvatarMarkup():""}
+  syncAccountProfileCopy();
+}
+function refreshSavedAvatarDisplay(){
+  renderAvatarTargets();
+  requestAnimationFrame(()=>renderAvatarTargets());
+}
+function avatarHasValue(profile=state.userProfile){return Boolean(profile?.avatar_url||profile?.avatar_svg||profile?.avatar_config)}
+function savedProfileUsername(){return (state.userProfile?.username||"").trim()}
+function profileMemberSinceText(){
+  const raw=state.userProfile?.created_at;
+  if(!raw)return "";
+  const date=new Date(raw);
+  if(Number.isNaN(date.getTime()))return "";
+  return `Member since ${date.toLocaleDateString(undefined,{month:"short",year:"numeric"})}`;
+}
+function syncAccountProfileCopy(){
+  const hasAvatar=avatarHasValue();
+  const username=savedProfileUsername();
+  const memberSince=profileMemberSinceText();
+  const title=$(".accountAvatarTitle");
+  const subtitle=$(".accountAvatarSubtitle");
+  const button=$("#editAvatarButton");
+  const usernameDisplay=$("#profileUsernameDisplay");
+  const memberDisplay=$("#profileMemberSinceDisplay");
+  if(title)title.textContent=hasAvatar?"Your Muze Profile":"Create your Muze Avatar";
+  if(subtitle)subtitle.textContent=hasAvatar?"":"Upload a photo or design a custom face for your profile.";
+  if(button)button.textContent=hasAvatar?"Edit Profile":"Edit Profile Avatar";
+  if(usernameDisplay){
+    usernameDisplay.textContent=username||"";
+    usernameDisplay.classList.toggle("hidden",!username);
+  }
+  if(memberDisplay){
+    memberDisplay.textContent=memberSince;
+    memberDisplay.classList.toggle("hidden",!username||!memberSince);
+  }
+  syncProfileUsernameUi();
+  syncAvatarEditorCopy();
+}
+function syncAvatarEditorCopy(){
+  const hasAvatar=avatarHasValue();
+  const title=$("#avatarEditorTitle");
+  const subtitle=$("#avatarEditorSubtitle");
+  if(title)title.textContent=hasAvatar?"Your Muze Profile":"Edit profile avatar";
+  if(subtitle){
+    subtitle.textContent=hasAvatar?"":"Choose or create your avatar.";
+    subtitle.classList.toggle("hidden",hasAvatar);
+  }
+}
+function syncProfileUsernameUi(){
+  const username=savedProfileUsername();
+  const memberSince=profileMemberSinceText();
+  const editor=$("#profileUsernameEditor");
+  const display=$("#avatarEditorUsernameDisplay");
+  const name=$("#avatarEditorUsernameText");
+  const member=$("#avatarEditorMemberSince");
+  const input=$("#profileUsernameInput");
+  if(editor)editor.classList.toggle("hidden",!!username);
+  if(display)display.classList.toggle("hidden",!username);
+  if(name)name.textContent=username;
+  if(member){
+    member.textContent=memberSince;
+    member.classList.toggle("hidden",!memberSince);
+  }
+  if(input&&!username)input.value=currentUsername()||"";
+}
+function syncAvatarEditorControlsVisibility(){
+  const hasSavedAvatar=avatarHasValue();
+  const collapsed=hasSavedAvatar&&!state.avatarEditControlsOpen;
+  $("#avatarSetup")?.classList.toggle("avatarControlsCollapsed",collapsed);
+  const reveal=$("#avatarEditReveal");
+  if(reveal){
+    reveal.classList.toggle("canEditAvatar",hasSavedAvatar);
+    reveal.setAttribute("aria-expanded",String(!collapsed));
+  }
+}
+function openAvatarEditControls(){
+  if(!avatarHasValue())return;
+  state.avatarEditControlsOpen=true;
+  syncAvatarEditorControlsVisibility();
+  setAvatarMode(state.avatarMode||"create");
+  syncAvatarControls();
+}
+function profileUsernameValue(){
+  return ($("#profileUsernameInput")?.value||"").trim().replace(/^@+/,"").slice(0,32);
+}
+function profileSaveFields(extra={}){
+  const username=profileUsernameValue();
+  if(username)localStorage.setItem("musicaUsername",username);
+  return username?{...extra,username}:{...extra};
+}
+async function saveProfileUsername(){
+  const username=profileUsernameValue();
+  if(!username){setAuthStatus("Enter a username before saving.","error");return}
+  localStorage.setItem("musicaUsername",username);
+  const saved=await saveUserProfile({username});
+  if(saved){setAuthStatus("Username saved.","success");syncProfileUsernameUi();syncAccountProfileCopy();refreshSavedAvatarDisplay()}
+}
+async function loadUserProfile(){
+  const user=loggedInUser();
+  state.userProfile=null;
+  if(!user||!db){renderAvatarTargets();return null}
+  const {data,error}=await db.from("user_profiles").select("user_id,email,username,avatar_url,avatar_config,avatar_svg,avatar_type,skipped_avatar_setup,created_at").eq("user_id",user.id).maybeSingle();
+  if(error){
+    authDebug("profile load error",{message:error.message});
+    renderAvatarTargets();
+    return null;
+  }
+  if(data){
+    state.userProfile=data;
+    if(data.username)localStorage.setItem("musicaUsername",data.username);
+  }
+  renderAvatarTargets();
+  return data;
+}
+async function saveUserProfile(fields){
+  const user=loggedInUser();
+  if(!user||!db){setAuthStatus("Log in before saving your avatar.","error");return null}
+  const existingUsername=savedProfileUsername()||currentUsername();
+  const row={user_id:user.id,email:user.email||"",...(existingUsername?{username:existingUsername}:{}),...fields,updated_at:new Date().toISOString()};
+  const {data,error}=await db.from("user_profiles").upsert(row,{onConflict:"user_id"}).select().single();
+  if(error){setAuthStatus(authErrorMessage(error),"error");return null}
+  state.userProfile=data;
+  renderAvatarTargets();
+  updateNavUsername();
+  return data;
+}
+function showAvatarSetup(force=false){
+  const hasSavedAvatar=avatarHasValue();
+  const modal=$("#authModal");
+  if(modal){modal.classList.remove("libraryAccessModal","libraryAuthFlow","hidden");modal.setAttribute("aria-hidden","false")}
+  $("#authModal .authPanel")?.classList.remove("libraryAccessPanel");
+  $("#authModal .authPanel")?.classList.add("accountProfileMode");
+  $("#authModal .authPanel")?.classList.toggle("avatarEditorMode",!!force);
+  $("#libraryAccessCard")?.classList.add("hidden");
+  $("#authLoggedOut")?.classList.add("hidden");
+  $("#authLoggedIn")?.classList.toggle("hidden",!loggedInUser()||!!force);
+  $("#authLogout")?.classList.toggle("hidden",!loggedInUser()||!!force);
+  $("#avatarSetup")?.classList.remove("hidden");
+  const title=$("#authTitle"),prompt=$("#authPrompt");
+  if(title)title.textContent=force?"Edit your Muze avatar":"Create your Muze avatar";
+  if(prompt)prompt.textContent="Make your profile feel like yours.";
+  state.avatarConfig={...defaultAvatarConfig(),...(state.userProfile?.avatar_config||{})};
+  state.avatarPhotoFile=null;
+  state.selectedAvatarIcon=MUZE_AVATAR_ICONS.includes(state.userProfile?.avatar_url)?state.userProfile.avatar_url:selectedAvatarIcon();
+  state.avatarEditControlsOpen=!hasSavedAvatar;
+  syncProfileUsernameUi();
+  setAvatarMode(force?"create":"upload");
+  renderAvatarTargets();
+  syncAvatarControls();
+  syncAvatarEditorControlsVisibility();
+}
+function hideAvatarSetup(){
+  $("#authModal .authPanel")?.classList.remove("avatarEditorMode");
+  $("#avatarSetup")?.classList.add("hidden");
+  $("#avatarSetup")?.classList.remove("avatarControlsCollapsed");
+  state.avatarEditControlsOpen=false;
+  $("#authLoggedIn")?.classList.toggle("hidden",!loggedInUser());
+  $("#authLogout")?.classList.toggle("hidden",!loggedInUser());
+}
+function maybePromptAvatarSetup(){
+  const user=loggedInUser();
+  if(!user||avatarHasValue()||state.userProfile?.skipped_avatar_setup)return;
+  if(state.avatarPromptedForUser===user.id)return;
+  state.avatarPromptedForUser=user.id;
+  showAvatarSetup(false);
+}
+function setAvatarMode(mode){
+  state.avatarMode=mode==="create"?"create":"upload";
+  $("#avatarUploadTab")?.classList.toggle("active",state.avatarMode==="upload");
+  $("#avatarCreateTab")?.classList.toggle("active",state.avatarMode==="create");
+  $("#avatarUploadPanel")?.classList.toggle("hidden",state.avatarMode!=="upload");
+  $("#avatarCreatorPreviewCard")?.classList.toggle("hidden",state.avatarMode!=="create");
+  $("#avatarCreatePanel")?.classList.toggle("hidden",state.avatarMode!=="create");
+  $("#avatarStyleSection")?.classList.add("hidden");
+  $("#avatarColorSection")?.classList.add("hidden");
+  $("#avatarPreviewSection")?.classList.add("hidden");
+  if(state.avatarMode==="create")renderAvatarIconGrid();
+  renderAvatarTargets();
+  syncAvatarControls();
+  syncAvatarEditorControlsVisibility();
+}
+function setAvatarCategory(category="face"){
+  const active=category||"face";
+  const toggle=$("#avatarCategoryToggle");
+  const menu=$("#avatarCategoryMenu");
+  document.querySelectorAll("#avatarCreatePanel [data-avatar-section]").forEach(section=>section.classList.toggle("active",section.dataset.avatarSection===active));
+  document.querySelectorAll("#avatarCategoryMenu [data-avatar-category]").forEach(button=>{
+    const selected=button.dataset.avatarCategory===active;
+    button.classList.toggle("active",selected);
+    if(selected&&toggle)toggle.textContent=button.textContent||"Face";
+  });
+  if(toggle)toggle.setAttribute("aria-expanded","false");
+  menu?.classList.add("hidden");
+}
+function toggleAvatarCategoryMenu(){
+  const menu=$("#avatarCategoryMenu");
+  const toggle=$("#avatarCategoryToggle");
+  if(!menu||!toggle)return;
+  const expanded=menu.classList.toggle("hidden")===false;
+  toggle.setAttribute("aria-expanded",String(expanded));
+}
+function syncAvatarControls(){
+  const c=activeAvatarConfig();
+  avatarControlFields().forEach(([id,key])=>{const el=$("#"+id);if(el&&c[key]!==undefined)el.value=c[key]});
+  const photoMarkup=state.avatarPhotoFile?`<img src="${escapeHtml(URL.createObjectURL(state.avatarPhotoFile))}" alt="Selected avatar photo">`:"";
+  const createMarkup=avatarIconMarkup();
+  const fallbackMarkup=photoMarkup||currentAvatarMarkup()||createMarkup;
+  [$("#avatarPreview"),$("#avatarCreatorPreview"),$("#avatarEditorHeroPreview"),$("#avatarEditorPreviewLarge"),$("#avatarEditorPreviewMedium"),$("#avatarEditorPreviewSmall")].forEach(preview=>{if(preview)preview.innerHTML=state.avatarMode==="create"?createMarkup:fallbackMarkup});
+  renderAvatarStyleChoices();
+  syncAvatarEditorSelections();
+}
+function avatarControlFields(){
+  return [["avatarType","avatarType"],["avatarPreset","preset"],["avatarFaceShape","faceShape"],["avatarJawWidth","jawWidth"],["avatarCheekFullness","cheekFullness"],["avatarChinShape","chinShape"],["avatarHeadScale","headScale"],["avatarAge","age"],["avatarSkinColor","skinColor"],["avatarFreckles","freckles"],["avatarBlush","blush"],["avatarBeautyMark","beautyMark"],["avatarSkinSoftness","skinSoftness"],["avatarHairStyle","hairStyle"],["avatarHairColor","hairColor"],["avatarHairVolume","hairVolume"],["avatarHairHighlight","hairHighlight"],["avatarEyes","eyes"],["avatarEyeColor","eyeColor"],["avatarEyeSize","eyeSize"],["avatarEyeSpacing","eyeSpacing"],["avatarEyelids","eyelids"],["avatarLashes","lashes"],["avatarBrows","brows"],["avatarBrowThickness","browThickness"],["avatarBrowAngle","browAngle"],["avatarNose","nose"],["avatarNoseWidth","noseWidth"],["avatarNoseBridge","noseBridge"],["avatarMouth","mouth"],["avatarLipFullness","lipFullness"],["avatarMouthWidth","mouthWidth"],["avatarSmileIntensity","smileIntensity"],["avatarEars","ears"],["avatarFacialHair","facialHair"],["avatarBeardDensity","beardDensity"],["avatarBeardColor","beardColor"],["avatarAccessory","accessory"]];
+}
+function readAvatarControls(){
+  const config={...defaultAvatarConfig()};
+  avatarControlFields().forEach(([id,key])=>{const el=$("#"+id);if(!el)return;config[key]=el.type==="range"?Number(el.value):el.value});
+  return config;
+}
+function avatarTypeConfig(type){
+  const presets={
+    masculine:{avatarType:"masculine",faceShape:"soft-square",jawWidth:5,cheekFullness:-1,chinShape:"square",headScale:0,hairStyle:"short",hairVolume:0,eyes:"focused",eyeSize:-3,eyelids:"hooded",lashes:"none",brows:"bold",browThickness:2,browAngle:-1,nose:"line",noseWidth:1,mouth:"smile",lipFullness:-2,mouthWidth:0,facialHair:"none",beardDensity:34,accessory:"none"},
+    feminine:{avatarType:"feminine",faceShape:"heart",jawWidth:-3,cheekFullness:5,chinShape:"soft",headScale:0,hairStyle:"long",hairVolume:3,eyes:"bright",eyeSize:-1,eyelids:"open",lashes:"subtle",brows:"arched",browThickness:-2,browAngle:2,nose:"soft",noseWidth:-2,mouth:"smile",lipFullness:2,mouthWidth:-1,facialHair:"none",beardDensity:0,accessory:"none"},
+    androgynous:{avatarType:"androgynous",faceShape:"oval",jawWidth:0,cheekFullness:1,chinShape:"soft",headScale:0,hairStyle:"waves",hairVolume:1,eyes:"calm",eyeSize:-2,eyelids:"soft",lashes:"none",brows:"soft",browThickness:-1,browAngle:0,nose:"line",noseWidth:0,mouth:"smile",lipFullness:-1,mouthWidth:-1,facialHair:"none",beardDensity:28,accessory:"none"}
+  };
+  return presets[type]||presets.androgynous;
+}
+function applyAvatarType(type){
+  const current=readAvatarControls();
+  const select=$("#avatarType");
+  if(select)select.value=type;
+  applyAvatarConfig({...current,...avatarTypeConfig(type),skinColor:current.skinColor,hairColor:current.hairColor,hairHighlight:current.hairHighlight,eyeColor:current.eyeColor,beardColor:current.beardColor});
+}
+function randomChoice(values){return values[Math.floor(Math.random()*values.length)]}
+function avatarStyleConfig(style){
+  const base=defaultAvatarConfig();
+  const styles={
+    editorial:{preset:"editorial",faceShape:"oval",hairStyle:"waves",hairColor:"#2b1710",hairHighlight:"#8a5a2d",eyes:"calm",eyeSize:-2,mouth:"smile",mouthWidth:-1,lipFullness:-1,skinColor:"#c98f63",accessory:"none"},
+    soft:{preset:"soft",faceShape:"round",hairStyle:"straight",hairColor:"#1d120d",hairHighlight:"#5d3a24",eyes:"bright",eyeSize:-1,mouth:"smile",mouthWidth:-1,skinColor:"#d9a074",accessory:"none"},
+    mono:{preset:"cool",faceShape:"oval",hairStyle:"short",hairColor:"#303030",hairHighlight:"#777777",eyes:"focused",eyeColor:"#222222",mouth:"neutral",skinColor:"#b9b9b9",accessory:"none"},
+    classic:{preset:"warm",faceShape:"soft-square",hairStyle:"short",hairColor:"#5a2f16",hairHighlight:"#9a6538",eyes:"calm",eyeSize:-2,mouth:"smile",mouthWidth:-1,skinColor:"#c98f63",accessory:"none"},
+    pixel:{preset:"bold",faceShape:"soft-square",hairStyle:"buzz",hairColor:"#2b1710",hairHighlight:"#4b2b18",eyes:"focused",eyeSize:-2,mouth:"neutral",skinColor:"#c98f63",accessory:"headphones"}
+  };
+  return {...base,...(styles[style]||styles.editorial),style};
+}
+function applyAvatarStyle(style){
+  const current=activeAvatarConfig();
+  const next={...avatarStyleConfig(style),skinColor:current.skinColor||avatarStyleConfig(style).skinColor};
+  applyAvatarConfig(next);
+}
+function applyAvatarSkin(skinColor){
+  state.avatarConfig={...defaultAvatarConfig(),...activeAvatarConfig(),skinColor};
+  state.avatarPhotoFile=null;
+  setAvatarMode("create");
+  syncAvatarControls();
+}
+function renderAvatarStyleChoices(){
+  document.querySelectorAll(".avatarStyleChoice").forEach(button=>{
+    const style=button.dataset.avatarStyle||"editorial";
+    button.innerHTML=avatarSvg({...avatarStyleConfig(style),skinColor:activeAvatarConfig().skinColor||avatarStyleConfig(style).skinColor});
+  });
+}
+function syncAvatarEditorSelections(){
+  const c=activeAvatarConfig();
+  document.querySelectorAll("[data-avatar-type]").forEach(button=>button.classList.toggle("active",(button.dataset.avatarType||"androgynous")===(c.avatarType||"androgynous")));
+  document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.classList.toggle("active",(button.dataset.avatarStyle||"editorial")===(c.style||c.preset||"editorial")));
+  document.querySelectorAll(".avatarColorChoice").forEach(button=>button.classList.toggle("active",String(button.dataset.avatarSkin||"").toLowerCase()===String(c.skinColor||"").toLowerCase()));
+}
+function randomAvatarConfig(){
+  const skins=["#f1c7a4","#d9a074","#c98f63","#9f6648","#744431","#4f2f26"];
+  const hairs=["#1d120d","#2b1710","#5a351f","#8a5a2d","#d2a35f","#111111","#6b6d78"];
+  return {...defaultAvatarConfig(),preset:randomChoice(["editorial","warm","bold","soft","cool"]),faceShape:randomChoice(["oval","round","heart","diamond","long","soft-square"]),jawWidth:Math.round(Math.random()*20-10),cheekFullness:Math.round(Math.random()*22-8),chinShape:randomChoice(["soft","round","pointed","square"]),headScale:Math.round(Math.random()*14-7),age:Math.round(Math.random()*55+18),skinColor:randomChoice(skins),freckles:randomChoice(["none","light","medium"]),blush:Math.round(Math.random()*65),beautyMark:randomChoice(["none","none","left","right","chin"]),skinSoftness:Math.round(Math.random()*45+45),hairStyle:randomChoice(["waves","short","medium","long","straight","curly","fade","buzz","bald"]),hairColor:randomChoice(hairs),hairVolume:Math.round(Math.random()*18-6),hairHighlight:randomChoice(["#8a5a2d","#c7904d","#e5c078","#5d6470"]),eyes:randomChoice(["calm","bright","focused","sleepy","wide"]),eyeColor:randomChoice(["#211512","#5f3b22","#38506b","#3f6b4b","#151515"]),eyeSize:Math.round(Math.random()*12-5),eyeSpacing:Math.round(Math.random()*12-5),eyelids:randomChoice(["soft","open","hooded","sharp"]),lashes:randomChoice(["none","subtle","defined"]),brows:randomChoice(["soft","bold","arched","straight","feathered"]),browThickness:Math.round(Math.random()*10-3),browAngle:Math.round(Math.random()*14-7),nose:randomChoice(["line","soft","round","wide","button"]),noseWidth:Math.round(Math.random()*12-5),noseBridge:Math.round(Math.random()*12-5),mouth:randomChoice(["smile","neutral","wide","serious","smirk"]),lipFullness:Math.round(Math.random()*12-3),mouthWidth:Math.round(Math.random()*16-7),smileIntensity:Math.round(Math.random()*80+10),ears:randomChoice(["standard","small","visible","round"]),facialHair:randomChoice(["none","none","stubble","mustache","goatee","beard"]),beardDensity:Math.round(Math.random()*80+10),beardColor:randomChoice(hairs),accessory:randomChoice(["none","none","glasses","round-glasses","earring","piercing","headphones","beanie"])};
+}
+function applyAvatarConfig(config){
+  state.avatarConfig={...defaultAvatarConfig(),...(config||{})};
+  state.avatarPhotoFile=null;
+  setAvatarMode("create");
+  syncAvatarControls();
+}
+function isImageUrl(url){
+  return /^data:image\//i.test(String(url||""))||/\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i.test(String(url||""));
+}
+async function saveAvatarSetup(){
+  if(state.avatarMode==="create"){
+    const icon=selectedAvatarIcon();
+    const saved=await saveUserProfile(profileSaveFields({avatar_url:icon,avatar_config:null,avatar_svg:null,avatar_type:"icon",skipped_avatar_setup:false}));
+    if(saved){setAuthStatus("Profile icon saved.","success");hideAvatarSetup();syncAuthUi();refreshSavedAvatarDisplay()}
+    return;
+  }
+  if(state.avatarMode==="upload"&&!state.avatarPhotoFile){
+    setAuthStatus("Choose a profile photo or switch to Choose icon.","error");
+    return;
+  }
+  if(state.avatarMode==="upload"&&state.avatarPhotoFile){
+    const user=loggedInUser();
+    const ext=(state.avatarPhotoFile.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"")||"jpg";
+    const path=`${user.id}/avatar-${Date.now()}.${ext}`;
+    const upload=await db.storage.from("avatars").upload(path,state.avatarPhotoFile,{cacheControl:"3600",upsert:true});
+    if(upload.error){setAuthStatus(authErrorMessage(upload.error),"error");return}
+    const publicUrl=db.storage.from("avatars").getPublicUrl(path).data?.publicUrl||"";
+    const saved=await saveUserProfile(profileSaveFields({avatar_url:publicUrl,avatar_config:null,avatar_svg:null,avatar_type:"photo",skipped_avatar_setup:false}));
+    if(saved){setAuthStatus("Avatar saved.","success");hideAvatarSetup();syncAuthUi();refreshSavedAvatarDisplay()}
+    return;
+  }
+  const config={...readAvatarControls(),provider:"muze-native",savedAt:new Date().toISOString()};
+  const saved=await saveUserProfile(profileSaveFields({avatar_url:null,avatar_config:config,avatar_svg:null,avatar_type:"custom",skipped_avatar_setup:false}));
+  if(saved){setAuthStatus("Avatar saved.","success");hideAvatarSetup();syncAuthUi();refreshSavedAvatarDisplay()}
+}
+async function skipAvatarSetup(){
+  const saved=await saveUserProfile({skipped_avatar_setup:true});
+  if(saved){setAuthStatus("You can add an avatar anytime from your account.","success");hideAvatarSetup();syncAuthUi()}
 }
 function setAuthMode(mode){
   state.authMode=mode==="signup"?"signup":"login";
@@ -119,15 +597,22 @@ function syncAuthUi(){
   const user=loggedInUser();
   const button=$("#authButton");
   const buttonLabel=button?.querySelector(".authButtonLabel");
-  if(buttonLabel)buttonLabel.textContent=user?(currentUsername()?`@${currentUsername()}`:"Account"):"Login / Sign Up";
+  if(buttonLabel)buttonLabel.textContent=user?(currentUsername()?currentUsername():"Account"):"Login / Sign Up";
   const title=$("#authTitle");
   const prompt=$("#authPrompt");
+  const eyebrow=$("#authModal .authEditorialLeft .eyebrow");
+  if(eyebrow)eyebrow.textContent="Muze account";
   if(user&&title)title.textContent="Your Muze account";
-  if(user&&prompt)prompt.textContent="Manage your Muze session.";
+  if(user&&prompt)prompt.textContent="Manage your Muze session and personalize your experience.";
+  $("#authModal .authPanel")?.classList.toggle("accountProfileMode",!!user);
+  const avatarSetupOpen=!$("#avatarSetup")?.classList.contains("hidden");
   $("#authLoggedOut")?.classList.toggle("hidden",!!user);
-  $("#authLoggedIn")?.classList.toggle("hidden",!user);
+  $("#authLoggedIn")?.classList.toggle("hidden",!user||avatarSetupOpen);
+  $("#authLogout")?.classList.toggle("hidden",!user||avatarSetupOpen);
   const email=$("#authUserEmail");
   if(email)email.textContent=user?.email||"your account";
+  syncProfileUsernameUi();
+  renderAvatarTargets();
   updateNavUsername();
 }
 function openAuthModal(message="Log in to join the conversation."){
@@ -136,8 +621,13 @@ function openAuthModal(message="Log in to join the conversation."){
   modal?.classList.remove("libraryAccessModal");
   modal?.classList.remove("libraryAuthFlow");
   $("#authModal .authPanel")?.classList.remove("libraryAccessPanel");
+  $("#authModal .authPanel")?.classList.remove("avatarEditorMode");
+  $("#authModal .authPanel")?.classList.toggle("accountProfileMode",!!loggedInUser());
   $("#libraryAccessCard")?.classList.add("hidden");
+  $("#avatarSetup")?.classList.add("hidden");
   $("#authLoggedOut")?.classList.toggle("hidden",!!loggedInUser());
+  $("#authLoggedIn")?.classList.toggle("hidden",!loggedInUser());
+  $("#authLogout")?.classList.toggle("hidden",!loggedInUser());
   if(prompt)prompt.textContent=message;
   if(modal){modal.classList.remove("hidden");modal.setAttribute("aria-hidden","false")}
   if(!loggedInUser())showAuthEmailForm("login");
@@ -149,8 +639,11 @@ function closeAuthModal(){
   modal?.classList.remove("libraryAccessModal");
   modal?.classList.remove("libraryAuthFlow");
   $("#authModal .authPanel")?.classList.remove("libraryAccessPanel");
+  $("#authModal .authPanel")?.classList.remove("avatarEditorMode");
+  $("#authModal .authPanel")?.classList.remove("accountProfileMode");
   $("#libraryAccessCard")?.classList.add("hidden");
   $("#signupOnboarding")?.classList.add("hidden");
+  $("#avatarSetup")?.classList.add("hidden");
   setAuthStatus();
 }
 function resumePendingAuthAction(){
@@ -195,6 +688,8 @@ function openAccessAuthPrompt({title="Login to continue",text="Log in to join th
   }
   $("#authLoggedOut")?.classList.add("hidden");
   $("#authLoggedIn")?.classList.add("hidden");
+  $("#authLogout")?.classList.add("hidden");
+  $("#authModal .authPanel")?.classList.remove("accountProfileMode");
   setAuthStatus();
 }
 function openLibrariesAuthPrompt(){
@@ -262,8 +757,13 @@ async function submitAuth(event){
       return;
     }
     state.authSession=result.data.session||state.authSession;
+    await loadUserProfile();
     syncAuthUi();
-    closeAuthModal();
+    if(state.authMode==="signup"&&!avatarHasValue()){
+      showAvatarSetup(false);
+    }else{
+      closeAuthModal();
+    }
     resumePendingAuthAction();
   }catch(error){
     authDebug("submit exception",{message:error.message,stack:error.stack});
@@ -273,12 +773,15 @@ async function submitAuth(event){
   }
 }
 async function logoutAuth(){
-  if(!db)return;
+  if(!db){setAuthStatus("Supabase is not configured, so logout could not complete.","error");return}
   const {error}=await db.auth.signOut();
   if(error){setAuthStatus(error.message,"error");return}
   state.authSession=null;
+  state.userProfile=null;
+  state.avatarPromptedForUser=null;
   syncAuthUi();
   setAuthStatus("Logged out.","success");
+  closeAuthModal();
 }
 async function initAuth(){
   authDebug("init",{configured,urlHost:supabaseUrlHost(),hasAnonKey:Boolean(SUPABASE_ANON_KEY)});
@@ -286,11 +789,13 @@ async function initAuth(){
   const {data,error}=await db.auth.getSession();
   if(error)authDebug("get session error",{message:error.message,status:error.status,name:error.name});
   state.authSession=data?.session||null;
+  await loadUserProfile();
   syncAuthUi();
-  db.auth.onAuthStateChange((event,session)=>{
+  db.auth.onAuthStateChange(async (event,session)=>{
     authDebug("state change",{event,hasSession:Boolean(session),email:session?.user?.email||null});
     const wasLoggedOut=!loggedInUser();
     state.authSession=session||null;
+    await loadUserProfile();
     syncAuthUi();
     if(wasLoggedOut&&session)resumePendingAuthAction();
   });
@@ -2073,9 +2578,28 @@ window.setAlbumMoodScoreAdmin=async function(albumId){
   const payload={...adminAlbumPayload(album,"set_mood_score"),overview:albumBaseOverview(album),mood_score:rounded};
   const data=await adminOverviewRequest(payload);
   if(!data)return;
-  extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,mood_score:rounded};
+  let savedMood=Number(data.row?.mood_score ?? rounded);
+  if(db&&!data.localOnly){
+    const verify=await db.from("album_overviews").select("mood_score").eq("album_key",key).maybeSingle();
+    if(verify.error){
+      setAdminInlineStatus(`Mood bar save could not be verified: ${verify.error.message}`,"error");
+      return;
+    }
+    if(!verify.data){
+      setAdminInlineStatus("Mood bar save did not update any album overview row. Check the album key in Supabase.","error");
+      return;
+    }
+    savedMood=Number(verify.data.mood_score);
+  }
+  if(!Number.isFinite(savedMood)){
+    setAdminInlineStatus("Mood bar save returned an invalid value. Make sure the mood_score column exists in album_overviews.","error");
+    return;
+  }
+  extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,mood_score:savedMood};
   if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
-  if(!data.localOnly)await loadData();
+  if(!data.localOnly)await loadCustomOverviews();
+  extras.overviews[key]={...(extras.overviews[key]||{}),album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,mood_score:savedMood};
+  setAdminInlineStatus(`Mood bar saved at ${Math.round(savedMood)}%.`,"success");
   openAlbum(albumId);
   openAlbumOverviewPopup();
 }
@@ -2306,9 +2830,10 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
 function updateNavUsername(){
   const el=$("#navUsername");
   const button=$("#navSetUsername");
-  const username=currentUsername();
+  const username=currentUsername()||state.userProfile?.username||"";
   if(el)el.textContent=username?"@"+username:"Sign in to save albums, rate music, and build your library.";
   if(button)button.textContent=username?"Edit profile":"Sign in / Create account";
+  renderAvatarTargets();
   renderNotifications();
 }
 function followerSeenKey(){return "musicaSeenFollowers::"+state.deviceId}
@@ -2970,7 +3495,13 @@ window.addSpotifyAlbum=async function(a){
   await loadData();
 }
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
-updateNavUsername();$("#notificationBell").onclick=async e=>{e.stopPropagation();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>$("#notificationPanel")?.classList.add("hidden"));$("#navSetUsername").onclick=setLibraryUsername;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;
+updateNavUsername();$("#notificationBell").onclick=async e=>{e.stopPropagation();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>$("#notificationPanel")?.classList.add("hidden"));$("#navSetUsername").onclick=setLibraryUsername;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=e=>{state.avatarPhotoFile=e.target.files?.[0]||null;syncAvatarControls()};$("#saveUsernameButton").onclick=saveProfileUsername;avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};$("#saveAvatarButton").onclick=saveAvatarSetup;$("#skipAvatarButton").onclick=hideAvatarSetup;
+if($("#avatarCategoryToggle"))$("#avatarCategoryToggle").onclick=toggleAvatarCategoryMenu;
+document.querySelectorAll("#avatarCategoryMenu [data-avatar-category]").forEach(button=>button.onclick=()=>setAvatarCategory(button.dataset.avatarCategory||"face"));
+document.addEventListener("click",e=>{if(!e.target.closest(".avatarCategoryDropdown")){$("#avatarCategoryMenu")?.classList.add("hidden");$("#avatarCategoryToggle")?.setAttribute("aria-expanded","false")}});
+document.querySelectorAll("[data-avatar-type]").forEach(button=>button.onclick=()=>applyAvatarType(button.dataset.avatarType||"androgynous"));
+$("#avatarType")?.addEventListener("change",e=>applyAvatarType(e.target.value));
+$("#authLogout")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();logoutAuth()});
 function closeAlbumPopup(){stopTrackPreview();$("#albumModal").classList.add("hidden")}$("#closeAlbumModal").onclick=closeAlbumPopup;$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#closeAuthModal").onclick=closeAuthModal;$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")closeAlbumPopup()};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};$("#authModal").onclick=e=>{if(e.target.id==="authModal")closeAuthModal()};
 function goHome(){state.view="rankings";document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
 async function navigateToView(view){
