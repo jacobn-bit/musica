@@ -28,7 +28,7 @@ function validSupabaseConfig(){
     && !String(SUPABASE_ANON_KEY).includes("PASTE_");
 }
 const configured=validSupabaseConfig();
-const db=configured?window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim()):null;
+const db=configured&&window.supabase&&typeof window.supabase.createClient==="function"?window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim()):null;
 const MUSICA_CLIENT_DATA_VERSION="mobile-live-score-reset-2026-05-18-6";
 function isLocalRuntime(){return location.protocol==="file:"||["localhost","127.0.0.1",""].includes(location.hostname)}
 function resetStaleClientData(){
@@ -3952,13 +3952,15 @@ async function loadData(){
   }
   localStorage.removeItem("musicaLocalAlbums");
   localStorage.removeItem("musicaCustomOverviews");
-  let {data:albums,error}=await db.from("album_scores").select("*").order("avg_rating",{ascending:false});
-  if(error){
-    alert(error.message);
-    state.albums=seedAlbums;
-  }else{
-    state.albums=[...seedAlbums,...(albums||[])];
+  let albums=[];
+  try{
+    const result=await db.from("album_scores").select("*").order("avg_rating",{ascending:false});
+    if(result.error)throw result.error;
+    albums=result.data||[];
+  }catch(error){
+    console.error("Muze album load failed",error);
   }
+  state.albums=[...seedAlbums,...albums];
   if(!state.albums.length){state.albums=seedAlbums}
   state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
   let {data:ratings,error:ratingsError}=await db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId);
