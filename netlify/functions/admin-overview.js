@@ -88,6 +88,21 @@
     const mood_score = body.mood_score === undefined || body.mood_score === null || body.mood_score === "" ? null : Math.max(0, Math.min(100, Math.round(Number(body.mood_score))));
     const hero_focus = String(body.hero_focus || "").trim();
     const moment_focus = String(body.moment_focus || "").trim();
+    const cleanText = value => String(value || "").replace(/\s+/g, " ").trim();
+    const cleanTextList = value => {
+      if (Array.isArray(value)) return value.map(item => cleanText(item)).filter(Boolean);
+      return String(value || "").split(/\n|,/).map(item => cleanText(item)).filter(Boolean);
+    };
+    const overviewFieldPayload = () => {
+      const fields = {};
+      ["intro_summary", "sound_summary", "impact_summary", "legacy_summary", "quote_headline"].forEach(key => {
+        if (Object.prototype.hasOwnProperty.call(body, key)) fields[key] = cleanText(body[key]);
+      });
+      if (Object.prototype.hasOwnProperty.call(body, "defining_tracks")) fields.defining_tracks = cleanTextList(body.defining_tracks);
+      if (Object.prototype.hasOwnProperty.call(body, "sources_used")) fields.sources_used = Array.isArray(body.sources_used) ? body.sources_used : cleanTextList(body.sources_used);
+      if (album_id) fields.album_id = album_id;
+      return fields;
+    };
 
     if (action === "save") {
       const overview = String(body.overview || "").trim();
@@ -97,7 +112,7 @@
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, updated_at: new Date().toISOString() })
+        body: JSON.stringify({ album_key, title, artist, overview, ...overviewFieldPayload(), fallback_generated: false, manual_override: true, updated_at: new Date().toISOString() })
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }

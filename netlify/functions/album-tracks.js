@@ -59,17 +59,38 @@ exports.handler = async function(event) {
     });
     const tracksData = await tracksRes.json();
     const spotifyTracks = tracksData.items || [];
+    const trackIds = spotifyTracks.map(t => t.id).filter(Boolean).slice(0, 50);
+    const trackDetailsById = {};
+    if (trackIds.length) {
+      try {
+        const detailsRes = await fetch(`https://api.spotify.com/v1/tracks?ids=${trackIds.join(",")}`, {
+          headers: { "Authorization": "Bearer " + tokenData.access_token }
+        });
+        if (detailsRes.ok) {
+          const detailsData = await detailsRes.json();
+          (detailsData.tracks || []).filter(Boolean).forEach(track => {
+            trackDetailsById[track.id] = track;
+          });
+        }
+      } catch (err) {
+        // Track details are nice-to-have metadata for the UI vibe pill.
+      }
+    }
     const tracks = await Promise.all(spotifyTracks.map(async t => {
-      const spotifyPreview = t.preview_url || "";
+      const fullTrack = trackDetailsById[t.id] || t;
+      const spotifyPreview = fullTrack.preview_url || t.preview_url || "";
       const fallbackPreview = spotifyPreview ? "" : await findItunesPreview(t.name, artist);
       return {
         spotify_id: t.id,
         name: t.name,
         track_number: t.track_number,
+        disc_number: t.disc_number || fullTrack.disc_number || null,
         spotify_url: t.external_urls?.spotify || "",
         preview_url: spotifyPreview || fallbackPreview,
         preview_source: spotifyPreview ? "spotify" : (fallbackPreview ? "itunes" : ""),
-        duration_ms: t.duration_ms || 0
+        duration_ms: fullTrack.duration_ms || t.duration_ms || 0,
+        popularity: Number.isFinite(Number(fullTrack.popularity)) ? Number(fullTrack.popularity) : null,
+        explicit: Boolean(fullTrack.explicit)
       };
     }));
 
