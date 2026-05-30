@@ -1990,6 +1990,28 @@ function existingAlbumMatch(album){return state.albums.find(a=>isSameAlbum(a,alb
 function canDeleteAlbum(a){return !!a}
 
 function currentUsername(){return localStorage.getItem("musicaUsername")||""}
+function authMetadataName(user=loggedInUser()){
+  const meta=user?.user_metadata||{};
+  return String(meta.name||meta.full_name||meta.user_name||meta.preferred_username||meta.display_name||"").trim();
+}
+function authEmailPrefix(user=loggedInUser()){
+  const email=String(user?.email||"").trim();
+  return email&&email.includes("@")?email.split("@")[0]:"";
+}
+function trackCommentIdentity(){
+  const user=loggedInUser();
+  const name=(savedProfileUsername()||currentUsername()||authMetadataName(user)||authEmailPrefix(user)||"Listener").trim()||"Listener";
+  const meta=user?.user_metadata||{};
+  const avatarUrl=String(state.userProfile?.avatar_url||meta.avatar_url||meta.picture||"").trim();
+  return {user_id:user?.id||null,name,avatar_url:avatarUrl};
+}
+function trackCommentAvatarMarkup(comment={},name="Listener"){
+  const isMine=comment.user_id&&loggedInUser()?.id&&String(comment.user_id)===String(loggedInUser().id);
+  const avatarUrl=String(comment.avatar_url||"").trim();
+  if(avatarUrl)return `<span class="commentAvatar"><img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}"></span>`;
+  if(isMine&&avatarHasValue())return `<span class="commentAvatar hasProfileAvatar">${currentAvatarMarkup()}</span>`;
+  return `<span class="commentAvatar">${escapeHtml(String(name||"L").slice(0,1).toUpperCase()||"L")}</span>`;
+}
 function ratingName(){const saved=currentUsername().trim();if(saved&&confirm(`Rate as "${saved}"? Press Cancel to choose Anonymous or another username.`))return saved;const name=(prompt("Enter a username for this rating, or leave blank for Anonymous:")||"").trim();if(name){localStorage.setItem("musicaUsername",name);return name}return "Anonymous"}
 window.toggleRatingDetails=function(id,button){
   const panel=$("#"+id);
@@ -2631,18 +2653,24 @@ async function loadTrackComments(albumId,trackKeyValue){
   const ref=albumRef(albumId);
   const storageKey=ref+"::"+trackKeyValue;
   if(db){
-    const {data,error}=await db.from("track_comments").select("name,comment,created_at").eq("album_ref",ref).eq("track_key",trackKeyValue).order("created_at",{ascending:false}).limit(30);
-    if(!error)return data||[];
+    let result=await db.from("track_comments").select("user_id,name,avatar_url,comment,created_at").eq("album_ref",ref).eq("track_key",trackKeyValue).order("created_at",{ascending:false}).limit(30);
+    if(result.error&&/column|schema cache|avatar_url|user_id/i.test(result.error.message||"")){
+      result=await db.from("track_comments").select("name,comment,created_at").eq("album_ref",ref).eq("track_key",trackKeyValue).order("created_at",{ascending:false}).limit(30);
+    }
+    if(!result.error)return result.data||[];
   }
   return (localTrackComments()[storageKey]||[]).slice().reverse();
 }
 function renderTrackCommentsList(comments){
   const host=$("#trackCommentsList");
   if(!host)return;
-  host.innerHTML=comments.length?comments.map(c=>`<div class="commentItem"><strong>${escapeHtml(c.name||"Listener")}</strong><p>${escapeHtml(c.comment||"")}</p></div>`).join(""):`<div class="emptyMini">No comments for this song yet.</div>`;
+  host.innerHTML=comments.length?comments.map(c=>{
+    const name=String(c.name||"Listener").trim()||"Listener";
+    const when=c.created_at?timeAgo(c.created_at):"Just now";
+    return `<div class="commentItem"><div class="commentItemHead">${trackCommentAvatarMarkup(c,name)}<div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(when)}</small></div></div><p>${escapeHtml(c.comment||"")}</p></div>`;
+  }).join(""):`<div class="emptyMini">No comments for this song yet.</div>`;
 }
 window.openTrackComments=async function(albumId,trackKeyValue,trackName){
-  if(!requireAuth("chat",()=>window.openTrackComments(albumId,trackKeyValue,trackName)))return;
   let popup=$("#trackCommentPopup");
   if(!popup){
     popup=document.createElement("div");
@@ -2651,37 +2679,44 @@ window.openTrackComments=async function(albumId,trackKeyValue,trackName){
     document.body.appendChild(popup);
     popup.addEventListener("click",e=>{if(e.target.id==="trackCommentPopup")closeTrackComments()});
   }
-  popup.innerHTML=`<div class="trackCommentPanel"><button class="close" onclick="closeTrackComments()">&times;</button><p class="eyebrow">Song Comments</p><h3>${escapeHtml(trackName)}</h3><div class="commentForm"><input id="trackCommentName" maxlength="40" placeholder="Your name"><textarea id="trackCommentText" maxlength="500" placeholder="Leave a comment about this song"></textarea><button class="bigBtn" onclick="addTrackComment('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}')">Post</button></div><div id="trackCommentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div>`;
+  const user=loggedInUser();
+  const formHtml=user?`<div class="commentForm"><textarea id="trackCommentText" maxlength="500" placeholder="Leave a comment about this song"></textarea><button class="bigBtn" onclick="addTrackComment('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}')">Post</button></div>`:`<div class="emptyMini">Log in to comment on this song.</div>`;
+  popup.innerHTML=`<div class="trackCommentPanel"><button class="close" onclick="closeTrackComments()">&times;</button><p class="eyebrow">Song Comments</p><h3>${escapeHtml(trackName)}</h3>${formHtml}<div id="trackCommentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div>`;
   popup.classList.remove("hidden");
   renderTrackCommentsList(await loadTrackComments(albumId,trackKeyValue));
 }
 window.closeTrackComments=function(){const popup=$("#trackCommentPopup");if(popup)popup.classList.add("hidden")}
 window.addTrackComment=async function(albumId,trackKeyValue,trackName){
   if(!requireAuth("chat",()=>window.addTrackComment(albumId,trackKeyValue,trackName)))return;
-  const nameInput=$("#trackCommentName"), textInput=$("#trackCommentText");
-  const name=(nameInput?.value||"Listener").trim()||"Listener";
+  const textInput=$("#trackCommentText");
   const comment=(textInput?.value||"").trim();
   if(!comment)return;
+  const identity=trackCommentIdentity();
+  const name=identity.name;
   const ref=albumRef(albumId);
   const storageKey=ref+"::"+trackKeyValue;
+  const row={album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,user_id:identity.user_id,name,avatar_url:identity.avatar_url||null,comment};
   if(db){
-    const {error}=await db.from("track_comments").insert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,name,comment});
+    let {error}=await db.from("track_comments").insert(row);
+    if(error&&/column|schema cache|avatar_url|user_id/i.test(error.message||"")){
+      const fallbackRow={album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,name,comment};
+      ({error}=await db.from("track_comments").insert(fallbackRow));
+    }
     if(error){
       const all=localTrackComments();
       all[storageKey]=all[storageKey]||[];
-      all[storageKey].push({name,comment,created_at:new Date().toISOString()});
+      all[storageKey].push({user_id:identity.user_id,name,avatar_url:identity.avatar_url,comment,created_at:new Date().toISOString()});
       saveLocalTrackComments(all);
     }
   }else{
     const all=localTrackComments();
     all[storageKey]=all[storageKey]||[];
-    all[storageKey].push({name,comment,created_at:new Date().toISOString()});
+    all[storageKey].push({user_id:identity.user_id,name,avatar_url:identity.avatar_url,comment,created_at:new Date().toISOString()});
     saveLocalTrackComments(all);
   }
   textInput.value="";
   renderTrackCommentsList(await loadTrackComments(albumId,trackKeyValue));
 }
-
 window.openTrackRating=function(albumId,trackKeyValue,trackName){
   if(!requireAuth("rate",()=>window.openTrackRating(albumId,trackKeyValue,trackName)))return;
   let popup=$("#trackRatingPopup");

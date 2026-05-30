@@ -148,11 +148,16 @@ create table if not exists track_comments (
   album_ref text not null,
   track_key text not null,
   track_name text not null,
+  user_id uuid references auth.users(id) on delete set null,
   device_id text not null,
   name text not null default 'Listener',
+  avatar_url text,
   comment text not null,
   created_at timestamptz default now()
 );
+
+alter table track_comments add column if not exists user_id uuid references auth.users(id) on delete set null;
+alter table track_comments add column if not exists avatar_url text;
 
 alter table track_comments enable row level security;
 
