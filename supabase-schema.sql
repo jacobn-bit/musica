@@ -275,6 +275,21 @@ create table if not exists album_overviews (
   updated_at timestamptz default now()
 );
 
+alter table album_overviews add column if not exists album_id text;
+alter table album_overviews add column if not exists intro_summary text;
+alter table album_overviews add column if not exists sound_summary text;
+alter table album_overviews add column if not exists impact_summary text;
+alter table album_overviews add column if not exists legacy_summary text;
+alter table album_overviews add column if not exists quote_headline text;
+alter table album_overviews add column if not exists defining_tracks jsonb not null default '[]'::jsonb;
+alter table album_overviews add column if not exists sources_used jsonb not null default '[]'::jsonb;
+alter table album_overviews add column if not exists source_summary text;
+alter table album_overviews add column if not exists fallback_generated boolean not null default false;
+alter table album_overviews add column if not exists generated_at timestamptz;
+alter table album_overviews add column if not exists generation_model text;
+alter table album_overviews add column if not exists manual_override boolean not null default false;
+create index if not exists album_overviews_album_id_idx on album_overviews(album_id);
+
 alter table album_overviews enable row level security;
 
 drop policy if exists "Anyone can read album overviews" on album_overviews;
