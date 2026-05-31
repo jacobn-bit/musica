@@ -46,7 +46,7 @@ resetStaleClientData();
 const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],overviews:{},overviewRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
-const MUZE_AVATAR_ICONS=Array.from({length:33},(_,i)=>`assets/avatar-icons/avatar-icon-${String(i+1).padStart(2,"0")}.png`);
+const MUZE_AVATAR_ICONS=Array.from({length:22},(_,i)=>i+12).filter(n=>![14,27].includes(n)).map(n=>`assets/avatar-icons/avatar-icon-${String(n).padStart(2,"0")}.png`);
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -216,7 +216,7 @@ function avatarSvg(config=defaultAvatarConfig()){
 function currentAvatarMarkup(extraClass=""){
   const profile=state.userProfile||{};
   const label=escapeHtml(authDisplayName()||"Muze profile");
-  if(profile.avatar_url)return `<img class="${extraClass}" src="${escapeHtml(profile.avatar_url)}" alt="${label}">`;
+  if(profile.avatar_url&&(!String(profile.avatar_url).includes("assets/avatar-icons/avatar-icon-")||MUZE_AVATAR_ICONS.includes(profile.avatar_url)))return `<img class="${extraClass}" src="${escapeHtml(profile.avatar_url)}" alt="${label}">`;
   if(profile.avatar_config)return avatarSvg(profile.avatar_config);
   if(profile.avatar_svg&&String(profile.avatar_svg).trim().startsWith("<svg"))return profile.avatar_svg;
   return `<img class="${extraClass}" src="${escapeHtml(DEFAULT_AVATAR_URL)}" alt="${label}">`;
@@ -744,7 +744,7 @@ async function startOAuthSignup(provider){
     setAuthStatus("Supabase is not connected. Check config.js locally and Netlify environment/config values in production.","error");
     return;
   }
-  const redirectTo=window.location.hostname==="localhost"?"http://localhost:8888":"https://themuze.app";
+  const redirectTo=window.location.origin;
   setAuthStatus(`Opening ${providerName} login...`,"");
   authDebug("oauth redirect",{provider,redirectTo,hostname:window.location.hostname});
   const {error}=await db.auth.signInWithOAuth({provider,options:{redirectTo}});
@@ -2680,7 +2680,9 @@ window.openTrackComments=async function(albumId,trackKeyValue,trackName){
     popup.addEventListener("click",e=>{if(e.target.id==="trackCommentPopup")closeTrackComments()});
   }
   const user=loggedInUser();
-  const formHtml=user?`<div class="commentForm"><textarea id="trackCommentText" maxlength="500" placeholder="Leave a comment about this song"></textarea><button class="bigBtn" onclick="addTrackComment('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}')">Post</button></div>`:`<div class="emptyMini">Log in to comment on this song.</div>`;
+  const identity=user?trackCommentIdentity():null;
+  const identityHtml=identity?`<div class="trackCommentIdentity">${trackCommentAvatarMarkup({user_id:identity.user_id,avatar_url:identity.avatar_url},identity.name)}<div><strong>${escapeHtml(identity.name)}</strong><span>Commenting as ${escapeHtml(identity.name)}</span></div></div>`:"";
+  const formHtml=user?`<div class="commentForm">${identityHtml}<textarea id="trackCommentText" maxlength="500" placeholder="Leave a comment about this song"></textarea><button class="bigBtn" onclick="addTrackComment('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}')">Post</button></div>`:`<div class="emptyMini">Log in to comment on this song.</div>`;
   popup.innerHTML=`<div class="trackCommentPanel"><button class="close" onclick="closeTrackComments()">&times;</button><p class="eyebrow">Song Comments</p><h3>${escapeHtml(trackName)}</h3>${formHtml}<div id="trackCommentsList" class="commentsList"><div class="emptyMini">Loading comments...</div></div></div>`;
   popup.classList.remove("hidden");
   renderTrackCommentsList(await loadTrackComments(albumId,trackKeyValue));
@@ -3647,7 +3649,25 @@ function libraryRowAlbum(item){
 }
 function libraryMatchLabel(similarity){
   return similarity>=70?"Very close taste":similarity>=30?"Some overlap":similarity>0?"Low overlap":"New territory";
-}function libraryBlock(library){
+}
+function libraryAvatarConfig(library){
+  const seed=String(library.username||library.title||library.device_id||"listener");
+  let hash=0;
+  for(let i=0;i<seed.length;i++)hash=(hash*31+seed.charCodeAt(i))>>>0;
+  const pick=list=>list[hash%list.length];
+  return {...defaultAvatarConfig(),skinColor:pick(["#8f5a3a","#b87952","#d0a17a","#6f4632","#c98f63"]),hairColor:pick(["#1b120d","#3b2416","#5b3825","#d8c7a1","#7a4a2a"]),hairStyle:pick(["waves","short","medium","curly","straight","fade"]),faceShape:pick(["oval","round","heart","soft-square"]),eyes:pick(["focused","calm","bright"]),brows:pick(["soft","bold","arched","straight"]),mouth:pick(["smile","neutral","smirk"]),accessory:pick(["none","glasses","round-glasses","earring","headphones"]),age:24+(hash%24)};
+}
+function libraryAvatarMarkup(library){
+  const label=String(library.username||library.title||"Listener");
+  const avatarUrl=String(library.avatar_url||library.profile_avatar_url||library.photo_url||"").trim();
+  if(avatarUrl)return '<img src="'+escapeHtml(avatarUrl)+'" alt="'+escapeHtml(label)+' avatar">';
+  const avatarSvgValue=String(library.avatar_svg||library.profile_avatar_svg||"").trim();
+  if(avatarSvgValue.startsWith("<svg"))return avatarSvgValue;
+  let config=library.avatar_config||library.profile_avatar_config||null;
+  if(typeof config==="string"){try{config=JSON.parse(config)}catch(e){config=null}}
+  return avatarSvg(config&&typeof config==="object"?config:libraryAvatarConfig(library));
+}
+function libraryBlock(library){
   const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const isMine=library.device_id===state.deviceId||library.isMine;
   const key=escapeJsString(library.id||library.device_id||"");
@@ -3657,7 +3677,7 @@ function libraryMatchLabel(similarity){
   const albumCount=Number(library.album_count||items.length||0);
   const genres=[...new Set(items.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);
   const tags=libraryGenreTags(genres,items);
-  const avatar=(library.username||library.title||"L").trim().slice(0,1).toUpperCase()||"L";
+  const avatar=libraryAvatarMarkup(library);
   const mineItems=liveLibraryItems(myLibraryItems());
   const sharedCount=isMine?albumCount:items.filter(item=>mineItems.some(m=>String(m.id)===String(item.id)||isSameAlbum(m,item))).length;
   const discoveryCount=isMine?0:Math.max(0,albumCount-sharedCount);
@@ -3675,21 +3695,31 @@ function libraryMatchLabel(similarity){
   const albumPreview=items.length===1?libraryRowAlbum(items[0]):preview.map((item,index)=>libraryTinyAlbum(item,index===0?"mockFeaturedAlbum":"mockSideAlbum")).join("")+mobileAlbum+(extraCount?'<div class="mockMoreTile">+'+extraCount+'<br>more</div>':'');
   const discoveryMetric=isMine?'':'<div class="mockDiscoveryMetric">'+escapeHtml(libraryDiscoveryMetric(genres,items,sharedCount,discoveryCount,library))+'</div>';
   const discovery=isMine?'':'<div class="libraryDiscovery '+(sharedCount?"hasOverlap":"newTaste")+'"><strong>'+escapeHtml(reason.title)+'</strong><span>'+escapeHtml(reason.body)+'</span></div>';
-  return '<div class="libraryCard mockLibraryCard '+(isMine?'mockOwnCommunity':'')+'" onclick="openLibraryDetailsById(\''+key+'\')"><div class="mockLibraryTop"><div class="mockAvatar">'+escapeHtml(avatar)+'</div><div class="mockLibraryTitle"><h3>'+escapeHtml(library.title||"Library")+'</h3><p class="mockLibraryByline"><span class="mockUsername">@'+escapeHtml(library.username||"Listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p><div class="mockMobileSignals">'+matchSignals+(commonLine?'<span class="mockCommonLine">'+escapeHtml(commonLine)+'</span>':'')+'</div></div><div class="mockMatch">'+matchSignals+(commonLine?'<span class="mockCommonLine">'+escapeHtml(commonLine)+'</span>':'')+'</div>'+(canRemove?'<button class="libraryMenuBtn mockRemove" onclick="event.stopPropagation();removeLibrary(\''+escapeJsString(library.id)+'\')" title="Remove library">'+(isAdminUnlocked()&&!isMine?'Delete':'...')+'</button>':'')+'</div><div class="mockDescriptor"><span class="mockDescriptorDesktop">'+escapeHtml(libraryGenreLabel(genres))+'</span><span class="mockDescriptorMobile">'+escapeHtml(libraryIdentityLabel(genres,library))+'</span></div>'+activity+discoveryMetric+'<div class="mockTags">'+(tags.length?tags.map(tag=>'<span>'+escapeHtml(tag)+'</span>').join(""):'<span>Personal</span><span>Essentials</span>')+'</div><div class="mockAlbumPreview '+(items.length===1?'singlePreview':'')+' '+(items.length>=3?'hasMobileTrio':'')+'">'+(albumPreview||'<div class="emptyMini">No public albums yet.</div>')+'</div>'+discovery+'<div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">Explore Library</button>'+(canFollow?'<button class="libraryFollowBtn" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>':'<button class="libraryFollowBtn following" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')"><svg class="libraryInlineIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Following</button>')+'</div></div>';
+  return '<div class="libraryCard mockLibraryCard '+(isMine?'mockOwnCommunity':'')+'" onclick="openLibraryDetailsById(\''+key+'\')"><div class="mockLibraryTop"><div class="mockAvatar">'+avatar+'</div><div class="mockLibraryTitle"><h3>'+escapeHtml(library.title||"Library")+'</h3><p class="mockLibraryByline"><span class="mockUsername">@'+escapeHtml(library.username||"Listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p><div class="mockMobileSignals">'+matchSignals+(commonLine?'<span class="mockCommonLine">'+escapeHtml(commonLine)+'</span>':'')+'</div></div><div class="mockMatch">'+matchSignals+(commonLine?'<span class="mockCommonLine">'+escapeHtml(commonLine)+'</span>':'')+'</div>'+(canRemove?'<button class="libraryMenuBtn mockRemove" onclick="event.stopPropagation();removeLibrary(\''+escapeJsString(library.id)+'\')" title="Remove library">'+(isAdminUnlocked()&&!isMine?'Delete':'...')+'</button>':'')+'</div><div class="mockDescriptor"><span class="mockDescriptorDesktop">'+escapeHtml(libraryGenreLabel(genres))+'</span><span class="mockDescriptorMobile">'+escapeHtml(libraryIdentityLabel(genres,library))+'</span></div>'+activity+discoveryMetric+'<div class="mockTags">'+(tags.length?tags.map(tag=>'<span>'+escapeHtml(tag)+'</span>').join(""):'<span>Personal</span><span>Essentials</span>')+'</div><div class="mockAlbumPreview '+(items.length===1?'singlePreview':'')+' '+(items.length>=3?'hasMobileTrio':'')+'">'+(albumPreview||'<div class="emptyMini">No public albums yet.</div>')+'</div>'+discovery+'<div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">Explore Library</button>'+(canFollow?'<button class="libraryFollowBtn" onclick="event.stopPropagation();followLibrary(\''+escapeJsString(library.id)+'\')">Follow</button>':'<button class="libraryFollowBtn following" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')"><svg class="libraryInlineIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Following</button>')+'</div></div>';
 }
+function ownLibrarySubtitle(genres,items){
+  const clean=[...new Set((genres||[]).filter(g=>g&&g!=="Album"))].slice(0,2);
+  if(clean.length>=2)return clean.join(", ")+", and timeless records.";
+  if(clean.length===1)return clean[0]+" albums, personal favorites, and new discoveries.";
+  if(items&&items.length)return items.length>4?"A growing library shaped by your taste.":"A collection in progress.";
+  return "";
+}
+
 function ownLibraryHero(library){
   const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const followers=Number(library.followers_count||0);
   const key=escapeJsString(library.id||library.device_id||"");
+  const heroGenres=[...new Set(items.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);
+  const subtitle=ownLibrarySubtitle(heroGenres,items);
   const recent=items.slice(0,3).map(item=>'<div class="ownRecentCover">'+(item.cover_url?'<img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'">':'<strong>'+escapeHtml(String(item.title||"M").slice(0,1))+'</strong>')+'</div>').join("");
   const avatarCover=items[0]?.cover_url?'<img src="'+escapeHtml(items[0].cover_url)+'" alt="">':'<span>'+escapeHtml(String(library.username||"L").slice(0,1).toUpperCase())+'</span>';
-  return '<section class="mockYourLibrary"><div class="ownIdentity"><div class="ownAvatar">'+avatarCover+'</div><div><p>Your Library</p><h3>'+escapeHtml(library.title||"Your Library")+'</h3><span>100% match</span><em>'+items.length+' albums &middot; '+followers+' follower'+(followers===1?'':'s')+'</em><button onclick="openLibraryDetailsById(\''+key+'\')">View your library</button></div></div><div class="ownRecent"><p>Recently added</p><div>'+recent+'</div></div><div class="ownNumbers"><p>Your taste in numbers</p><div><strong>100%</strong><span>Albums you love</span></div><div><strong>'+items.length+'</strong><span>New discoveries</span></div><div><strong>'+items.length+'</strong><span>Shared albums</span></div></div></section>';
+  return '<section class="mockYourLibrary"><div class="ownIdentity"><div class="ownAvatar">'+avatarCover+'</div><div><p>Your Library</p><h3>'+escapeHtml(library.title||"Your Library")+'</h3>'+(subtitle?'<small class="ownLibrarySubtitle">'+escapeHtml(subtitle)+'</small>':'')+'<span>100% match</span><em>'+items.length+' albums &middot; '+followers+' follower'+(followers===1?'':'s')+'</em><button onclick="openLibraryDetailsById(\''+key+'\')">View your library</button></div></div><div class="ownRecent"><p>Recently added</p><div>'+recent+'</div></div><div class="ownNumbers"><p>Your taste in numbers</p><div><strong>100%</strong><span>Albums you love</span></div><div><strong>'+items.length+'</strong><span>New discoveries</span></div><div><strong>'+items.length+'</strong><span>Shared albums</span></div></div></section>';
 }
 function libraryRecommendationPanel(){
   const mine=liveLibraryItems(myLibraryItems());
   const recs=state.albums.filter(album=>!mine.some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))).slice(0,4);
   if(!recs.length)return "";
-  return '<div class="libraryRecoPanel"><h3>Because you loved these albums</h3><div>'+recs.map(album=>'<article onclick="openAlbum(\''+escapeJsString(album.id)+'\')">'+cover(album)+'<strong>'+escapeHtml(album.title)+'</strong><span>'+escapeHtml(album.artist)+' &middot; '+escapeHtml(album.year||"")+'</span><em><svg class="libraryInlineIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9L6.6 20l1-6.1-4.4-4.3 6.1-.9L12 3.2z"></path></svg>' + displayScore(album)+'</em></article>').join("")+'</div><button onclick="setView(\'rankings\')">Find more albums</button></div>';
+  return '<div class="libraryRecoPanel"><h3>Because you loved these albums</h3><div>'+recs.map(album=>'<article onclick="openAlbum(\''+escapeJsString(album.id)+'\')">'+cover(album)+'<strong>'+escapeHtml(album.title)+'</strong><span>'+escapeHtml(album.artist)+' &middot; '+escapeHtml(album.year||"")+'</span><em><svg class="libraryInlineIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9L6.6 20l1-6.1-4.4-4.3 6.1-.9L12 3.2z"></path></svg>' + displayScore(album)+'</em></article>').join("")+'</div><button onclick="findMoreLibraryAlbums()">Find more albums</button></div>';
 }
 function librariesView(){
   const username=currentUsername();
@@ -3702,6 +3732,15 @@ function librariesView(){
   content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore people through the albums they choose.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, people, albums..."></label><button onclick="openLibrarySpotifyAdd()">+ Add album</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle"><div><strong>Community Libraries</strong></div><button onclick="setLibrarySearch('')">See all</button></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid">${community.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>${libraryRecommendationPanel()}`;
 }
 window.setLibrarySearch=function(value){state.librarySearch=value;librariesView()}
+window.findMoreLibraryAlbums=function(){
+  state.view="rankings";
+  state.search="";
+  state.genre="All";
+  state.sort="score";
+  document.querySelectorAll(".tab").forEach(button=>button.classList.toggle("active",button.dataset.view==="rankings"));
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
 function genres(){return["All",...new Set(state.albums.map(albumGenreLabel).filter(Boolean))]}
 function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();const label=albumGenreLabel(x);return(state.genre==="All"||label===state.genre)&&(`${x.title} ${x.artist} ${genreSearchText(x)}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
 function card(a){const genreLabel=albumGenreLabel(a);return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button><div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(genreLabel)}</span></div></article>`}
