@@ -952,12 +952,14 @@ async function initAuth(){
   state.authSession=data?.session||null;
   await loadUserProfile();
   syncAuthUi();
+  if(state.view==="libraries"){await loadLibraries();render()}
   db.auth.onAuthStateChange(async (event,session)=>{
     authDebug("state change",{event,hasSession:Boolean(session),email:session?.user?.email||null});
     const wasLoggedOut=!loggedInUser();
     state.authSession=session||null;
     await loadUserProfile();
     syncAuthUi();
+    if(state.view==="libraries"){await loadLibraries();render()}
     if(wasLoggedOut&&session)resumePendingAuthAction();
   });
 }
@@ -3378,15 +3380,37 @@ function librarySimilarity(items){
   return total?Math.round((shared/total)*100):null;
 }
 function libraryHasAlbum(album){return myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))}
+function profileLibraryUsername(){return (currentUsername()||state.userProfile?.username||savedProfileUsername()||"").trim()}
+function libraryRecordWeight(library){
+  const albumCount=Number(library?.album_count||(Array.isArray(library?.items)?library.items.length:0)||0);
+  const followers=Number(library?.followers_count||0);
+  return followers*1000+albumCount;
+}
+function bestUsernameLibrary(username){
+  const key=String(username||"").toLowerCase();
+  if(!key)return null;
+  return extras.libraries.filter(l=>String(l.username||"").toLowerCase()===key).sort((a,b)=>libraryRecordWeight(b)-libraryRecordWeight(a))[0]||null;
+}
+function matchingPublishedLibrary(){
+  const username=profileLibraryUsername().toLowerCase();
+  const byDevice=extras.libraries.find(l=>l.device_id===state.deviceId)||null;
+  const byUsername=bestUsernameLibrary(username);
+  if(byUsername&&byDevice&&String(byUsername.id)!==String(byDevice.id)){
+    return libraryRecordWeight(byUsername)>=libraryRecordWeight(byDevice)?byUsername:byDevice;
+  }
+  return byUsername||byDevice||null;
+}
 function currentLibraryCard(){
-  const items=liveLibraryItems(myLibraryItems());
+  const localItems=liveLibraryItems(myLibraryItems());
+  const username=profileLibraryUsername()||"Listener";
+  const existing=matchingPublishedLibrary()||{};
+  const existingItems=liveLibraryItems(Array.isArray(existing.items)?existing.items:[]);
+  const items=existingItems.length>localItems.length?existingItems:localItems;
   if(!items.length)return null;
-  const username=currentUsername()||"Listener";
-  const existing=extras.libraries.find(l=>l.device_id===state.deviceId)||{};
   return {
     ...existing,
     id:existing.id||("local-library-"+state.deviceId),
-    device_id:state.deviceId,
+    device_id:existing.device_id||state.deviceId,
     username:existing.username||username,
     title:($("#libraryTitle")?.value||existing.title||(username+"'s Library")).trim()||(username+"'s Library"),
     items,
@@ -3397,22 +3421,30 @@ function currentLibraryCard(){
 }
 function visibleLibraries(){
   const mine=currentLibraryCard();
-  const others=extras.libraries.filter(l=>l.device_id!==state.deviceId);
+  const others=extras.libraries.filter(l=>(!mine||String(l.id)!==String(mine.id))&&l.device_id!==state.deviceId);
   return mine?[mine,...others]:extras.libraries;
 }
 async function syncMyLibrary(){
   if(!requireAuth("save",syncMyLibrary))return false;
-  const username=currentUsername()||ratingName();
+  const username=profileLibraryUsername()||ratingName();
   if(!username)return false;
-  const items=liveLibraryItems(myLibraryItems());
-  const title=($("#libraryTitle")?.value||(username+"'s Library")).trim()||(username+"'s Library");
-  const payload={device_id:state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
+  const existing=matchingPublishedLibrary();
+  const merged=[...(Array.isArray(existing?.items)?existing.items:[]),...myLibraryItems()].reduce((items,item)=>{
+    const live=liveLibraryItem(item);
+    if(!items.some(saved=>isSameAlbum(saved,live)||String(saved.id)===String(live.id)))items.push(live);
+    return items;
+  },[]);
+  const items=liveLibraryItems(merged);
+  saveMyLibraryItems(items);
+  const title=($("#libraryTitle")?.value||existing?.title||(username+"'s Library")).trim()||(username+"'s Library");
+  const payload={device_id:existing?.device_id||state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
   if(db){
-    const {error}=await db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
+    const query=existing?.id?db.from("user_libraries").update(payload).eq("id",existing.id):db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
+    const {error}=await query;
     if(error){alert(error.message);return false}
   }else{
-    const libraries=localLibraries().filter(l=>l.device_id!==state.deviceId);
-    libraries.unshift({...payload,id:"local-library-"+state.deviceId,followers_count:0});
+    const libraries=localLibraries().filter(l=>String(l.id)!==String(existing?.id)&&l.device_id!==state.deviceId);
+    libraries.unshift({...payload,id:existing?.id||("local-library-"+state.deviceId),followers_count:Number(existing?.followers_count||0)});
     saveLocalLibraries(libraries);
   }
   await loadLibraries();
