@@ -339,8 +339,12 @@ alter table album_overviews add column if not exists admin_score numeric;
 -- Admin-adjustable Vibe & Mood bar position for album popups
 alter table album_overviews add column if not exists mood_score numeric;
 
+-- Admin-assigned album genre/category override
+alter table album_overviews add column if not exists manual_genre text;
+
 -- Admin-adjustable album popup image positions
 alter table album_overviews add column if not exists hero_focus text;
+alter table album_overviews add column if not exists overview_focus text;
 alter table album_overviews add column if not exists moment_focus text;
 
 -- Muze user profile avatars
