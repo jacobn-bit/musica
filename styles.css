@@ -3613,7 +3613,7 @@ body.light .mockLibrariesHeader p,body.light .mockLibraryTitle p,body.light .moc
     line-height:1.15!important;
     font-weight:850!important;
     white-space:nowrap!important;
-    text-transform:uppercase!important;
+    text-transform:none!important;
     letter-spacing:.03em!important;
   }
   .mockYourLibrary .ownNumbers>div:nth-of-type(1) span:after,
@@ -8853,7 +8853,7 @@ body.light .authPanel .adminOverviewUnlock{
     font-size:8px!important;
     font-weight:950!important;
     letter-spacing:.05em!important;
-    text-transform:uppercase!important;
+    text-transform:none!important;
   }
   .linerStats small,
   .linerStats .linerStatEdit small{
@@ -11862,6 +11862,15 @@ body{
 .linerCoverFlip.freewheelinBackCrop.backCoverInlineZoomed .linerCoverBack .cover img{
   transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(2.15)!important;
 }
+.linerCoverFlip.thrillerBackCrop .linerCoverBack .cover img{
+  object-fit:cover!important;
+  object-position:center 43%!important;
+  transform:scale(1.28)!important;
+  transform-origin:center 43%!important;
+}
+.linerCoverFlip.thrillerBackCrop.backCoverInlineZoomed .linerCoverBack .cover img{
+  transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(2.15)!important;
+}
 @media(max-width:850px){
   .linerCoverFlip.freewheelinBackCrop .linerCoverBack .cover img{
     object-position:center 62%!important;
@@ -12300,6 +12309,116 @@ body{
   transform:translateX(-6%) scale(1.36)!important;
   transform-origin:center top!important;
   z-index:0!important;
+}
+
+.authPanel.accountProfileMode .profileAvatarPreview img.uploadedAvatarPhoto,
+.authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview img.uploadedAvatarPhoto,
+.avatarPreview img.uploadedAvatarPhoto,
+.avatarEditorHeroPreview img.uploadedAvatarPhoto,
+.avatarEditorPreviewSize img.uploadedAvatarPhoto,
+.navUserIcon.hasAvatar img.uploadedAvatarPhoto,
+.authButtonIcon.hasAvatar img.uploadedAvatarPhoto,
+.topbar .authButtonIcon.hasAvatar img.uploadedAvatarPhoto,
+.ownAvatar img.uploadedAvatarPhoto,
+.libraryAvatar img.uploadedAvatarPhoto,
+.mockAvatar img.uploadedAvatarPhoto,
+.voiceAvatar img.uploadedAvatarPhoto,
+.reactionAvatar img.uploadedAvatarPhoto,
+.reviewAvatar img.uploadedAvatarPhoto,
+.listenerCardAvatar img.uploadedAvatarPhoto,
+.reactionReplyAvatar img.uploadedAvatarPhoto{
+  object-position:center 18%!important;
+  transform:translate(-6%,-9%) scale(1.36)!important;
+}
+
+@media(max-width:850px){
+  .authPanel.accountProfileMode .profileAvatarPreview img.uploadedAvatarPhoto,
+  .authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview img.uploadedAvatarPhoto,
+  .avatarPreview img.uploadedAvatarPhoto,
+  .avatarEditorHeroPreview img.uploadedAvatarPhoto,
+  .avatarEditorPreviewSize img.uploadedAvatarPhoto,
+  .navUserIcon.hasAvatar img.uploadedAvatarPhoto,
+  .authButtonIcon.hasAvatar img.uploadedAvatarPhoto,
+  .topbar .authButtonIcon.hasAvatar img.uploadedAvatarPhoto,
+  .ownAvatar img.uploadedAvatarPhoto,
+  .libraryAvatar img.uploadedAvatarPhoto,
+  .mockAvatar img.uploadedAvatarPhoto,
+  .voiceAvatar img.uploadedAvatarPhoto,
+  .reactionAvatar img.uploadedAvatarPhoto,
+  .reviewAvatar img.uploadedAvatarPhoto,
+  .listenerCardAvatar img.uploadedAvatarPhoto,
+  .reactionReplyAvatar img.uploadedAvatarPhoto{
+    object-position:center 18%!important;
+    transform:translate(-6%,-9%) scale(1.36)!important;
+  }
+}
+
+/* Keep album popup hero content pinned to the top instead of vertically centering in tall desktop viewports. */
+@media(min-width:1051px){
+  #albumModal .linerHero{
+    align-items:start!important;
+    align-content:start!important;
+  }
+  #albumModal .linerCover,
+  #albumModal .linerHeroCopy,
+  #albumModal .linerHeroSide{
+    align-self:start!important;
+  }
+  #albumModal .linerHero > .linerHeroSoul{
+    grid-column:1 / 3!important;
+    grid-row:2!important;
+    width:100%!important;
+    margin:-100px 0 0!important;
+    min-height:0!important;
+    padding:13px 22px!important;
+    align-self:start!important;
+  }
+  #albumModal .linerHero > .linerHeroSoul .returnIcon{
+    width:42px!important;
+    height:42px!important;
+  }
+  #albumModal .linerHero > .linerHeroSoul .returnHeadline h3{
+    font-size:22px!important;
+    line-height:1.02!important;
+  }
+  #albumModal .linerHero > .linerHeroSoul p{
+    font-size:13px!important;
+    line-height:1.38!important;
+  }
+  #albumModal .linerHero > .linerHeroSoul .returnTags span{
+    padding:6px 10px!important;
+    font-size:10px!important;
+  }
+  #albumModal .albumSeeMorePill{
+    position:fixed!important;
+    left:50%!important;
+    top:auto!important;
+    bottom:calc(2.5vh + 24px)!important;
+    z-index:7!important;
+    transform:translateX(-50%)!important;
+    border:1px solid rgba(255,213,31,.42)!important;
+    border-radius:999px!important;
+    background:rgba(8,8,9,.72)!important;
+    color:#ffd51f!important;
+    padding:0 14.375px!important;
+    font-size:12.075px!important;
+    line-height:.9!important;
+    min-height:23px!important;
+    font-weight:950!important;
+    letter-spacing:.07em!important;
+    text-transform:none!important;
+    box-shadow:0 6px 14px rgba(0,0,0,.30),0 0 10px rgba(255,213,31,.09)!important;
+    cursor:pointer!important;
+  }
+  #albumModal .albumSeeMorePill:hover{
+    border-color:rgba(255,213,31,.72)!important;
+    background:rgba(18,15,5,.82)!important;
+  }
+}
+@media(max-width:1050px){
+  #albumModal .albumSeeMorePill{
+    display:none!important;
+  }
 }
 
 /* Shared menu/header avatar photos fill the circular mask edge to edge too. */
