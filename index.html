@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="shortcut icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/public/apple-touch-icon.png" />
-  <link rel="stylesheet" href="styles.css?v=overview-drag-20260531">
+  <link rel="stylesheet" href="styles.css?v=chat-common-pill-muted-20260607">
   <script>
     (function(){
       try{
@@ -32,6 +32,13 @@
         <div class="tagline">Know what's worth listening to.</div>
       </div>
       <div class="notificationWrap">
+        <button id="topbarChatButton" class="ghost topbarChatButton" aria-label="Messages" aria-expanded="false">
+          <span class="topbarChatGlyph" aria-hidden="true"><i></i><i></i></span>
+          <span id="topbarChatBadge" class="notificationBadge">2</span>
+        </button>
+        <div id="topbarChatPanel" class="topbarChatPanel hidden">
+          <div id="topbarChatContent"></div>
+        </div>
         <button id="notificationBell" class="ghost notificationBell" aria-label="Notifications"><span class="notificationBellGlyph">&#128276;&#65038;</span><span id="notificationBadge" class="notificationBadge hidden">0</span></button>
         <div id="notificationPanel" class="notificationPanel hidden"></div>
       </div>
@@ -208,6 +215,7 @@
             <strong id="avatarEditorUsernameText"></strong>
             <span id="avatarEditorMemberSince"></span>
           </div>
+          <div id="avatarEditorStatsGrid" class="profileStatsGrid avatarEditorStatsGrid" aria-label="Muze profile statistics"></div>
           <div class="avatarChoiceTabs" role="tablist" aria-label="Avatar setup options">
             <button id="avatarCreateTab" type="button">Choose icon</button>
             <button id="avatarUploadTab" class="active" type="button">Upload photo</button>
@@ -280,7 +288,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app-final-spotify.js?v=spotify-add-lock-20260601"></script>
+  <script src="app-final-spotify.js?v=chat-live-shared-albums-20260607"></script>
 </body>
 </html>
 

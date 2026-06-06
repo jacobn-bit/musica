@@ -43,10 +43,19 @@ function resetStaleClientData(){
   }catch(error){}
 }
 resetStaleClientData();
-const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],overviews:{},overviewRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",chatThread:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
 const MUZE_AVATAR_ICONS=Array.from({length:22},(_,i)=>i+12).filter(n=>![14,27].includes(n)).map(n=>`assets/avatar-icons/avatar-icon-${String(n).padStart(2,"0")}.png`);
+const PROFILE_AVATAR_OVERRIDES={
+  mojokoso:"assets/profile-photos/mojokoso-avatar.jpg?v=face-crop-20260606",
+  val:"assets/profile-photos/val-avatar.png?v=inner-crop-20260606",
+  valentina:"assets/profile-photos/val-avatar.png?v=inner-crop-20260606"
+};
+function profileAvatarOverride(profile={}){
+  const username=String(profile.username||profile.name||"").trim().toLowerCase();
+  return PROFILE_AVATAR_OVERRIDES[username]||"";
+}
 localStorage.setItem("musicaDeviceId",state.deviceId);
 if(state.theme==="light")document.body.classList.add("light");
 const $=s=>document.querySelector(s),content=$("#content");
@@ -244,6 +253,26 @@ function profileMemberSinceText(){
   if(Number.isNaN(date.getTime()))return "";
   return `Member since ${date.toLocaleDateString(undefined,{month:"short",year:"numeric"})}`;
 }
+function profileStatsMarkup(stats){
+  const items=[
+    ["Albums added",stats?.albumsAdded],
+    ["Albums rated",stats?.albumsRated],
+    ["Songs rated",stats?.songsRated],
+    ["Songs shared",stats?.songsShared],
+    ["Comments left",stats?.commentsLeft]
+  ];
+  return items.map(([label,value])=>{
+    const count=Number(value||0);
+    return `<span><strong>${count?count:"-"}</strong><small>${escapeHtml(label)}</small></span>`;
+  }).join("");
+}
+function renderAccountProfileStats(){
+  const markup=profileStatsMarkup(extras.selfStats||fallbackSelfStats());
+  ["#profileStatsGrid","#avatarEditorStatsGrid"].forEach(selector=>{
+    const grid=$(selector);
+    if(grid)grid.innerHTML=markup;
+  });
+}
 function syncAccountProfileCopy(){
   const hasAvatar=avatarHasValue();
   const username=savedProfileUsername();
@@ -264,6 +293,7 @@ function syncAccountProfileCopy(){
     memberDisplay.textContent=memberSince;
     memberDisplay.classList.toggle("hidden",!username||!memberSince);
   }
+  renderAccountProfileStats();
   syncProfileUsernameUi();
   syncAvatarEditorCopy();
 }
@@ -496,6 +526,7 @@ async function saveUserProfile(fields){
     const savedAvatarUrl=String(data.avatar_url||"");
     state.selectedAvatarIcon=MUZE_AVATAR_ICONS.includes(savedAvatarUrl)?savedAvatarUrl:null;
   }
+  refreshProfileAvatarLinks();
   renderAvatarTargets();
   syncAvatarControls();
   updateNavUsername();
@@ -523,6 +554,8 @@ function showAvatarSetup(force=false){
   state.selectedAvatarIcon=savedAvatarIsIcon?savedAvatarUrl:null;
   state.avatarEditControlsOpen=!hasSavedAvatar;
   syncProfileUsernameUi();
+  renderAccountProfileStats();
+  loadChatSelfStats().then(renderAccountProfileStats).catch(error=>console.warn("Unable to refresh profile stats",error));
   setAvatarMode(force&&savedAvatarIsIcon?"create":"upload");
   renderAvatarTargets();
   syncAvatarControls();
@@ -793,6 +826,7 @@ function openAuthModal(message="Log in to join the conversation."){
   if(modal){modal.classList.remove("hidden");modal.setAttribute("aria-hidden","false")}
   if(!loggedInUser())showAuthEmailForm("login");
   syncAuthUi();
+  if(loggedInUser())loadChatSelfStats().then(renderAccountProfileStats).catch(error=>console.warn("Unable to refresh profile stats",error));
 }
 function closeAuthModal(){
   const modal=$("#authModal");
@@ -952,14 +986,14 @@ async function initAuth(){
   state.authSession=data?.session||null;
   await loadUserProfile();
   syncAuthUi();
-  if(state.view==="libraries"){await loadLibraries();render()}
+  if(state.view==="libraries"||state.view==="chat"){await Promise.all([loadLibraries(),loadChatMessages()]);render()}
   db.auth.onAuthStateChange(async (event,session)=>{
     authDebug("state change",{event,hasSession:Boolean(session),email:session?.user?.email||null});
     const wasLoggedOut=!loggedInUser();
     state.authSession=session||null;
     await loadUserProfile();
     syncAuthUi();
-    if(state.view==="libraries"){await loadLibraries();render()}
+    if(state.view==="libraries"||state.view==="chat"){await Promise.all([loadLibraries(),loadChatMessages()]);render()}
     if(wasLoggedOut&&session)resumePendingAuthAction();
   });
 }
@@ -1892,6 +1926,7 @@ function albumBackCoverOverrideUrl(album){
   const text=normalizeAlbumName(`${album?.title||""} ${album?.artist||""}`);
   if(text.includes("michael jackson")&&text.includes("thriller"))return "https://coverartarchive.org/release/884e8b9a-bcab-4f04-bf9c-ae7af9ae4ce6/34921556793.jpg";
   if(text.includes("aretha franklin")&&text.includes("i never loved a man"))return "https://coverartarchive.org/release/4b43b2a7-2cab-4f87-9a7e-dfc0913c39ab/30181577323.jpg";
+  if(text.includes("the beatles")&&text.includes("rubber soul"))return "https://coverartarchive.org/release/df2dd7e9-c39a-4302-a32f-76fd630a274c/33142967902.jpg";
   return albumBackCoverClass(album)?"https://coverartarchive.org/release/b14ceb58-79c6-35bb-a87a-7504864f2c7d/26099141951-1200.jpg":"";
 }
 function handleBackCoverImageError(img){
@@ -3174,21 +3209,46 @@ function updateAlbumSeeMorePlacement(){
   const pillWidth=pillRect.width||96;
   const pillHeight=pillRect.height||23;
   const firstAction=actionButtons[0]||actionRect;
-  if(rightSpace>pillWidth+24){
+  const lastAction=actionButtons[actionButtons.length-1]||actionRect;
+  const clearTop=Math.max(...actionButtons.map(rect=>rect.bottom),actionRect.bottom)+12;
+  if(rightSpace>pillWidth+24&&actionRect.right+24+pillWidth<rightLimit){
     pill.style.left=`${actionRect.right+24+(pillWidth/2)}px`;
     pill.style.top=`${Math.max(panelRect.top+24,Math.min(actionRect.top+(actionRect.height-pillHeight)/2,panelRect.bottom-pillHeight-24))}px`;
   }else{
-    pill.style.left=`${Math.max(panelRect.left+24+(pillWidth/2),Math.min(firstAction.left+(firstAction.width/2),panelRect.right-24-(pillWidth/2)))}px`;
-    pill.style.top=`${Math.max(firstAction.bottom+18,Math.min(panelRect.bottom-pillHeight-24,firstAction.bottom+24))}px`;
+    const leftCenter=firstAction.left+(firstAction.width/2);
+    pill.style.left=`${Math.max(panelRect.left+24+(pillWidth/2),Math.min(leftCenter,panelRect.right-24-(pillWidth/2)))}px`;
+    pill.style.top=`${Math.max(clearTop,Math.min(panelRect.bottom-pillHeight-24,Math.max(firstAction.bottom,lastAction.bottom)+16))}px`;
   }
   pill.style.bottom="auto";
   pill.style.transform="translateX(-50%)";
+}
+window.scrollAlbumSeeMore=function(event){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const panel=document.querySelector("#albumModal .modalPanel");
+  const modal=document.querySelector("#albumModal");
+  const content=document.querySelector("#albumModalContent");
+  const target=document.querySelector("#albumModal .linerFeaturedTrack")||document.querySelector("#albumModal #trackRatingsList")||document.querySelector("#albumModal .albumTrackSections");
+  if(!target)return;
+  const scrollers=[panel,modal,content,document.scrollingElement].filter(Boolean);
+  let moved=false;
+  scrollers.forEach(scroller=>{
+    if(typeof scroller.scrollTo!=="function")return;
+    const rect=scroller.getBoundingClientRect?.()||{top:0};
+    const targetRect=target.getBoundingClientRect();
+    const top=(scroller.scrollTop||0)+targetRect.top-rect.top-12;
+    if(scroller.scrollHeight>scroller.clientHeight+4){
+      scroller.scrollTo({top:Math.max(0,top),behavior:"smooth"});
+      moved=true;
+    }
+  });
+  if(!moved)target.scrollIntoView({behavior:"smooth",block:"start"});
 }
 window.openAlbumOverviewPopup=function(){
   const album=state.albums.find(x=>albumRef(x.id)===albumRef(extras.currentAlbumId));
   if(!album)return;
   const albumId=escapeJsString(album.id);
-  const coverUrl=escapeHtml(album.cover_url||"");
+    const coverUrl=escapeHtml(album.cover_url||"");
   const albumScore=displayScore(album);
   const total=count(album).toLocaleString();
   const customOverview=albumCustomOverview(album);
@@ -3268,7 +3328,7 @@ window.toggleAllReactions=function(){
   const expanded=host.classList.toggle("showAllReactions");
   button.classList.toggle("expanded",expanded);
 }
-function canUseLocalAdminFallback(action){return ["set_album_score","set_rating_count","set_mood_score","set_album_genre","set_loved_track","set_hero_focus","set_overview_focus","set_moment_focus","set_hero_image","set_moment_image"].includes(action)}
+function canUseLocalAdminFallback(action){return ["set_album_score","set_rating_count","set_mood_score","set_album_genre","set_loved_track","set_hero_focus","set_overview_focus","set_moment_focus","set_hero_image","set_moment_image","add_library_album"].includes(action)}
 function localAdminFallbackResponse(payload,reason){
   if(!isLocalRuntime()||!canUseLocalAdminFallback(payload?.action))return null;
   adminDebug("request local fallback",{action:payload.action,reason});
@@ -3820,14 +3880,27 @@ function updateNavUsername(){
 function followerSeenKey(){return "musicaSeenFollowers::"+state.deviceId}
 function myPublishedLibrary(){return extras.libraries.find(l=>l.device_id===state.deviceId)||null}
 function unreadFollowerCount(){const library=myPublishedLibrary();if(!library)return 0;return Math.max(0,Number(library.followers_count||0)-Number(localStorage.getItem(followerSeenKey())||0))}
+function unreadChatCount(){
+  const user=loggedInUser();
+  if(!user)return 0;
+  return (extras.chatMessages||[]).filter(message=>String(message.recipient_id||"")===String(user.id)&&!message.read_at).length;
+}
+function renderChatBadge(){
+  const badge=$("#topbarChatBadge");
+  if(!badge)return;
+  const count=unreadChatCount();
+  badge.textContent=count>99?"99+":String(count);
+  badge.classList.toggle("hidden",count===0);
+}
 function renderNotifications(){
   const badge=$("#notificationBadge"),panel=$("#notificationPanel");
   const count=unreadFollowerCount();
   if(badge){badge.textContent=count>99?"99+":String(count);badge.classList.toggle("hidden",count===0)}
+  renderChatBadge();
   if(panel&&!panel.classList.contains('hidden')){panel.innerHTML=count?'<strong>'+count+' new follower'+(count===1?'':'s')+'</strong>':'No new notifications.'}
 }
 window.markFollowerNotificationsRead=function(){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));renderNotifications()}
-async function refreshNotifications(){await loadLibraries();renderNotifications()}
+async function refreshNotifications(){await Promise.all([loadLibraries(),loadChatMessages()]);renderNotifications()}
 function setLibraryUsername(){
   if(!requireAuth("profile",setLibraryUsername))return;
   const name=(prompt("Choose a public username for your library:",currentUsername()||"")||"").trim();
@@ -3848,6 +3921,7 @@ function albumToLibraryItem(a){return {
   genre:albumGenreLabel(a),
   cover_url:a.cover_url||"",
   spotify_url:a.spotify_url||"",
+  spotify_id:a.spotify_id||"",
   summary:a.summary||"",
   rating:userScore(a)?Number(userScore(a)):displayScore(a)
 }}
@@ -3855,13 +3929,54 @@ function sortedLibraryItems(items){return items.slice()}
 function liveLibraryItem(item){
   const album=state.albums.find(a=>String(a.id)===String(item.id))||existingAlbumMatch(item);
   if(!album)return item;
-  return {...item,id:String(album.id),title:album.title,artist:album.artist,year:album.year||item.year||"",genre:albumGenreLabel(album),cover_url:album.cover_url||item.cover_url||"",spotify_url:album.spotify_url||item.spotify_url||"",summary:album.summary||item.summary||"",rating:displayScore(album),ratings_count:count(album)};
+  return {...item,id:String(album.id),title:album.title,artist:album.artist,year:album.year||item.year||"",genre:albumGenreLabel(album),cover_url:album.cover_url||item.cover_url||"",spotify_url:album.spotify_url||item.spotify_url||"",spotify_id:album.spotify_id||item.spotify_id||"",summary:album.summary||item.summary||"",rating:displayScore(album),ratings_count:count(album)};
 }
 function liveLibraryItems(items){return sortedLibraryItems(items).map(liveLibraryItem)}
+function albumComparableIds(album){
+  return [album?.spotify_id,album?.spotifyId,album?.album_id,album?.albumId,album?.id,album?.spotify_url,album?.spotifyUrl]
+    .map(value=>String(value||"").trim().toLowerCase())
+    .filter(Boolean);
+}
+function libraryItemTitle(album){return String(album?.title||album?.album_title||album?.name||album?.album?.title||"").trim()}
+function libraryItemArtist(album){
+  const artists=album?.artists||album?.album?.artists;
+  if(Array.isArray(artists))return artists.map(artist=>artist?.name||artist).filter(Boolean).join(", ");
+  return String(album?.artist||album?.artist_name||album?.album?.artist||"").trim();
+}
+function isSharedLibraryAlbum(a,b){
+  const titleA=normalizeAlbumName(libraryItemTitle(a));
+  const titleB=normalizeAlbumName(libraryItemTitle(b));
+  if(!titleA||!titleB||titleA!==titleB)return false;
+  const artistA=normalizeAlbumName(libraryItemArtist(a));
+  const artistB=normalizeAlbumName(libraryItemArtist(b));
+  if(!artistA||!artistB)return true;
+  return artistA===artistB||artistA.includes(artistB)||artistB.includes(artistA);
+}
+function hasMatchingAlbum(items,album){
+  const ids=albumComparableIds(album);
+  return (items||[]).some(item=>{
+    const itemIds=albumComparableIds(item);
+    return ids.some(id=>itemIds.includes(id))||isSameAlbum(item,album)||isSharedLibraryAlbum(item,album);
+  });
+}
+function ownComparableLibraryItems(){
+  const username=profileLibraryUsername().toLowerCase();
+  const publishedMine=extras.libraries.find(l=>l.device_id===state.deviceId)||(username?extras.libraries.find(l=>String(l.username||"").toLowerCase()===username):null);
+  const ownLibraries=[
+    currentLibraryCard(),
+    publishedMine,
+    ...extras.libraries.filter(l=>l?.device_id===state.deviceId||(username&&String(l?.username||"").toLowerCase()===username))
+  ].filter(Boolean);
+  const sourceItems=[...ownLibraries.flatMap(library=>Array.isArray(library?.items)?library.items:[]),...myLibraryItems()];
+  const merged=sourceItems.reduce((items,item)=>{
+    const live=liveLibraryItem(item);
+    if(!hasMatchingAlbum(items,live))items.push(live);
+    return items;
+  },[]);
+  return liveLibraryItems(merged);
+}
 function librarySimilarity(items){
-  const publishedMine=extras.libraries.find(l=>l.device_id===state.deviceId)||(currentUsername()?extras.libraries.find(l=>String(l.username||"").toLowerCase()===currentUsername().toLowerCase()):null);
-  const mineSource=myLibraryItems().length?myLibraryItems():(publishedMine?.items||[]);
-  const mine=liveLibraryItems(mineSource);
+  const mine=ownComparableLibraryItems();
   const other=liveLibraryItems(items||[]);
   if(!mine.length||!other.length)return null;
   const mineKeys=new Set(mine.map(a=>coverKey(a)));
@@ -3870,13 +3985,43 @@ function librarySimilarity(items){
   const total=new Set([...mineKeys,...otherKeys]).size;
   return total?Math.round((shared/total)*100):null;
 }
+function chatArtistParts(value){
+  return String(value||"").split(/\s*(?:,|;|\u2022|\||\s+feat\.?\s+|\s+featuring\s+|\s+with\s+)\s*/i).map(part=>part.trim()).filter(Boolean);
+}
+function chatArtistKey(value){
+  return String(value||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim();
+}
+function chatArtistMapFromItems(items){
+  const map=new Map();
+  liveLibraryItems(items||[]).forEach(item=>{
+    chatArtistParts(item.artist).forEach(name=>{
+      const key=chatArtistKey(name);
+      if(key&&!map.has(key))map.set(key,name);
+    });
+  });
+  return map;
+}
+function mutualArtistsForLibrary(library){
+  const mine=chatArtistMapFromItems(ownComparableLibraryItems());
+  const other=chatArtistMapFromItems(library?.items||[]);
+  return [...other.entries()].filter(([key])=>mine.has(key)).map(([,name])=>name).slice(0,8);
+}
+function mutualAlbumsForLibrary(library){
+  const mine=ownComparableLibraryItems();
+  const other=liveLibraryItems(library?.items||[]);
+  return other.filter(item=>hasMatchingAlbum(mine,item)).map(item=>{
+    const title=libraryItemTitle(item)||"Untitled";
+    const artist=libraryItemArtist(item);
+    return `${title}${artist?` - ${artist}`:""}`;
+  }).slice(0,8);
+}
 function libraryHasAlbum(album){return myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))}
 function albumLibrarySaveCount(album){
   const seen=new Set();
   const countSource=(library,key)=>{
     if(!library||seen.has(key))return 0;
     const items=Array.isArray(library.items)?library.items:[];
-    if(!items.some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id)))return 0;
+    if(!hasMatchingAlbum(items,album))return 0;
     seen.add(key);
     return 1;
   };
@@ -3906,6 +4051,42 @@ function matchingPublishedLibrary(){
   }
   return byUsername||byDevice||null;
 }
+function profileAvatarFields(profile=state.userProfile||{}){
+  const avatarOverride=profileAvatarOverride(profile);
+  return {
+    avatar_url:avatarOverride||profile.avatar_url||null,
+    avatar_config:profile.avatar_config||null,
+    avatar_svg:profile.avatar_svg||null,
+    profile_avatar_url:avatarOverride||profile.avatar_url||null,
+    profile_avatar_config:profile.avatar_config||null,
+    profile_avatar_svg:profile.avatar_svg||null
+  };
+}
+function refreshProfileAvatarLinks(){
+  const username=profileLibraryUsername();
+  const fields=profileAvatarFields();
+  const profileKey=String(state.userProfile?.user_id||"");
+  const profileName=String(state.userProfile?.username||username||"").toLowerCase();
+  extras.profileDirectory=[
+    {...(state.userProfile||{}),username:state.userProfile?.username||username,...fields},
+    ...(extras.profileDirectory||[]).filter(profile=>{
+      const sameId=profileKey&&String(profile.user_id||"")===profileKey;
+      const sameName=profileName&&String(profile.username||"").toLowerCase()===profileName;
+      return !sameId&&!sameName;
+    })
+  ];
+  extras.libraries=extras.libraries.map(l=>{
+    const isMine=l.device_id===state.deviceId||l.isMine||(username&&String(l.username||"").toLowerCase()===username.toLowerCase());
+    return isMine?{...l,...fields}:l;
+  });
+  if(isLocalRuntime()){
+    saveLocalLibraries(localLibraries().map(l=>{
+      const isMine=l.device_id===state.deviceId||l.isMine||(username&&String(l.username||"").toLowerCase()===username.toLowerCase());
+      return isMine?{...l,...fields}:l;
+    }));
+  }
+  if(!$("#topbarChatPanel")?.classList.contains("hidden"))chatView($("#topbarChatContent")||undefined);
+}
 function currentLibraryCard(){
   const localItems=liveLibraryItems(myLibraryItems());
   const username=profileLibraryUsername()||"Listener";
@@ -3922,7 +4103,8 @@ function currentLibraryCard(){
     items,
     album_count:items.length,
     followers_count:Number(existing.followers_count||0),
-    isMine:true
+    isMine:true,
+    ...profileAvatarFields()
   };
 }
 function visibleLibraries(){
@@ -3937,16 +4119,22 @@ async function syncMyLibrary(){
   const existing=matchingPublishedLibrary();
   const merged=[...(Array.isArray(existing?.items)?existing.items:[]),...myLibraryItems()].reduce((items,item)=>{
     const live=liveLibraryItem(item);
-    if(!items.some(saved=>isSameAlbum(saved,live)||String(saved.id)===String(live.id)))items.push(live);
+    if(!hasMatchingAlbum(items,live))items.push(live);
     return items;
   },[]);
   const items=liveLibraryItems(merged);
   saveMyLibraryItems(items);
   const title=($("#libraryTitle")?.value||existing?.title||(username+"'s Library")).trim()||(username+"'s Library");
-  const payload={device_id:existing?.device_id||state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
+  const basePayload={device_id:existing?.device_id||state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
+  const payload={...basePayload,...profileAvatarFields()};
   if(db){
-    const query=existing?.id?db.from("user_libraries").update(payload).eq("id",existing.id):db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
-    const {error}=await query;
+    let query=existing?.id?db.from("user_libraries").update(payload).eq("id",existing.id):db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
+    let {error}=await query;
+    if(error&&/avatar_|profile_avatar_|schema cache|column/i.test(error.message||"")){
+      query=existing?.id?db.from("user_libraries").update(basePayload).eq("id",existing.id):db.from("user_libraries").upsert(basePayload,{onConflict:"device_id"});
+      const retry=await query;
+      error=retry.error;
+    }
     if(error){alert(error.message);return false}
   }else{
     const libraries=localLibraries().filter(l=>String(l.id)!==String(existing?.id)&&l.device_id!==state.deviceId);
@@ -3959,7 +4147,7 @@ async function syncMyLibrary(){
 async function addAlbumToMyLibrary(album){
   if(!requireAuth("save",()=>addAlbumToMyLibrary(album)))return false;
   const items=myLibraryItems();
-  if(items.some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id)))return true;
+  if(hasMatchingAlbum(items,album))return true;
   items.push(albumToLibraryItem(album));
   saveMyLibraryItems(items);
   await syncMyLibrary();
@@ -4025,7 +4213,23 @@ function rememberFollowedLibrary(libraryId){
   extras.libraryFollows=[...new Set([...(extras.libraryFollows||[]).map(String),String(libraryId)])];
   saveLocalLibraryFollows(extras.libraryFollows);
 }
+async function loadProfileDirectory(){
+  if(db){
+    let {data,error}=await db.from("public_user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").limit(200);
+    if(error&&/public_user_profiles|relation|schema cache/i.test(error.message||"")){
+      const fallback=await db.from("user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").limit(200);
+      data=fallback.data;
+      error=fallback.error;
+    }
+    if(!error){extras.profileDirectory=data||[];return extras.profileDirectory}
+    console.warn("Unable to load profile avatars",error.message||error);
+  }
+  const localProfile=loadLocalUserProfile();
+  extras.profileDirectory=localProfile?[localProfile]:[];
+  return extras.profileDirectory;
+}
 async function loadLibraries(){
+  await loadProfileDirectory();
   if(db){
     const {data,error}=await db.from("library_feed").select("*").order("updated_at",{ascending:false}).limit(50);
     if(!error){extras.libraries=data||[];await loadLibraryFollows();renderNotifications();return extras.libraries}
@@ -4071,6 +4275,77 @@ async function removeLibrary(libraryId){
   await loadLibraries();
   render();
 }
+async function findAdminLibraryAlbum(){
+  const query=(prompt("Search album to add to this library:","")||"").trim();
+  if(!query)return null;
+  setAdminInlineStatus("Searching albums...","");
+  try{
+    const res=await fetch(`/.netlify/functions/album-search?q=${encodeURIComponent(query)}&v=admin-library-add`,{cache:"no-store"});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||"Album search failed.");
+    const albums=(data.albums||[]).slice(0,8);
+    if(!albums.length){alert("No album results found.");return null}
+    const list=albums.map((album,index)=>`${index+1}. ${album.title} - ${album.artist}${album.year?` (${album.year})`:""}`).join("\n");
+    const answer=(prompt(`Choose album by number:\n\n${list}`,"1")||"").trim();
+    if(!answer)return null;
+    const index=Number(answer)-1;
+    if(!Number.isInteger(index)||index<0||index>=albums.length){alert("Please choose a valid album number.");return null}
+    return albums[index];
+  }catch(error){
+    setAdminInlineStatus(error.message||"Album search failed.","error");
+    return null;
+  }
+}
+async function ensureAdminLibraryAlbumRecord(result){
+  const album={title:result.title,artist:result.artist,year:result.year,genre:albumGenreLabel(result),cover_url:result.cover_url,spotify_url:result.spotify_url,summary:spotifyAlbumSummary(result),spotify_id:result.spotify_id||""};
+  const duplicate=existingAlbumMatch(album);
+  if(duplicate)return duplicate;
+  const saved=await saveSpotifyAlbumRecord(album);
+  await loadData();
+  return state.albums.find(x=>String(x.spotify_id||"")&&String(x.spotify_id)===String(album.spotify_id||""))||existingAlbumMatch(album)||saved;
+}
+function updateLibraryAlbumLocally(libraryId,item){
+  const update=library=>{
+    if(String(library.id)!==String(libraryId))return library;
+    const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
+    if(!hasMatchingAlbum(items,item))items.push(item);
+    return {...library,items,album_count:items.length,updated_at:new Date().toISOString()};
+  };
+  extras.libraries=extras.libraries.map(update);
+  if(!db)saveLocalLibraries(localLibraries().map(update));
+  return visibleLibraries().find(l=>String(l.id)===String(libraryId));
+}
+window.adminAddAlbumToLibrary=async function(libraryId){
+  if(!isAdminUnlocked()){unlockOverviewAdmin();return}
+  const library=visibleLibraries().find(l=>String(l.id)===String(libraryId));
+  if(!library)return;
+  const picked=await findAdminLibraryAlbum();
+  if(!picked)return;
+  setAdminInlineStatus("Adding album to library...","");
+  try{
+    const savedAlbum=await ensureAdminLibraryAlbumRecord(picked);
+    const item=albumToLibraryItem(savedAlbum);
+    const existing=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
+    if(hasMatchingAlbum(existing,item)){
+      setAdminInlineStatus("That album is already in this library.","success");
+      return;
+    }
+    if(db&&String(libraryId).indexOf("local-library-")!==0){
+      const data=await adminOverviewRequest({action:"add_library_album",library_id:String(libraryId),album_item:item});
+      if(!data)return;
+    }else{
+      const nextItems=[...existing,item];
+      saveLocalLibraries(localLibraries().map(row=>String(row.id)===String(libraryId)?{...row,items:nextItems,album_count:nextItems.length,updated_at:new Date().toISOString()}:row));
+    }
+    await loadLibraries();
+    const updated=updateLibraryAlbumLocally(libraryId,item)||visibleLibraries().find(l=>String(l.id)===String(libraryId));
+    setAdminInlineStatus(`Added ${savedAlbum.title} to ${library.username||"this library"}.`,"success");
+    render();
+    if(updated&&!$("#albumModal")?.classList.contains("hidden"))openLibraryDetails(updated);
+  }catch(error){
+    setAdminInlineStatus(error.message||"Album could not be added to this library.","error");
+  }
+}
 function ensureLibraryAlbum(item){
   let existing=state.albums.find(a=>String(a.id)===String(item.id))||existingAlbumMatch(item);
   if(existing)return existing;
@@ -4095,7 +4370,9 @@ function openLibraryDetails(library){
   if(!library)return;
   const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const isMine=library.device_id===state.deviceId||library.isMine;
-  const addAction=isMine?'<button class="libraryDetailAddBtn" onclick="event.stopPropagation();openLibrarySpotifyAdd()">+ Add album</button>':'';
+  const key=escapeJsString(library.id||"");
+  const adminAddAction=isAdminUnlocked()&&!isMine&&library.id?'<button class="libraryDetailAddBtn adminLibraryAddBtn" onclick="event.stopPropagation();adminAddAlbumToLibrary(\''+key+'\')">+ Add album</button>':'';
+  const addAction=isMine?'<button class="libraryDetailAddBtn" onclick="event.stopPropagation();openLibrarySpotifyAdd()">+ Add album</button>':adminAddAction;
   $("#albumModalContent").innerHTML='<div class="sectionTitle libraryDetailTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div><div class="libraryDetailActions">'+addAction+'</div></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
   $("#albumModal").classList.remove("hidden");
 }function openLibraryDetailsById(key){
@@ -4214,15 +4491,28 @@ function libraryAvatarConfig(library){
   const pick=list=>list[hash%list.length];
   return {...defaultAvatarConfig(),skinColor:pick(["#8f5a3a","#b87952","#d0a17a","#6f4632","#c98f63"]),hairColor:pick(["#1b120d","#3b2416","#5b3825","#d8c7a1","#7a4a2a"]),hairStyle:pick(["waves","short","medium","curly","straight","fade"]),faceShape:pick(["oval","round","heart","soft-square"]),eyes:pick(["focused","calm","bright"]),brows:pick(["soft","bold","arched","straight"]),mouth:pick(["smile","neutral","smirk"]),accessory:pick(["none","glasses","round-glasses","earring","headphones"]),age:24+(hash%24)};
 }
+function profileForLibrary(library={}){
+  const username=String(library.username||library.name||"").trim().toLowerCase();
+  const userId=String(library.user_id||library.profile_user_id||"").trim();
+  const email=String(library.email||library.profile_email||"").trim().toLowerCase();
+  const directory=extras.profileDirectory||[];
+  return directory.find(profile=>
+    (userId&&String(profile.user_id||"")===userId)||
+    (username&&String(profile.username||"").trim().toLowerCase()===username)||
+    (email&&String(profile.email||"").trim().toLowerCase()===email)
+  )||null;
+}
 function libraryAvatarMarkup(library){
-  const label=String(library.username||library.title||"Listener");
-  const avatarUrl=String(library.avatar_url||library.profile_avatar_url||library.photo_url||"").trim();
+  const profile=profileForLibrary(library);
+  const resolved={...(library||{}),...(profile||{})};
+  const label=String(resolved.username||resolved.title||"Listener");
+  const avatarUrl=String(profileAvatarOverride(resolved)||resolved.avatar_url||resolved.profile_avatar_url||resolved.photo_url||"").trim();
   if(avatarUrl)return '<img src="'+escapeHtml(avatarUrl)+'" alt="'+escapeHtml(label)+' avatar">';
-  const avatarSvgValue=String(library.avatar_svg||library.profile_avatar_svg||"").trim();
+  const avatarSvgValue=String(resolved.avatar_svg||resolved.profile_avatar_svg||"").trim();
   if(avatarSvgValue.startsWith("<svg"))return avatarSvgValue;
-  let config=library.avatar_config||library.profile_avatar_config||null;
+  let config=resolved.avatar_config||resolved.profile_avatar_config||null;
   if(typeof config==="string"){try{config=JSON.parse(config)}catch(e){config=null}}
-  return avatarSvg(config&&typeof config==="object"?config:libraryAvatarConfig(library));
+  return avatarSvg(config&&typeof config==="object"?config:libraryAvatarConfig(resolved));
 }
 function libraryBlock(library){
   const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
@@ -4235,8 +4525,8 @@ function libraryBlock(library){
   const genres=[...new Set(items.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);
   const tags=libraryGenreTags(genres,items);
   const avatar=libraryAvatarMarkup(library);
-  const mineItems=liveLibraryItems(myLibraryItems());
-  const sharedCount=isMine?albumCount:items.filter(item=>mineItems.some(m=>String(m.id)===String(item.id)||isSameAlbum(m,item))).length;
+  const mineItems=ownComparableLibraryItems();
+  const sharedCount=isMine?albumCount:items.filter(item=>hasMatchingAlbum(mineItems,item)).length;
   const discoveryCount=isMine?0:Math.max(0,albumCount-sharedCount);
   const similarityRaw=isMine?100:librarySimilarity(items);
   const similarity=Math.max(0,Math.min(100,Number(similarityRaw)||0));
@@ -4288,6 +4578,588 @@ function librariesView(){
   const community=allLibraries.filter(l=>!(l.device_id===state.deviceId||l.isMine||(username&&String(l.username||"").toLowerCase()===username.toLowerCase()))).filter(l=>!query||(`${l.title||""} ${l.username||""} ${(Array.isArray(l.items)?l.items:[]).map(i=>`${i.title||""} ${i.artist||""}`).join(" ")}`).toLowerCase().includes(query));
   content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore people through the albums they choose.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, people, albums..."></label><button onclick="openLibrarySpotifyAdd()">+ Add album</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle"><div><strong>Community Libraries</strong></div><button onclick="setLibrarySearch('')">See all</button></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid">${community.map(libraryBlock).join("")||'<div class="empty">No public libraries yet.</div>'}</div>${libraryRecommendationPanel()}`;
 }
+function chatAlbumByText(text,index=0){
+  const query=String(text||"").toLowerCase();
+  return state.albums.find(album=>`${album.title||""} ${album.artist||""}`.toLowerCase().includes(query))||state.albums[index]||seedAlbums[index%seedAlbums.length]||{};
+}
+function chatLibraryFallback(index=0){
+  const username=currentUsername()||"Muze Listener";
+  const items=liveLibraryItems(myLibraryItems()).length?liveLibraryItems(myLibraryItems()):state.albums.slice(index,index+4).map(albumToLibraryItem);
+  const avatarFields=username&&username!=="Muze Listener"?profileAvatarFields():{};
+  return {id:"chat-library-"+index,username,index,title:index?`${username}'s discovery shelf`:`${username}'s listening room`,items,album_count:items.length,followers_count:index?8:0,...avatarFields};
+}
+function chatLocalMessages(){
+  try{return JSON.parse(localStorage.getItem("muzeChatMessages")||"{}")||{}}
+  catch(error){return {}}
+}
+function saveChatLocalMessages(messages){
+  localStorage.setItem("muzeChatMessages",JSON.stringify(messages||{}));
+}
+function chatSchemaUnavailable(error){
+  const message=String(error?.message||error||"");
+  return /chat_messages|schema cache|relation|column/i.test(message);
+}
+function chatMessageTimeLabel(value){
+  const date=value?new Date(value):new Date();
+  if(Number.isNaN(date.getTime()))return chatCurrentTimeLabel();
+  return date.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+}
+async function loadChatMessages(){
+  const user=loggedInUser();
+  if(!db||!user){extras.chatMessages=[];extras.chatSchemaReady=false;renderChatBadge();return extras.chatMessages}
+  const {data,error}=await db.from("chat_messages").select("id,sender_id,recipient_id,body,message_type,created_at,read_at").or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`).order("created_at",{ascending:true}).limit(500);
+  if(error){
+    extras.chatSchemaReady=false;
+    extras.chatMessages=[];
+    if(!chatSchemaUnavailable(error))console.warn("Unable to load chat messages",error.message||error);
+    renderChatBadge();
+    return extras.chatMessages;
+  }
+  extras.chatSchemaReady=true;
+  extras.chatMessages=data||[];
+  renderChatBadge();
+  return extras.chatMessages;
+}
+function chatParticipantId(thread){
+  return String(thread?.profile?.user_id||thread?.library?.user_id||thread?.recipient_user_id||"").trim();
+}
+function chatRemoteMessagesForThread(thread){
+  const user=loggedInUser();
+  const participantId=chatParticipantId(thread);
+  if(!user||!participantId)return [];
+  return (extras.chatMessages||[])
+    .filter(message=>{
+      const sender=String(message.sender_id||"");
+      const recipient=String(message.recipient_id||"");
+      return (sender===String(user.id)&&recipient===participantId)||(sender===participantId&&recipient===String(user.id));
+    })
+    .map(message=>({
+      id:message.id,
+      side:String(message.sender_id||"")===String(user.id)?"me":"them",
+      type:message.message_type||"text",
+      time:chatMessageTimeLabel(message.created_at),
+      body:message.body||"",
+      created_at:message.created_at,
+      read_at:message.read_at
+    }));
+}
+function chatUnreadForThread(thread){
+  const user=loggedInUser();
+  const participantId=chatParticipantId(thread);
+  if(!user||!participantId)return Number(thread?.unread||0);
+  return (extras.chatMessages||[]).filter(message=>String(message.sender_id||"")===participantId&&String(message.recipient_id||"")===String(user.id)&&!message.read_at).length;
+}
+async function markChatThreadRead(thread){
+  const user=loggedInUser();
+  const participantId=chatParticipantId(thread);
+  if(!db||!user||!participantId)return;
+  const unread=(extras.chatMessages||[]).filter(message=>String(message.sender_id||"")===participantId&&String(message.recipient_id||"")===String(user.id)&&!message.read_at);
+  if(!unread.length)return;
+  const readAt=new Date().toISOString();
+  unread.forEach(message=>{message.read_at=readAt});
+  renderChatBadge();
+  const {error}=await db.from("chat_messages").update({read_at:readAt}).in("id",unread.map(message=>message.id)).eq("recipient_id",user.id);
+  if(error&&!chatSchemaUnavailable(error))console.warn("Unable to mark chat messages read",error.message||error);
+}
+function chatCurrentTimeLabel(){
+  return new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+}
+function chatLastMessageText(message){
+  if(!message)return "";
+  if(message.type==="album")return `Shared ${message.album?.title||"an album"}.`;
+  if(message.type==="rating")return `Rated ${message.album?.title||"an album"}.`;
+  if(message.type==="review")return `Shared a review of ${message.album?.title||"an album"}.`;
+  if(message.type==="library")return message.body||"Shared a library.";
+  return message.body||"";
+}
+function chatCommunityProfiles(community){
+  const seen=new Set();
+  const current=String(currentUsername()||"").toLowerCase();
+  const rows=[];
+  community.forEach(library=>{
+    const username=String(library.username||"").trim();
+    const key=(username||library.device_id||library.id||"").toString().toLowerCase();
+    if(!key||seen.has(key))return;
+    seen.add(key);
+    const profile=profileForLibrary(library);
+    rows.push({...library,user_id:library.user_id||profile?.user_id||null,email:library.email||profile?.email||null,...profileAvatarFields(profile||library)});
+  });
+  (extras.profileDirectory||[]).forEach(profile=>{
+    const username=String(profile.username||"").trim();
+    const key=(username||profile.user_id||profile.email||"").toString().toLowerCase();
+    if(!key||key===current||seen.has(key))return;
+    seen.add(key);
+    rows.push({
+      id:"profile-chat-"+(profile.user_id||username||key),
+      user_id:profile.user_id,
+      email:profile.email,
+      username:username||String(profile.email||"").split("@")[0]||"Listener",
+      title:(username||"Listener")+"'s Library",
+      items:[],
+      album_count:0,
+      ...profileAvatarFields(profile)
+    });
+  });
+  return rows;
+}
+function chatThreadFromLibrary(library,index){
+  const items=liveLibraryItems(library.items||[]);
+  const fallbackAlbum=chatAlbumByText(index%2?"ok computer":"abbey road",index);
+  const album=items[0]||fallbackAlbum;
+  const second=items[1]||chatAlbumByText(index%2?"rumours":"to pimp a butterfly",index+1);
+  const match=librarySimilarity(library.items||[]);
+  const name=library.username||library.name||"Listener";
+  const recipientUserId=String(library.user_id||"").trim();
+  const id=String(recipientUserId||library.id||library.device_id||name||index).replace(/[^a-z0-9_-]+/gi,"-").toLowerCase();
+  const mutualArtists=mutualArtistsForLibrary(library);
+  const sharedAlbums=mutualAlbumsForLibrary(library);
+  const thread={
+    id:"person-"+id,
+    name,
+    profile:library,
+    recipient_user_id:recipientUserId,
+    role:"Shared albums and listener notes",
+    online:index%3===0,
+    unread:0,
+    time:"",
+    match:match===null?Math.max(58,92-index*7):match,
+    artists:mutualArtists,
+    sharedAlbums,
+    albums:[album.title||"Abbey Road",second.title||"To Pimp a Butterfly"],
+    library,
+    preview:"No messages yet.",
+    messages:[]
+  };
+  const messages=chatRemoteMessagesForThread(thread);
+  const last=messages[messages.length-1];
+  const unread=chatUnreadForThread(thread);
+  return {...thread,messages,preview:chatLastMessageText(last)||thread.preview,time:last?.time||thread.time,unread:last?.side==="me"?0:unread};
+}
+function chatThreadIdForProfile(profile,index=0){
+  return chatThreadFromLibrary(profile,index).id;
+}
+function chatSearchProfiles(query=""){
+  const q=String(query||"").trim().toLowerCase().replace(/^@/,"");
+  if(!q)return [];
+  const current=String(currentUsername()||"").toLowerCase();
+  const seen=new Set();
+  return chatCommunityProfiles(visibleLibraries().filter(l=>!(l.device_id===state.deviceId||l.isMine)))
+    .filter(profile=>{
+      const username=String(profile.username||profile.name||"").trim();
+      const key=String(profile.user_id||username||profile.email||"").toLowerCase();
+      if(!username||username.toLowerCase()===current||seen.has(key))return false;
+      seen.add(key);
+      return username.toLowerCase().includes(q);
+    })
+    .slice(0,8);
+}
+function chatUserSearchHtml(){
+  if(!state.chatUserSearchOpen)return "";
+  const query=String(state.chatUserSearchQuery||"");
+  const results=chatSearchProfiles(query);
+  const resultHtml=query&&!results.length?'<div class="chatUserSearchEmpty">No Muze user found.</div>':results.map((profile,index)=>{
+    const username=profile.username||profile.name||"Listener";
+    const id=chatThreadIdForProfile(profile,index);
+    return `<button class="chatUserSearchResult" type="button" onclick="startChatWithUser('${escapeJsString(id)}')">${chatAvatarMarkup(profile,false,index)}<span><strong>${escapeHtml(username)}</strong><small>@${escapeHtml(username)}</small></span></button>`;
+  }).join("");
+  return `<div class="chatUserSearchPanel"><label><input id="chatUserSearchInput" value="${escapeHtml(query)}" placeholder="Search Muze username..." oninput="setChatUserSearch(this.value)" onkeydown="if(event.key==='Enter')selectFirstChatSearchResult()"></label><div class="chatUserSearchResults">${resultHtml}</div></div>`;
+}
+function chatConversationData(){
+  const libraries=visibleLibraries();
+  const community=libraries.filter(l=>!(l.device_id===state.deviceId||l.isMine||(currentUsername()&&String(l.username||"").toLowerCase()===currentUsername().toLowerCase())));
+  const people=chatCommunityProfiles(community);
+  return people.map(chatThreadFromLibrary);
+}
+function chatScoreLabel(album){
+  const direct=Number(album?.avg_rating||0);
+  if(direct>0)return displayScore(album);
+  const rating=Number(album?.rating||0);
+  return rating>0?rating.toFixed(1):"-";
+}
+function chatMatchLabel(match){
+  const value=Number(match||0);
+  if(value>=80)return "Strong Match";
+  if(value>=55)return "Shared Current";
+  if(value>0)return "Adjacent Taste";
+  return "Outside Your Taste";
+}
+function chatCompatibilityText(match,withPrefix=false){
+  const value=Number(match||0);
+  if(value<10)return value===0?"New Territory":"Unexpected Discovery";
+  return withPrefix?`${value}% Music Compatibility`:`${value}% Match`;
+}
+function chatTasteChips(items,limit=2){
+  const clean=[...new Set((items||[]).filter(Boolean))];
+  const visible=clean.slice(0,limit).map(item=>`<span>${escapeHtml(item)}</span>`).join("");
+  const more=clean.length>limit?`<span class="chatMoreChip">+${clean.length-limit} more</span>`:"";
+  return visible+more;
+}
+function chatConnectionPurpose(active){
+  const artist=active.artists?.[0]||"music";
+  const album=active.albums?.[0]||"the same records";
+  if(Number(active.match||0)>=80)return `You both keep returning to ${artist} and ${album}.`;
+  if(Number(active.match||0)>0)return `You have overlap around ${artist}, with room to trade discoveries.`;
+  return `Their library sits outside your usual taste, which makes it useful for discovery.`;
+}
+function chatConnectionContext(active){
+  const activeLibrary=active?.profile||active?.library||null;
+  const liveSharedAlbums=activeLibrary?mutualAlbumsForLibrary(activeLibrary):[];
+  const liveArtists=activeLibrary?mutualArtistsForLibrary(activeLibrary):[];
+  const sharedAlbums=[...new Set([...(active.sharedAlbums||[]),...liveSharedAlbums].filter(Boolean))].slice(0,8);
+  const artists=[...new Set([...(active.artists||[]),...liveArtists].filter(Boolean))].slice(0,8);
+  const label=sharedAlbums.length?"Albums in Common":"Mutual Artists";
+  const items=sharedAlbums.length?sharedAlbums:artists;
+  const empty=sharedAlbums.length?"No albums in common yet.":"No mutual artists yet.";
+  const pills=items.length?items.map(item=>`<span>${escapeHtml(item)}</span>`).join(""):`<p>${empty}</p>`;
+  return `<div class="chatConnectionContext"><small>${label}</small><div class="chatMutualArtistPills">${pills}</div></div>`;
+}
+function chatEmojiSearchText(label,emoji){
+  function flagCountryName(value){
+    const points=[...String(value||"")].map(ch=>ch.codePointAt(0));
+    if(points.length!==2||points.some(point=>point<0x1f1e6||point>0x1f1ff))return "";
+    const code=points.map(point=>String.fromCharCode(65+point-0x1f1e6)).join("");
+    try{return new Intl.DisplayNames([navigator.language||"en"],{type:"region"}).of(code)||code}catch(e){return code}
+  }
+  const categoryAliases={
+    Smileys:"face smile happy laugh lol joy sad cry angry love sick sleepy shocked thinking wink cool party",
+    People:"person people hand hands body gesture thumbs clap pray muscle family job sport royal king queen crown",
+    Animals:"animal nature plant flower tree pet dog cat bird fish bug",
+    Food:"food drink fruit vegetable meal dessert coffee beer wine pizza burger",
+    Activities:"activity sport sports game ball music instrument art trophy medal movie ticket",
+    Travel:"travel place vehicle car bus train plane boat building house mountain beach city",
+    Objects:"object phone computer camera clock money tool gift book lock key mail",
+    Symbols:"symbol heart love music arrow number warning check circle square color",
+    Flags:"flag country pride pirate race"
+  };
+  const emojiAliases={
+    "😀":"grin happy smile face glad cheerful","😃":"smile happy face glad cheerful","😄":"smile happy laugh glad cheerful","😁":"grin smile happy glad cheerful","😆":"laugh smile happy glad cheerful","😅":"sweat laugh smile happy","😂":"laugh tears joy lol happy funny","🤣":"rofl laugh rolling lol happy funny","🥲":"tear smile touched happy sad","🥹":"holding tears emotional happy sad","☺️":"smile blush happy glad","😊":"smile blush happy glad cheerful","😇":"angel innocent happy smile","🙂":"smile slight happy glad","🙃":"upside down silly happy smile","😉":"wink happy smile","😌":"relieved calm happy","😍":"heart eyes love happy","🥰":"love hearts smile happy","😘":"kiss love happy","😗":"kiss happy","😙":"kiss happy smile","😚":"kiss happy blush","😋":"yum tasty happy","😛":"tongue silly happy","😝":"tongue silly happy","😜":"wink tongue silly happy","🤪":"crazy silly happy","🤨":"raised eyebrow suspicious confused","🧐":"monocle curious","🤓":"nerd glasses happy","😎":"cool sunglasses happy","🥸":"disguise glasses","🤩":"star eyes excited happy","🥳":"party celebrate happy","😏":"smirk","😒":"unamused annoyed sad","😞":"sad disappointed unhappy","😔":"sad pensive unhappy","😟":"worried sad unhappy","😕":"confused sad","🙁":"frown sad unhappy","☹️":"frown sad unhappy","😣":"pained sad frustrated","😖":"confounded sad upset","😫":"tired sad weary","😩":"weary sad tired","🥺":"pleading puppy eyes sad","😢":"cry sad tear unhappy","😭":"sob cry sad unhappy","😤":"triumph angry mad annoyed","😠":"angry mad annoyed","😡":"rage angry mad annoyed","🤬":"swear angry mad annoyed","🤯":"mind blown shocked","😳":"flushed embarrassed","🥵":"hot","🥶":"cold frozen","😱":"scream scared shocked","😨":"fear scared","😰":"anxious sweat","😥":"sad relieved sweat","😓":"sad sweat","🫣":"peek scared","🤗":"hug happy","🫡":"salute","🤔":"thinking","🫢":"oops shocked","🤭":"giggle oops happy","🤫":"shush quiet","🤥":"lie liar","😶":"silent neutral","😐":"neutral blank","😑":"expressionless blank","😬":"grimace awkward","🫨":"shaking shocked","🫠":"melting","🙄":"eye roll annoyed","😯":"surprised","😦":"frown open sad","😧":"anguished sad","😮":"open mouth surprised","😲":"astonished shocked","🥱":"yawn tired","😴":"sleep sleepy","🤤":"drool","😪":"sleepy sad","😵":"dizzy","😵‍💫":"dizzy confused","🫥":"invisible","🤐":"zipper mouth secret","🥴":"woozy","🤢":"nauseous sick","🤮":"vomit sick","🤧":"sneeze sick","😷":"mask sick","🤒":"thermometer sick","🤕":"bandage hurt","🤑":"money face","🤠":"cowboy happy",
+    "👋":"wave hello hand","👍":"thumbs up like yes","👎":"thumbs down dislike no","👏":"clap applause","🙌":"raise hands celebrate","🫶":"heart hands love","🙏":"pray please thanks","💪":"muscle strong flex","👀":"eyes look","👄":"lips mouth kiss","👶":"baby","🧑":"person","👨":"man","👩":"woman","🧓":"older adult","👴":"old man","👵":"old woman","👑":"crown king queen royal","🫅":"royal person crown king queen","🤴":"king prince royal crown","👸":"queen princess royal crown","👨‍👩‍👧":"family parents child","👨‍👩‍👦":"family parents son","👨‍👩‍👧‍👦":"family parents children","👨‍👩‍👦‍👦":"family parents sons","👨‍👩‍👧‍👧":"family parents daughters","👩‍👩‍👧":"family mothers child","👩‍👩‍👦":"family mothers son","👩‍👩‍👧‍👦":"family mothers children","👩‍👩‍👦‍👦":"family mothers sons","👩‍👩‍👧‍👧":"family mothers daughters","👨‍👨‍👧":"family fathers child","👨‍👨‍👦":"family fathers son","👨‍👨‍👧‍👦":"family fathers children","👨‍👨‍👦‍👦":"family fathers sons","👨‍👨‍👧‍👧":"family fathers daughters","👩‍👧":"family mother daughter","👩‍👦":"family mother son","👩‍👧‍👦":"family mother children","👩‍👦‍👦":"family mother sons","👩‍👧‍👧":"family mother daughters","👨‍👧":"family father daughter","👨‍👦":"family father son","👨‍👧‍👦":"family father children","👨‍👦‍👦":"family father sons","👨‍👧‍👧":"family father daughters","🏃":"run running","💃":"dance dancer","🕺":"dance dancer","🚴":"bike bicycle cycling","🏊":"swim swimming","⛹️":"basketball sport","🏋️":"lift weights gym","🧘":"meditate yoga",
+    "🐶":"dog pet","🐱":"cat pet","🐭":"mouse","🐰":"rabbit bunny","🦊":"fox","🐻":"bear","🐼":"panda","🐨":"koala","🐯":"tiger","🦁":"lion","🐮":"cow","🐷":"pig","🐸":"frog","🐵":"monkey","🐔":"chicken","🐧":"penguin","🐦":"bird","🦆":"duck","🦅":"eagle","🦉":"owl","🦇":"bat","🐴":"horse","🦄":"unicorn","🐝":"bee","🐛":"bug caterpillar","🦋":"butterfly","🐌":"snail","🐞":"ladybug","🐜":"ant","🕷️":"spider","🐢":"turtle","🐍":"snake","🐙":"octopus","🐟":"fish","🐬":"dolphin","🐳":"whale","🦈":"shark","🐘":"elephant","🦒":"giraffe","🐕":"dog pet","🐈":"cat pet","🌵":"cactus","🎄":"christmas tree","🌲":"tree","🌳":"tree","🌴":"palm tree","🌱":"seedling plant","🌿":"herb plant","☘️":"clover","🍀":"lucky clover","🍄":"mushroom","💐":"bouquet flowers","🌷":"tulip flower","🌹":"rose flower love","🌺":"hibiscus flower","🌸":"cherry blossom flower","🌼":"flower","🌻":"sunflower",
+    "🍇":"grapes fruit","🍉":"watermelon fruit","🍊":"orange fruit","🍋":"lemon fruit","🍌":"banana fruit","🍍":"pineapple fruit","🥭":"mango fruit","🍎":"apple fruit","🍐":"pear fruit","🍑":"peach fruit","🍒":"cherries fruit","🍓":"strawberry fruit","🥝":"kiwi fruit","🍅":"tomato","🥑":"avocado","🍆":"eggplant","🥔":"potato","🥕":"carrot","🌽":"corn","🥒":"cucumber","🥦":"broccoli","🧄":"garlic","🧅":"onion","🍞":"bread","🥐":"croissant","🧀":"cheese","🍖":"meat","🍗":"chicken","🥩":"steak meat","🍔":"burger hamburger","🍟":"fries chips","🍕":"pizza","🌭":"hot dog","🌮":"taco","🌯":"burrito","🥚":"egg","🍳":"cooking breakfast","🥗":"salad","🍿":"popcorn","🍱":"bento","🍚":"rice","🍜":"ramen noodles","🍝":"pasta spaghetti","🍠":"sweet potato","🍣":"sushi","🍤":"shrimp tempura","🍦":"ice cream","🍩":"donut","🍪":"cookie","🎂":"cake birthday","🍰":"cake dessert","🍫":"chocolate","🍬":"candy","☕":"coffee","🍵":"tea","🍺":"beer","🍻":"beers cheers","🥂":"cheers champagne","🍷":"wine","🍸":"cocktail","🥤":"drink cup","🧊":"ice",
+    "⚽":"soccer football ball sport","🏀":"basketball ball sport","🏈":"football american sport","⚾":"baseball ball sport","🎾":"tennis ball sport","🏐":"volleyball sport","🏉":"rugby sport","🎱":"pool billiards 8 ball","🏓":"ping pong table tennis","🏸":"badminton","🏒":"hockey","🏑":"field hockey","🏏":"cricket","🥅":"goal net","⛳":"golf","🏹":"archery bow","🎣":"fishing","🥊":"boxing glove","🥋":"martial arts","🎽":"running shirt","🛹":"skateboard","⛸️":"ice skate","🎿":"ski","⛷️":"skiing","🏂":"snowboard","🏋️":"weight lifting gym","🤼":"wrestling","🤸":"gymnastics","⛹️":"basketball player","🤺":"fencing","🏇":"horse racing","🏄":"surf","🚣":"rowing","🏊":"swimming","🚴":"cycling bike","🏆":"trophy winner","🥇":"gold medal first","🥈":"silver medal second","🥉":"bronze medal third","🏅":"medal","🎖️":"military medal","🎫":"ticket","🎟️":"tickets","🎪":"circus","🎭":"theater drama","🩰":"ballet","🎨":"art paint","🎬":"movie clapper film","🎤":"microphone singing","🎧":"headphones music","🎼":"music score","🎹":"piano keyboard","🥁":"drums","🎷":"saxophone","🎺":"trumpet","🎸":"guitar","🎻":"violin","🎲":"dice game","♟️":"chess","🎯":"target dart","🎳":"bowling","🎮":"video game controller","🎰":"slot machine","🧩":"puzzle",
+    "🚗":"car vehicle","🚕":"taxi","🚙":"suv car","🚌":"bus","🚎":"trolley bus","🏎️":"race car","🚓":"police car","🚑":"ambulance","🚒":"fire truck","🚐":"van","🚚":"truck delivery","🚛":"truck","🚜":"tractor","🛴":"scooter","🚲":"bike bicycle","🏍️":"motorcycle","🚨":"siren police","🚔":"police car","🚍":"bus","🚘":"car","🚖":"taxi","🚡":"cable car","🚠":"mountain cableway","🚟":"railway","🚃":"train","🚋":"tram","🚞":"train","🚝":"monorail","🚄":"train fast","🚅":"bullet train","🚈":"train metro","🚂":"locomotive train","🚆":"train","🚇":"subway metro","✈️":"plane airplane flight","🛫":"takeoff plane","🛬":"landing plane","🚀":"rocket","🛸":"ufo","⛵":"sailboat","🚤":"speedboat","🛳️":"ship cruise","⛴️":"ferry","🚢":"ship","⚓":"anchor","⛽":"gas fuel","🚧":"construction","🚦":"traffic light","🗺️":"map","🗿":"statue","🗽":"statue liberty","🏰":"castle","🎡":"ferris wheel","🎢":"roller coaster","⛲":"fountain","🏖️":"beach","🏝️":"island","🏜️":"desert","🌋":"volcano","⛰️":"mountain","🏔️":"snow mountain","🗻":"mount fuji","🏕️":"camping","⛺":"tent","🏠":"house home","🏡":"house home","🏢":"office building","🏥":"hospital","🏦":"bank","🏨":"hotel","🏫":"school","⛪":"church","🕌":"mosque","🛕":"temple","🌅":"sunrise","🌃":"night city",
+    "⌚":"watch clock","📱":"phone mobile","💻":"laptop computer","⌨️":"keyboard","🖥️":"desktop computer","🖨️":"printer","🖱️":"mouse computer","💽":"disk","💾":"save floppy","💿":"cd disc","📷":"camera","📸":"camera flash","📹":"video camera","🎥":"movie camera","📞":"phone telephone","📺":"tv television","📻":"radio","🎙️":"microphone","⏰":"alarm clock","⌛":"hourglass","🔋":"battery","🔌":"plug","💡":"light bulb idea","🔦":"flashlight","🕯️":"candle","💸":"money cash","💵":"dollar money","💰":"money bag","💳":"credit card","💎":"diamond gem","⚖️":"scale balance law","🔧":"wrench tool","🔨":"hammer tool","⚙️":"gear settings","🔫":"water gun","💣":"bomb","🔪":"knife","🛡️":"shield","🔮":"crystal ball magic","🧿":"evil eye","💈":"barber","🔭":"telescope","🔬":"microscope","🧪":"test tube science","🧹":"broom clean","🧺":"basket","🚽":"toilet","🚿":"shower","🛁":"bathtub","🧼":"soap","🔑":"key","🚪":"door","🛋️":"couch","🛏️":"bed","🧳":"luggage","🛒":"shopping cart","🎁":"gift present","🎈":"balloon","🎀":"ribbon","🎊":"confetti","🎉":"party popper","✉️":"mail envelope","📩":"email","📦":"package box","📜":"scroll paper","📄":"document paper","📊":"chart graph","📈":"chart up","📉":"chart down","📅":"calendar","📌":"pin","✂️":"scissors","🖊️":"pen","📝":"memo note","🔍":"search magnify","🔒":"lock","🔓":"unlock",
+    "❤️":"heart love red","🧡":"heart orange love","💛":"heart yellow love","💚":"heart green love","💙":"heart blue love","🩵":"heart light blue love","💜":"heart purple love","🤎":"heart brown love","🖤":"heart black love","🤍":"heart white love","💔":"broken heart","❤️‍🔥":"heart fire love","❤️‍🩹":"mending heart healing","💕":"two hearts love","💞":"revolving hearts love","💓":"beating heart love","💗":"growing heart love","💖":"sparkling heart love","💘":"cupid heart love","☮️":"peace","✝️":"cross christian","☪️":"islam crescent","✡️":"star david jewish","☯️":"yin yang","♈":"aries zodiac","♉":"taurus zodiac","♊":"gemini zodiac","♋":"cancer zodiac","♌":"leo zodiac","♍":"virgo zodiac","♎":"libra zodiac","♏":"scorpio zodiac","♐":"sagittarius zodiac","♑":"capricorn zodiac","♒":"aquarius zodiac","♓":"pisces zodiac","❌":"x cross no","⭕":"circle o","🛑":"stop sign","⛔":"no entry","💯":"hundred 100 perfect","❗":"exclamation","❓":"question mark","⚠️":"warning","✅":"check yes done","🎵":"music note","🎶":"music notes","➡️":"right arrow","⬅️":"left arrow","⬆️":"up arrow","⬇️":"down arrow","🔴":"red circle","🟠":"orange circle","🟡":"yellow circle","🟢":"green circle","🔵":"blue circle","🟣":"purple circle","⚫":"black circle","⚪":"white circle","⬛":"black square","⬜":"white square",
+    "🏁":"checkered flag race finish","🚩":"red flag","🎌":"crossed flags japan","🏴":"black flag","🏳️":"white flag","🏳️‍🌈":"rainbow pride flag","🏳️‍⚧️":"trans transgender pride flag","🏴‍☠️":"pirate flag","🇺🇳":"un united nations flag","🇦🇺":"australia flag","🇧🇪":"belgium flag","🇧🇷":"brazil flag","🇨🇦":"canada flag","🇨🇳":"china flag","🇫🇷":"france flag","🇩🇪":"germany flag","🇬🇧":"uk britain england flag","🇺🇸":"usa america flag","🇮🇱":"israel flag","🇮🇹":"italy flag","🇯🇵":"japan flag","🇰🇷":"korea flag","🇲🇽":"mexico flag","🇳🇱":"netherlands flag","🇳🇿":"new zealand flag","🇪🇸":"spain flag","🇸🇪":"sweden flag","🇨🇭":"switzerland flag","🇺🇦":"ukraine flag","🇦🇪":"uae emirates flag","🇻🇳":"vietnam flag"
+  };
+  return [label,categoryAliases[label]||"",emojiAliases[emoji]||"",flagCountryName(emoji),emoji].join(" ").toLowerCase();
+}
+function chatEmojiPickerHtml(){
+  const groups=[
+    ["Smileys","😀 😃 😄 😁 😆 😅 😂 🤣 🥲 🥹 ☺️ 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥸 🤩 🥳 🙂‍↕️ 😏 😒 🙂‍↔️ 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😶‍🌫️ 😱 😨 😰 😥 😓 🫣 🤗 🫡 🤔 🫢 🤭 🤫 🤥 😶 😐 😑 😬 🫨 🫠 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 😵‍💫 🫥 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠"],
+    ["People","👋 🤚 🖐️ ✋ 🖖 🫱 🫲 🫳 🫴 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 🖕 👇 ☝️ 🫵 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 🫶 👐 🤲 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🦿 🦵 🦶 👂 🦻 👃 🧠 🫀 🫁 🦷 🦴 👀 👁️ 👅 👄 🫦 👶 🧒 👦 👧 🧑 👱 👨 🧔 🧔‍♂️ 🧔‍♀️ 👩 🧓 👴 👵 🙍 🙎 🙅 🙆 💁 🙋 🧏 🙇 🤦 🤷 🧑‍⚕️ 🧑‍🎓 🧑‍🏫 🧑‍⚖️ 🧑‍🌾 🧑‍🍳 🧑‍🔧 🧑‍🏭 🧑‍💼 🧑‍🔬 🧑‍💻 🧑‍🎤 🧑‍🎨 🧑‍✈️ 🧑‍🚀 🧑‍🚒 🥷 🕵️ 💂 👷 👑 🫅 🤴 👸 👳 👲 🧕 🤵 👰 🤰 🫃 🫄 🤱 👨‍👩‍👧 👨‍👩‍👦 👨‍👩‍👧‍👦 👨‍👩‍👦‍👦 👨‍👩‍👧‍👧 👩‍👩‍👧 👩‍👩‍👦 👩‍👩‍👧‍👦 👩‍👩‍👦‍👦 👩‍👩‍👧‍👧 👨‍👨‍👧 👨‍👨‍👦 👨‍👨‍👧‍👦 👨‍👨‍👦‍👦 👨‍👨‍👧‍👧 👩‍👧 👩‍👦 👩‍👧‍👦 👩‍👦‍👦 👩‍👧‍👧 👨‍👧 👨‍👦 👨‍👧‍👦 👨‍👦‍👦 👨‍👧‍👧 👼 🎅 🤶 🧑‍🎄 🦸 🦹 🧙 🧚 🧛 🧜 🧝 🧞 🧟 🧌 💆 💇 🚶 🧍 🧎 🏃 💃 🕺 🕴️ 👯 🧖 🧗 🤺 🏇 ⛷️ 🏂 🏌️ 🏄 🚣 🏊 ⛹️ 🏋️ 🚴 🚵 🤸 🤼 🤽 🤾 🤹 🧘 🛀 🛌"],
+    ["Animals","🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐻‍❄️ 🐨 🐯 🦁 🐮 🐷 🐽 🐸 🐵 🙈 🙉 🙊 🐒 🐔 🐧 🐦 🐤 🐣 🐥 🪿 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🫎 🐝 🪱 🐛 🦋 🐌 🐞 🐜 🪰 🪲 🪳 🦟 🦗 🕷️ 🕸️ 🦂 🐢 🐍 🦎 🦖 🦕 🐙 🦑 🦐 🦞 🦀 🪼 🪸 🐡 🐠 🐟 🐬 🐳 🐋 🦈 🐊 🐅 🐆 🦓 🦍 🦧 🦣 🐘 🦛 🦏 🐪 🐫 🦒 🦘 🦬 🐃 🐂 🐄 🫏 🐎 🐖 🐏 🐑 🦙 🐐 🦌 🐕 🐩 🦮 🐕‍🦺 🐈 🐈‍⬛ 🪶 🐓 🦃 🦤 🦚 🦜 🪽 🐇 🦝 🦨 🦡 🦫 🦦 🦥 🐁 🐀 🐿️ 🦔 🐾 🐉 🐲 🌵 🎄 🌲 🌳 🌴 🪵 🌱 🌿 ☘️ 🍀 🎍 🪴 🎋 🍃 🍂 🍁 🪺 🪹 🍄 🐚 🪨 🌾 💐 🌷 🪷 🌹 🥀 🌺 🌸 🪻 🌼 🌻"],
+    ["Food","🍇 🍈 🍉 🍊 🍋 🍋‍🟩 🍌 🍍 🥭 🍎 🍏 🍐 🍑 🍒 🍓 🫐 🥝 🍅 🫒 🥥 🥑 🍆 🥔 🥕 🌽 🌶️ 🫑 🥒 🥬 🥦 🧄 🧅 🥜 🫘 🌰 🫚 🫛 🍄‍🟫 🍞 🥐 🥖 🫓 🥨 🥯 🥞 🧇 🧀 🍖 🍗 🥩 🥓 🍔 🍟 🍕 🌭 🥪 🌮 🌯 🫔 🥙 🧆 🥚 🍳 🥘 🍲 🫕 🥣 🥗 🍿 🧈 🧂 🥫 🍱 🍘 🍙 🍚 🍛 🍜 🍝 🍠 🍢 🍣 🍤 🍥 🥮 🍡 🥟 🥠 🥡 🦪 🍦 🍧 🍨 🍩 🍪 🎂 🍰 🧁 🥧 🍫 🍬 🍭 🍮 🍯 🍼 🥛 ☕ 🫖 🍵 🍶 🍾 🍷 🍸 🍹 🍺 🍻 🥂 🥃 🫗 🥤 🧋 🧃 🧉 🧊 🥢 🍽️ 🍴 🥄 🔪 🫙 🏺"],
+    ["Activities","⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🪀 🏓 🏸 🏒 🏑 🥍 🏏 🪃 🥅 ⛳ 🪁 🛝 🏹 🎣 🤿 🥊 🥋 🎽 🛹 🛼 🛷 ⛸️ 🥌 🎿 ⛷️ 🏂 🪂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏌️ 🏇 🧘 🏄 🏊 🤽 🚣 🧗 🚴 🚵 🏆 🥇 🥈 🥉 🏅 🎖️ 🏵️ 🎗️ 🎫 🎟️ 🎪 🤹 🎭 🩰 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🪘 🪇 🎷 🎺 🪗 🎸 🪕 🎻 🪈 🎲 ♟️ 🎯 🎳 🎮 🎰 🧩"],
+    ["Travel","🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🦯 🦽 🦼 🛴 🚲 🛵 🏍️ 🛺 🛞 🚨 🚔 🚍 🚘 🚖 🚡 🚠 🚟 🚃 🚋 🚞 🚝 🚄 🚅 🚈 🚂 🚆 🚇 🚊 🚉 ✈️ 🛫 🛬 🛩️ 💺 🛰️ 🚀 🛸 🚁 🛶 ⛵ 🚤 🛥️ 🛳️ ⛴️ 🚢 🛟 ⚓ 🪝 ⛽ 🚧 🚦 🚥 🚏 🗺️ 🗿 🗽 🗼 🏰 🏯 🏟️ 🎡 🎢 🎠 ⛲ ⛱️ 🏖️ 🏝️ 🏜️ 🌋 ⛰️ 🏔️ 🗻 🏕️ ⛺ 🛖 🏠 🏡 🏘️ 🏚️ 🏗️ 🏭 🏢 🏬 🏣 🏤 🏥 🏦 🏨 🏪 🏫 🏩 💒 🏛️ ⛪ 🕌 🕍 🛕 🕋 ⛩️ 🛤️ 🛣️ 🌅 🌄 🌠 🎇 🎆 🌇 🌆 🏙️ 🌃 🌌 🌉 🌁"],
+    ["Objects","⌚ 📱 📲 💻 ⌨️ 🖥️ 🖨️ 🖱️ 🖲️ 🕹️ 🗜️ 💽 💾 💿 📀 📼 📷 📸 📹 🎥 📽️ 🎞️ 📞 ☎️ 📟 📠 📺 📻 🎙️ 🎚️ 🎛️ 🧭 ⏱️ ⏲️ ⏰ 🕰️ ⌛ ⏳ 📡 🔋 🪫 🔌 💡 🔦 🕯️ 🪔 🧯 🛢️ 💸 💵 💴 💶 💷 🪙 💰 💳 🪪 💎 ⚖️ 🪜 🧰 🪛 🔧 🔨 ⚒️ 🛠️ ⛏️ 🪚 🔩 ⚙️ 🪤 🧱 ⛓️ 🧲 🔫 💣 🧨 🪓 🔪 🗡️ ⚔️ 🛡️ 🚬 ⚰️ 🪦 ⚱️ 🏺 🔮 📿 🧿 🪬 💈 ⚗️ 🔭 🔬 🕳️ 🩻 🩹 🩺 💊 💉 🩸 🧬 🦠 🧫 🧪 🌡️ 🧹 🪠 🧺 🧻 🚽 🚰 🚿 🛁 🛀 🧼 🪥 🪒 🧽 🪣 🧴 🛎️ 🔑 🗝️ 🚪 🪑 🛋️ 🛏️ 🪞 🪟 🧳 🛒 🎁 🎈 🎏 🎀 🪄 🪅 🎊 🎉 🪩 🎎 🏮 🎐 🧧 ✉️ 📩 📨 📧 💌 📥 📤 📦 🏷️ 🪧 📪 📫 📬 📭 📮 📯 📜 📃 📄 📑 🧾 📊 📈 📉 🗒️ 🗓️ 📆 📅 🗑️ 📇 🗃️ 🗳️ 🗄️ 📋 📁 📂 🗂️ 🗞️ 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 🧷 🔗 📎 🖇️ 📐 📏 🧮 📌 📍 ✂️ 🖊️ 🖋️ ✒️ 🖌️ 🖍️ 📝 ✏️ 🔍 🔎 🔏 🔐 🔒 🔓"],
+    ["Symbols","❤️ 🧡 💛 💚 💙 🩵 💜 🤎 🖤 🩶 🤍 🩷 💔 ❤️‍🔥 ❤️‍🩹 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ☮️ ✝️ ☪️ 🕉️ ☸️ ✡️ 🔯 🕎 ☯️ ☦️ 🛐 ⛎ ♈ ♉ ♊ ♋ ♌ ♍ ♎ ♏ ♐ ♑ ♒ ♓ 🆔 ⚛️ 🉑 ☢️ ☣️ 📴 📳 🈶 🈚 🈸 🈺 🈷️ ✴️ 🆚 💮 🉐 ㊙️ ㊗️ 🈴 🈵 🈹 🈲 🅰️ 🅱️ 🆎 🆑 🅾️ 🆘 ❌ ⭕ 🛑 ⛔ 📛 🚫 💯 💢 ♨️ 🚷 🚯 🚳 🚱 🔞 📵 🚭 ❗ ❕ ❓ ❔ ‼️ ⁉️ 🔅 🔆 〽️ ⚠️ 🚸 🔱 ⚜️ 🔰 ♻️ ✅ 🈯 💹 ❇️ ✳️ ❎ 🌐 💠 Ⓜ️ 🌀 💤 🏧 🚾 ♿ 🅿️ 🛗 🈳 🈂️ 🛂 🛃 🛄 🛅 🚹 🚺 🚼 ⚧️ 🚻 🚮 🎦 📶 🈁 🔣 ℹ️ 🔤 🔡 🔠 🆖 🆗 🆙 🆒 🆕 🆓 0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟 🔢 #️⃣ *️⃣ ⏏️ ▶️ ⏸️ ⏯️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ ⏫ ⏬ ◀️ 🔼 🔽 ➡️ ⬅️ ⬆️ ⬇️ ↗️ ↘️ ↙️ ↖️ ↕️ ↔️ ↪️ ↩️ ⤴️ ⤵️ 🔀 🔁 🔂 🔄 🔃 🎵 🎶 ➕ ➖ ➗ ✖️ 🟰 ♾️ 💲 💱 ™️ ©️ ®️ 〰️ ➰ ➿ 🔚 🔙 🔛 🔝 🔜 ✔️ ☑️ 🔘 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🟤 🔺 🔻 🔸 🔹 🔶 🔷 🔳 🔲 ▪️ ▫️ ◾ ◽ ◼️ ◻️ 🟥 🟧 🟨 🟩 🟦 🟪 ⬛ ⬜ 🟫"],
+    ["Flags","🏁 🚩 🎌 🏴 🏳️ 🏳️‍🌈 🏳️‍⚧️ 🏴‍☠️ 🇺🇳 🇦🇨 🇦🇩 🇦🇪 🇦🇫 🇦🇬 🇦🇮 🇦🇱 🇦🇲 🇦🇴 🇦🇶 🇦🇷 🇦🇸 🇦🇹 🇦🇺 🇦🇼 🇦🇽 🇦🇿 🇧🇦 🇧🇧 🇧🇩 🇧🇪 🇧🇫 🇧🇬 🇧🇭 🇧🇮 🇧🇯 🇧🇱 🇧🇲 🇧🇳 🇧🇴 🇧🇶 🇧🇷 🇧🇸 🇧🇹 🇧🇻 🇧🇼 🇧🇾 🇧🇿 🇨🇦 🇨🇨 🇨🇩 🇨🇫 🇨🇬 🇨🇭 🇨🇮 🇨🇰 🇨🇱 🇨🇲 🇨🇳 🇨🇴 🇨🇵 🇨🇷 🇨🇺 🇨🇻 🇨🇼 🇨🇽 🇨🇾 🇨🇿 🇩🇪 🇩🇬 🇩🇯 🇩🇰 🇩🇲 🇩🇴 🇩🇿 🇪🇦 🇪🇨 🇪🇪 🇪🇬 🇪🇭 🇪🇷 🇪🇸 🇪🇹 🇪🇺 🇫🇮 🇫🇯 🇫🇰 🇫🇲 🇫🇴 🇫🇷 🇬🇦 🇬🇧 🇬🇩 🇬🇪 🇬🇫 🇬🇬 🇬🇭 🇬🇮 🇬🇱 🇬🇲 🇬🇳 🇬🇵 🇬🇶 🇬🇷 🇬🇸 🇬🇹 🇬🇺 🇬🇼 🇬🇾 🇭🇰 🇭🇲 🇭🇳 🇭🇷 🇭🇹 🇭🇺 🇮🇨 🇮🇩 🇮🇪 🇮🇱 🇮🇲 🇮🇳 🇮🇴 🇮🇶 🇮🇷 🇮🇸 🇮🇹 🇯🇪 🇯🇲 🇯🇴 🇯🇵 🇰🇪 🇰🇬 🇰🇭 🇰🇮 🇰🇲 🇰🇳 🇰🇵 🇰🇷 🇰🇼 🇰🇾 🇰🇿 🇱🇦 🇱🇧 🇱🇨 🇱🇮 🇱🇰 🇱🇷 🇱🇸 🇱🇹 🇱🇺 🇱🇻 🇱🇾 🇲🇦 🇲🇨 🇲🇩 🇲🇪 🇲🇫 🇲🇬 🇲🇭 🇲🇰 🇲🇱 🇲🇲 🇲🇳 🇲🇴 🇲🇵 🇲🇶 🇲🇷 🇲🇸 🇲🇹 🇲🇺 🇲🇻 🇲🇼 🇲🇽 🇲🇾 🇲🇿 🇳🇦 🇳🇨 🇳🇪 🇳🇫 🇳🇬 🇳🇮 🇳🇱 🇳🇴 🇳🇵 🇳🇷 🇳🇺 🇳🇿 🇴🇲 🇵🇦 🇵🇪 🇵🇫 🇵🇬 🇵🇭 🇵🇰 🇵🇱 🇵🇲 🇵🇳 🇵🇷 🇵🇸 🇵🇹 🇵🇼 🇵🇾 🇶🇦 🇷🇪 🇷🇴 🇷🇸 🇷🇺 🇷🇼 🇸🇦 🇸🇧 🇸🇨 🇸🇩 🇸🇪 🇸🇬 🇸🇭 🇸🇮 🇸🇯 🇸🇰 🇸🇱 🇸🇲 🇸🇳 🇸🇴 🇸🇷 🇸🇸 🇸🇹 🇸🇻 🇸🇽 🇸🇾 🇸🇿 🇹🇦 🇹🇨 🇹🇩 🇹🇫 🇹🇬 🇹🇭 🇹🇯 🇹🇰 🇹🇱 🇹🇲 🇹🇳 🇹🇴 🇹🇷 🇹🇹 🇹🇻 🇹🇼 🇹🇿 🇺🇦 🇺🇬 🇺🇲 🇺🇸 🇺🇾 🇺🇿 🇻🇦 🇻🇨 🇻🇪 🇻🇬 🇻🇮 🇻🇳 🇻🇺 🇼🇫 🇼🇸 🇽🇰 🇾🇪 🇾🇹 🇿🇦 🇿🇲 🇿🇼"]
+  ];
+  const categoryIcons={Smileys:"&#9786;&#65039;",People:"&#128075;",Animals:"&#128062;",Food:"&#127828;",Activities:"&#9917;",Travel:"&#128652;",Objects:"&#128187;",Symbols:"&#127925;",Flags:"&#127987;&#65039;"};
+  const nav=groups.map(([label])=>`<button type="button" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" onclick="scrollChatEmojiSection('${escapeJsString(label)}')">${categoryIcons[label]||"&#8226;"}</button>`).join("");
+  const body=groups.map(([label,items])=>{
+    const emojis=items.split(" ").filter(Boolean);
+    return `<div class="chatEmojiGroup" data-emoji-group="${escapeHtml(label)}"><strong>${escapeHtml(label)}</strong>${emojis.map(emoji=>`<button type="button" data-emoji-search="${escapeHtml(chatEmojiSearchText(label,emoji))}" onclick="insertChatEmoji('${emoji}')">${emoji}</button>`).join("")}</div>`;
+  }).join("");
+  return `<div class="chatEmojiPicker" id="chatEmojiPicker" hidden><div class="chatEmojiTools"><div class="chatEmojiSearchField"><span aria-hidden="true">&#128269;</span><input id="chatEmojiSearch" type="search" placeholder="Search emoji" autocomplete="off" oninput="filterChatEmojiPicker(this.value)" onkeydown="if(event.key==='Enter')event.preventDefault()"></div><nav class="chatEmojiNav" aria-label="Emoji categories">${nav}</nav></div><div class="chatEmojiResults" id="chatEmojiResults">${body}<div class="chatEmojiNoResults" hidden>No emoji found</div></div></div>`;
+}
+function chatAvatarMarkup(person,online=false,index=0){
+  const profile=typeof person==="object"&&person?person:null;
+  const name=profile?String(profile.username||profile.name||profile.title||"Chat participant"):String(person||"Chat participant");
+  if(profile)return `<span class="chatAvatar ${online?"online":""} hasChatPhoto">${libraryAvatarMarkup({...profile,username:name})}</span>`;
+  const seed=String(name||"Muze").split("").reduce((sum,ch)=>sum+ch.charCodeAt(0),0)+index;
+  const url=MUZE_AVATAR_ICONS[seed%MUZE_AVATAR_ICONS.length]||DEFAULT_AVATAR_URL;
+  return `<span class="chatAvatar ${online?"online":""} hasChatPhoto"><img src="${escapeHtml(url)}" alt="${escapeHtml(name||"Chat participant")}"></span>`;
+}
+function chatSharedAlbumCard(album,note=""){
+  const id=escapeJsString(album.id||"");
+  return `<article class="chatAlbumCard">${cover(album)}<span><small>Album shared</small><strong>${escapeHtml(album.title||"Untitled album")}</strong><em>${escapeHtml(album.artist||"Unknown artist")} &middot; ${escapeHtml(album.year||"")}</em>${note?`<b>${escapeHtml(note)}</b>`:""}<span class="chatCardActions"><button onclick="openAlbumRating('${id}')">Rate Album</button><button onclick="openAlbum('${id}')">Open Album</button><button onclick="addCurrentAlbumToLibrary('${id}')">Save Album</button></span></span><i>${escapeHtml(chatScoreLabel(album))}</i></article>`;
+}
+function chatLibraryShareCard(library){
+  const items=liveLibraryItems(library.items||[]).slice(0,3);
+  const key=escapeJsString(library.id||library.device_id||"");
+  const openAction=key&&!String(library.id||"").startsWith("chat-library-")?`openLibraryDetailsById('${key}')`:"navigateToView('libraries')";
+  const followAction=key&&!String(library.id||"").startsWith("chat-library-")?`followLibrary('${key}')`:"navigateToView('libraries')";
+  return `<article class="chatLibraryShare"><span><small>Library shared</small><strong>${escapeHtml(library.title||"Music library")}</strong><em>${items.length} highlighted albums</em><span class="chatCardActions"><button onclick="${openAction}">Open Library</button><button onclick="${followAction}">Follow Library</button></span></span><div>${items.map(item=>item.cover_url?`<img src="${escapeHtml(item.cover_url)}" alt="${escapeHtml(item.title||"Album")}">`:`<b>${escapeHtml(coverText(item))}</b>`).join("")}</div></article>`;
+}
+function chatMessageHtml(message){
+  const body=message.type==="album"?chatSharedAlbumCard(message.album,message.note):
+    message.type==="rating"?`<div class="chatShareBox ratingShare"><small>Rating shared</small><p>${escapeHtml(message.body||"")}</p><strong>${escapeHtml(message.album?.title||"Album")}</strong><span><b>&#9733;</b> ${escapeHtml(message.score||"-")}</span></div>`:
+    message.type==="review"?`<div class="chatShareBox reviewShare"><small>Review shared</small><p>&ldquo;${escapeHtml(message.body||"")}&rdquo;</p><em>${escapeHtml(message.album?.title||"Album")}</em></div>`:
+    message.type==="library"?`<div>${message.body?`<p>${escapeHtml(message.body)}</p>`:""}${chatLibraryShareCard(message.library)}</div>`:
+    `<p>${escapeHtml(message.body||"")}</p>`;
+  return `<article class="chatMessage ${message.side==="me"?"fromMe":"fromThem"} ${message.type==="album"?"albumMessage":""}"><div class="chatBubble">${body}<time>${escapeHtml(message.time||"")}</time></div></article>`;
+}
+function chatStarterStrip(active){
+  const items=liveLibraryItems(active.library?.items||[]);
+  const fallback=[chatAlbumByText("abbey road",0),chatAlbumByText("ok computer",2),chatAlbumByText("to pimp a butterfly",1)].filter(Boolean);
+  const picks=(items.length?items:fallback).slice(0,4);
+  const labels=["Recently added to their library","Recently rated 10","Recently saved","Recently reviewed"];
+  return `<div class="chatStarterStrip">${labels.map((label,index)=>{
+    const album=picks[index%picks.length]||{};
+    return `<button onclick="${album.id?`openAlbum('${escapeJsString(album.id)}')`:"navigateToView('libraries')"}"><small>${escapeHtml(label)}</small><strong>${escapeHtml(album.title||"Share an album")}</strong><span>${escapeHtml(album.artist||"Compare libraries")}</span></button>`;
+  }).join("")}</div>`;
+}
+function chatTarget(){
+  const panel=$("#topbarChatPanel");
+  const panelContent=$("#topbarChatContent");
+  return panel&&panelContent&&!panel.classList.contains("hidden")?panelContent:content;
+}
+function chatView(target=chatTarget()){
+  const conversations=chatConversationData();
+  const active=conversations.find(item=>item.id===state.chatThread)||conversations[0];
+  if(active&&state.chatThread!==active.id)state.chatThread=active.id;
+  const activeIndex=Math.max(0,conversations.findIndex(item=>item.id===active.id));
+  const activeId=escapeJsString(active.id);
+  const sendDisabled=active.group||!chatParticipantId(active);
+  const inputPlaceholder=sendDisabled?"Message about an album...":"Message about an album...";
+  target.innerHTML=`<section class="muzeChatShell simpleMessengerChat"><aside class="muzeChatList"><div class="muzeChatListHead"><div><h2>Chat</h2><p>Share albums, compare libraries, discuss records.</p></div><button class="chatComposeButton" type="button" title="Start conversation">+</button></div>${conversations.map((thread,index)=>`<button class="muzeChatThread ${thread.id===active.id?"active":""} ${thread.unread?"hasUnread":""}" onclick="setChatConversation('${escapeJsString(thread.id)}')">${chatAvatarMarkup(thread.profile||(!thread.group?thread.library:null)||thread.name,thread.online,index)}<span class="muzeChatThreadCopy"><strong>${escapeHtml(thread.name)}</strong><i>${escapeHtml(chatCompatibilityText(thread.match))}</i><small>${escapeHtml(thread.preview)}</small></span><span class="chatThreadMeta"><em>${escapeHtml(thread.time)}</em>${thread.unread?`<b>${thread.unread}</b>`:""}</span></button>`).join("")}</aside><section class="muzeChatPanel"><header class="muzeChatHeader"><div class="chatProfileIdentity">${chatAvatarMarkup(active.profile||(!active.group?active.library:null)||active.name,active.online,activeIndex)}<div><h3>${escapeHtml(active.name)}</h3><p><strong>${escapeHtml(chatCompatibilityText(active.match,true))}</strong><span>${escapeHtml(chatMatchLabel(active.match))}</span></p></div></div><button class="chatCloseButton" type="button" onclick="closeChatView()" aria-label="Close chat"><span aria-hidden="true"></span></button></header>${chatConnectionContext(active)}<div class="muzeChatMessages">${active.messages.map(chatMessageHtml).join("")}</div><footer class="muzeChatComposer"><label><span class="chatInputWrap"><input id="chatMessageInput" placeholder="Message about an album..." onkeydown="if(event.key==='Enter')sendChatMessage('${activeId}')"><button class="chatEmojiButton" type="button" onclick="toggleChatEmojiPicker()" title="Open emoji picker" aria-label="Open emoji picker">🙂</button>${chatEmojiPickerHtml()}</span><button class="chatSendIconButton" type="button" onclick="sendChatMessage('${activeId}')" title="Send message" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 20.2 21 12 3.8 3.8l2.5 7.2L14 12l-7.7 1-2.5 7.2Z"></path></svg></button></label></footer></section></section>`;
+}
+function objectValueCount(object){
+  return Object.values(object||{}).reduce((total,value)=>total+(Array.isArray(value)?value.length:(value?1:0)),0);
+}
+function localChatSharedCount(){
+  const local=chatLocalMessages();
+  return Object.values(local||{}).flat().filter(message=>message?.side==="me"&&["album","library","rating","review"].includes(message?.type)).length;
+}
+function selfLibraryAlbumCount(){
+  const username=profileLibraryUsername().toLowerCase();
+  const candidates=[
+    currentLibraryCard(),
+    ...extras.libraries.filter(l=>l.device_id===state.deviceId||(username&&String(l.username||"").toLowerCase()===username))
+  ];
+  return Math.max(
+    myLibraryItems().length,
+    ...candidates.map(library=>Math.max(
+      Number(library?.album_count||0),
+      Array.isArray(library?.items)?library.items.length:0
+    ))
+  );
+}
+function fallbackSelfStats(){
+  const albumCount=selfLibraryAlbumCount();
+  const songRatings=new Set([
+    ...Object.keys(localTrackRatings()||{}),
+    ...Object.entries(extras.trackRatings||{}).flatMap(([ref,ratings])=>Object.keys(ratings||{}).map(key=>`${ref}::${key}`))
+  ]).size;
+  const commentsLeft=objectValueCount(localComments())+objectValueCount(localTrackComments());
+  const songsShared=localChatSharedCount()+(extras.chatMessages||[]).filter(message=>String(message.sender_id||"")===String(loggedInUser()?.id||"")&&["album","library","rating","review"].includes(message.message_type)).length;
+  return {albumsAdded:albumCount,albumsRated:Object.keys(state.ratingMap||{}).length,songsRated:songRatings,songsShared,commentsLeft};
+}
+async function loadChatSelfStats(){
+  const fallback=fallbackSelfStats();
+  extras.selfStats=fallback;
+  const user=loggedInUser();
+  if(!db||!user)return fallback;
+  const countRows=async query=>{
+    const result=await query;
+    return result.error?null:Number(result.count||0);
+  };
+  const [albumsRated,songsRated,albumComments,trackComments,songsShared]=await Promise.all([
+    countRows(db.from("ratings").select("album_id",{count:"exact",head:true}).eq("device_id",state.deviceId)),
+    countRows(db.from("track_ratings").select("track_key",{count:"exact",head:true}).eq("device_id",state.deviceId)),
+    countRows(db.from("album_comments").select("id",{count:"exact",head:true}).eq("device_id",state.deviceId)),
+    countRows(db.from("track_comments").select("id",{count:"exact",head:true}).eq("device_id",state.deviceId)),
+    countRows(db.from("chat_messages").select("id",{count:"exact",head:true}).eq("sender_id",user.id).neq("message_type","text"))
+  ]);
+  extras.selfStats={
+    ...fallback,
+    albumsRated:albumsRated??fallback.albumsRated,
+    songsRated:songsRated??fallback.songsRated,
+    songsShared:songsShared??fallback.songsShared,
+    commentsLeft:(albumComments??0)+(trackComments??0)||fallback.commentsLeft
+  };
+  return extras.selfStats;
+}
+function chatSelfProfileCard(){
+  const user=loggedInUser();
+  const username=(currentUsername()||state.userProfile?.username||authMetadataName(user)||authEmailPrefix(user)||"Your profile").trim();
+  const stats=extras.selfStats||fallbackSelfStats();
+  const detail=`${Number(stats.albumsAdded||0)} album${Number(stats.albumsAdded||0)===1?"":"s"} in your library`;
+  return `<button class="chatSelfProfileCard" type="button" onclick="openChatSelfProfile(event)" title="Edit your profile"><span class="chatSelfAvatar">${currentAvatarMarkup()}</span><span class="chatSelfCopy"><small>Your Muze profile</small><strong>${escapeHtml(username)}</strong><em>${escapeHtml(detail)}</em></span></button>`;
+}
+window.openChatSelfProfile=function(event){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  closeTopbarChat();
+  $("#notificationPanel")?.classList.add("hidden");
+  if(!loggedInUser()){
+    openAuthModal("Log in to manage your Muze profile.");
+    return;
+  }
+  loadChatSelfStats().then(renderAccountProfileStats).catch(error=>console.warn("Unable to refresh profile stats",error));
+  showAvatarSetup(Boolean(currentUsername()||savedProfileUsername()||avatarHasValue()));
+}
+chatView=function(target=chatTarget()){
+  const conversations=chatConversationData();
+  const active=conversations.find(item=>item.id===state.chatThread)||conversations[0];
+  if(!active){
+    target.innerHTML=`<section class="muzeChatShell simpleMessengerChat chatListOnly"><aside class="muzeChatList"><div class="muzeChatListHead"><div><h2>Chat</h2><p>Search for a Muze user to start a real conversation.</p></div><button class="chatComposeButton ${state.chatUserSearchOpen?"active":""}" type="button" title="Start conversation" onclick="toggleChatUserSearch(event)">+</button></div>${chatUserSearchHtml()}<div class="chatEmptyState">No Muze chats yet. Use + to find someone by username.</div>${chatSelfProfileCard()}</aside><section class="muzeChatPanel"></section></section>`;
+    if(state.chatUserSearchOpen)requestAnimationFrame(()=>$("#chatUserSearchInput")?.focus());
+    return;
+  }
+  if(active&&state.chatThread!==active.id)state.chatThread=active.id;
+  const activeIndex=Math.max(0,conversations.findIndex(item=>item.id===active.id));
+  const activeId=escapeJsString(active.id);
+  const sendDisabled=active.group||!chatParticipantId(active);
+  const inputPlaceholder=sendDisabled?"Choose a person to message...":"Message about an album...";
+  const threadButtons=conversations.map((thread,index)=>`<button class="muzeChatThread ${thread.id===active.id?"active":""} ${thread.unread?"hasUnread":""}" onclick="setChatConversation('${escapeJsString(thread.id)}')">${chatAvatarMarkup(thread.profile||(!thread.group?thread.library:null)||thread.name,thread.online,index)}<span class="muzeChatThreadCopy"><strong>${escapeHtml(thread.name)}</strong><i>${escapeHtml(chatCompatibilityText(thread.match))}</i><small>${escapeHtml(thread.preview)}</small></span><span class="chatThreadMeta"><em>${escapeHtml(thread.time)}</em>${thread.unread?`<b>${thread.unread}</b>`:""}</span></button>`).join("");
+  const messagesHtml=active.messages.length?active.messages.map(chatMessageHtml).join(""):"";
+  target.innerHTML=`<section class="muzeChatShell simpleMessengerChat"><aside class="muzeChatList"><div class="muzeChatListHead"><div><h2>Chat</h2><p>Share albums, compare libraries, discuss records.</p></div><button class="chatComposeButton ${state.chatUserSearchOpen?"active":""}" type="button" title="Start conversation" onclick="toggleChatUserSearch(event)">+</button></div>${chatUserSearchHtml()}${threadButtons}${chatSelfProfileCard()}</aside><section class="muzeChatPanel"><header class="muzeChatHeader"><div class="chatProfileIdentity">${chatAvatarMarkup(active.profile||(!active.group?active.library:null)||active.name,active.online,activeIndex)}<div><h3>${escapeHtml(active.name)}</h3><p><strong>${escapeHtml(chatCompatibilityText(active.match,true))}</strong><span>${escapeHtml(chatMatchLabel(active.match))}</span></p></div></div><button class="chatCloseButton" type="button" onclick="closeChatView()" aria-label="Close chat"><span aria-hidden="true"></span></button></header>${chatConnectionContext(active)}<div class="muzeChatMessages">${messagesHtml}</div><footer class="muzeChatComposer"><label><span class="chatInputWrap"><input id="chatMessageInput" placeholder="${escapeHtml(inputPlaceholder)}" onkeydown="if(event.key==='Enter')sendChatMessage('${activeId}')"><button class="chatEmojiButton" type="button" onclick="toggleChatEmojiPicker()" title="Open emoji picker" aria-label="Open emoji picker">&#128578;</button>${chatEmojiPickerHtml()}</span><button class="chatSendIconButton" type="button" onclick="sendChatMessage('${activeId}')" title="Send message" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 20.2 21 12 3.8 3.8l2.5 7.2L14 12l-7.7 1-2.5 7.2Z"></path></svg></button></label></footer></section></section>`;
+  if(state.chatUserSearchOpen)requestAnimationFrame(()=>$("#chatUserSearchInput")?.focus());
+  if(active)markChatThreadRead(active);
+}
+window.toggleChatUserSearch=async function(event){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  state.chatUserSearchOpen=!state.chatUserSearchOpen;
+  if(state.chatUserSearchOpen){
+    state.chatUserSearchQuery=state.chatUserSearchQuery||"";
+    try{await loadProfileDirectory()}catch(error){console.warn("Unable to refresh Muze users",error)}
+  }
+  chatView();
+}
+window.setChatUserSearch=function(value){
+  state.chatUserSearchQuery=String(value||"");
+  chatView();
+}
+window.selectFirstChatSearchResult=function(){
+  const first=chatSearchProfiles(state.chatUserSearchQuery)[0];
+  if(first)window.startChatWithUser(chatThreadIdForProfile(first,0));
+}
+window.startChatWithUser=function(id){
+  state.chatUserSearchOpen=false;
+  state.chatUserSearchQuery="";
+  window.setChatConversation(id);
+}
+window.setChatConversation=function(id){
+  state.chatThread=id;
+  chatView();
+  requestAnimationFrame(()=>{
+    const content=$("#topbarChatPanel:not(.hidden) #topbarChatContent");
+    const isMobile=window.matchMedia?.("(max-width: 650px)")?.matches;
+    if(content&&isMobile){
+      content.classList.add("mobileChatConversationOpen");
+      content.scrollTop=0;
+      content.querySelector(".muzeChatMessages")?.scrollTo?.({top:0,behavior:"auto"});
+    }
+  });
+}
+window.closeChatView=function(){
+  const panel=$("#topbarChatPanel");
+  if(panel&&!panel.classList.contains("hidden")){
+    const content=$("#topbarChatContent");
+    if(content?.classList.contains("mobileChatConversationOpen")){
+      content.classList.remove("mobileChatConversationOpen");
+      content.scrollTop=0;
+      return;
+    }
+    closeTopbarChat();
+    return;
+  }
+  state.view="rankings";
+  document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+window.sendChatMessage=async function(threadId){
+  const input=document.getElementById("chatMessageInput");
+  const body=String(input?.value||"").trim();
+  if(!body)return;
+  const key=String(threadId||state.chatThread||"");
+  const active=chatConversationData().find(thread=>thread.id===key);
+  const recipientId=chatParticipantId(active);
+  if(!recipientId){
+    alert("Choose a Muze user with an account to send a real message.");
+    return;
+  }
+  if(!requireAuth("message",()=>window.sendChatMessage(threadId)))return;
+  if(input)input.disabled=true;
+  if(db&&loggedInUser()){
+    const row={sender_id:loggedInUser().id,recipient_id:recipientId,body,message_type:"text"};
+    const {data,error}=await db.from("chat_messages").insert(row).select("id,sender_id,recipient_id,body,message_type,created_at,read_at").single();
+    if(error){
+      if(chatSchemaUnavailable(error))alert("Real messaging needs the chat_messages SQL added in Supabase first.");
+      else alert(error.message||"Message could not be sent.");
+      if(input)input.disabled=false;
+      return;
+    }
+    extras.chatSchemaReady=true;
+    extras.chatMessages=[...(extras.chatMessages||[]),data];
+  }else{
+    alert("Real messaging needs Supabase to be connected.");
+    if(input)input.disabled=false;
+    return;
+  }
+  if(input)input.value="";
+  const picker=document.getElementById("chatEmojiPicker");
+  if(picker)picker.hidden=true;
+  state.chatThread=key;
+  chatView();
+}
+window.toggleChatEmojiPicker=function(){
+  const input=document.getElementById("chatMessageInput");
+  const isMobile=window.matchMedia?.("(max-width: 650px)")?.matches||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"");
+  if(isMobile){
+    const picker=document.getElementById("chatEmojiPicker");
+    if(picker)picker.hidden=true;
+    input?.focus();
+    return;
+  }
+  const picker=document.getElementById("chatEmojiPicker");
+  if(!picker)return;
+  picker.hidden=!picker.hidden;
+  if(!picker.hidden){
+    document.getElementById("chatEmojiSearch")?.focus();
+  }else{
+    input?.focus();
+  }
+}
+window.insertChatEmoji=function(emoji){
+  const input=document.getElementById("chatMessageInput");
+  if(!input)return;
+  const start=input.selectionStart??input.value.length;
+  const end=input.selectionEnd??input.value.length;
+  input.value=input.value.slice(0,start)+emoji+input.value.slice(end);
+  const next=start+emoji.length;
+  input.focus();
+  input.setSelectionRange(next,next);
+}
+window.filterChatEmojiPicker=function(value){
+  const picker=document.getElementById("chatEmojiPicker");
+  if(!picker)return;
+  const query=String(value||"").trim().toLowerCase();
+  const searchAliases={happy:["happy","smile","joy","glad","cheerful"],sad:["sad","cry","tear","frown","unhappy"],angry:["angry","mad","rage","annoyed"],hamburger:["hamburger","burger"],soccer:["soccer","football"],egg:["egg"],laugh:["laugh","lol","funny"],heart:["heart","love"],king:["king","royal","crown"],queen:["queen","royal","crown"],crown:["crown","king","queen","royal"],royal:["royal","king","queen","crown"],family:["family","parents","children","mother","father"]};
+  const termGroups=query.split(/\s+/).filter(Boolean).map(term=>searchAliases[term]||[term]);
+  let visibleCount=0;
+  picker.querySelectorAll(".chatEmojiGroup").forEach(group=>{
+    let groupVisible=0;
+    group.querySelectorAll("button[data-emoji-search]").forEach(button=>{
+      const label=String(group.dataset.emojiGroup||"");
+      const emoji=String(button.textContent||"").trim();
+      const searchText=String(button.dataset.emojiSearch||chatEmojiSearchText(label,emoji)||"").toLowerCase();
+      const match=!termGroups.length||termGroups.every(aliases=>aliases.some(term=>searchText.includes(term)));
+      button.hidden=!match;
+      if(match){groupVisible++;visibleCount++}
+    });
+    group.hidden=groupVisible===0;
+  });
+  const empty=picker.querySelector(".chatEmojiNoResults");
+  if(empty)empty.hidden=visibleCount>0;
+}
+window.scrollChatEmojiSection=function(label){
+  const picker=document.getElementById("chatEmojiPicker");
+  const group=[...document.querySelectorAll("#chatEmojiPicker .chatEmojiGroup")].find(item=>item.dataset.emojiGroup===label);
+  if(!picker||!group)return;
+  const search=picker.querySelector("#chatEmojiSearch");
+  if(search&&search.value){search.value="";filterChatEmojiPicker("")}
+  const tools=picker.querySelector(".chatEmojiTools");
+  const headerOffset=(tools?.offsetHeight||0)+4;
+  requestAnimationFrame(()=>{
+    picker.scrollTo({top:Math.max(0,group.offsetTop-headerOffset),behavior:"smooth"});
+  });
+}
 window.setLibrarySearch=function(value){state.librarySearch=value;librariesView()}
 window.findMoreLibraryAlbums=function(){
   state.view="rankings";
@@ -4308,6 +5180,11 @@ if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hid
 if(state.view==="artists"){content.innerHTML=artistPage()}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
 if(state.view==="libraries"){librariesView()}
+if(state.view==="chat"){chatView(content)}
+document.body.classList.toggle("chatView",state.view==="chat");
+const chatPanel=$("#topbarChatPanel");
+const chatOpen=state.view==="chat"||(chatPanel&&!chatPanel.classList.contains("hidden"));
+const chatButton=$("#topbarChatButton");if(chatButton){chatButton.classList.toggle("active",chatOpen);chatButton.setAttribute("aria-expanded",chatOpen?"true":"false")}
 }
 function artistScoreLabel(albums){const rated=albums.filter(a=>score(a)>0);if(!rated.length)return "";return (rated.reduce((sum,a)=>sum+score(a),0)/rated.length).toFixed(1)}
 const albumSceneImages=[
@@ -4528,7 +5405,7 @@ window.openAlbum=function(id){
   const countStat=canEditOverview?`<button class="linerStatEdit" onclick="setAlbumRatingsCountAdmin('${albumId}')"><span>Listeners</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small><em>Edit</em></button>`:`<div><span>Listeners</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small></div>`;
   const heroSavedStrip=`<div class="heroSavedStrip"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><span>${librarySavedCount>0?`Saved by <b>${librarySavedLabel}</b> listener${librarySavedCount===1?"":"s"}`:"Add it to your library"}</span></div>`;
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${escapeHtml(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood" style="--mood-score:${moodScore}%;--mood-start:${moodStart};--mood-end:${moodEnd};--mood-glow:${moodGlow}"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${albumVibeTags(a).slice(0,3).map(escapeHtml).join(" &middot; ")}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence"><h4><span>&#9733;</span>Sound & Influence</h4><p>${escapeHtml(structuredOverview.sound_summary||albumCommunityPull(a))}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div></div></aside>`;
-  $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${escapeHtml(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="const p=document.querySelector('#albumModal .modalPanel'),t=document.querySelector('#albumModal .linerHeroSoul');if(p&&t)p.scrollTo({top:t.offsetTop,behavior:'smooth'})">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${escapeHtml(returnHeadline)}</h3></div><p>${escapeHtml(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
+  $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${escapeHtml(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="window.scrollAlbumSeeMore()">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${escapeHtml(returnHeadline)}</h3></div><p>${escapeHtml(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
   const flip=$("#albumModalContent .linerCoverFlip");
   const reviewAtmosphere=$("#albumModalContent .reactionsPanel .reactionAtmosphere");
   const reviewComposer=$("#albumModalContent .reactionsPanel .linerComposer");
@@ -4705,7 +5582,10 @@ window.addSpotifyAlbum=async function(a,button){
   }
 };
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
-updateNavUsername();$("#notificationBell").onclick=async e=>{e.stopPropagation();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>$("#notificationPanel")?.classList.add("hidden"));$("#navSetUsername").onclick=openNavProfileMenu;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=handleAvatarPhotoSelected;const saveUsernameButton=$("#saveUsernameButton");if(saveUsernameButton){saveUsernameButton.onclick=handleSaveUsernameAction;saveUsernameButton.addEventListener("pointerup",handleSaveUsernameAction);saveUsernameButton.addEventListener("touchend",handleSaveUsernameAction,{passive:false})}$("#profileUsernameInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")handleSaveUsernameAction(e)});avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};const saveAvatarButton=$("#saveAvatarButton");if(saveAvatarButton){saveAvatarButton.onclick=handleSaveAvatarAction;saveAvatarButton.addEventListener("pointerup",handleSaveAvatarAction);saveAvatarButton.addEventListener("touchend",handleSaveAvatarAction,{passive:false})}$("#skipAvatarButton").onclick=hideAvatarSetup;
+function closeTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");if(panel)panel.classList.add("hidden");if(button&&!document.body.classList.contains("chatView")){button.classList.remove("active");button.setAttribute("aria-expanded","false")}}
+async function openTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");const panelContent=$("#topbarChatContent");if(!panel||!panelContent)return;$("#notificationPanel")?.classList.add("hidden");panel.classList.remove("hidden");if(button){button.classList.add("active");button.setAttribute("aria-expanded","true")}try{await Promise.all([loadLibraries(),loadChatMessages(),loadChatSelfStats()])}catch(error){console.warn("Unable to refresh chat people",error)}chatView(panelContent);closeNav()}
+function toggleTopbarChat(){const panel=$("#topbarChatPanel");if(panel&&!panel.classList.contains("hidden"))closeTopbarChat();else openTopbarChat()}
+updateNavUsername();$("#topbarChatButton").onclick=e=>{e.stopPropagation();toggleTopbarChat()};$("#topbarChatPanel").onclick=e=>{if(e.target&&e.target.id==="topbarChatPanel")closeTopbarChat();else e.stopPropagation()};$("#notificationBell").onclick=async e=>{e.stopPropagation();closeTopbarChat();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>{$("#notificationPanel")?.classList.add("hidden");closeTopbarChat()});$("#navSetUsername").onclick=openNavProfileMenu;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=handleAvatarPhotoSelected;const saveUsernameButton=$("#saveUsernameButton");if(saveUsernameButton){saveUsernameButton.onclick=handleSaveUsernameAction;saveUsernameButton.addEventListener("pointerup",handleSaveUsernameAction);saveUsernameButton.addEventListener("touchend",handleSaveUsernameAction,{passive:false})}$("#profileUsernameInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")handleSaveUsernameAction(e)});avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};const saveAvatarButton=$("#saveAvatarButton");if(saveAvatarButton){saveAvatarButton.onclick=handleSaveAvatarAction;saveAvatarButton.addEventListener("pointerup",handleSaveAvatarAction);saveAvatarButton.addEventListener("touchend",handleSaveAvatarAction,{passive:false})}$("#skipAvatarButton").onclick=hideAvatarSetup;
 if($("#avatarCategoryToggle"))$("#avatarCategoryToggle").onclick=toggleAvatarCategoryMenu;
 document.querySelectorAll("#avatarCategoryMenu [data-avatar-category]").forEach(button=>button.onclick=()=>setAvatarCategory(button.dataset.avatarCategory||"face"));
 document.addEventListener("click",e=>{if(!e.target.closest(".avatarCategoryDropdown")){$("#avatarCategoryMenu")?.classList.add("hidden");$("#avatarCategoryToggle")?.setAttribute("aria-expanded","false")}});
@@ -4721,8 +5601,8 @@ async function navigateToView(view){
     return;
   }
   state.view=view;
-  if(state.view==="libraries"){
-    try{await loadLibraries()}
+  if(state.view==="libraries"||state.view==="chat"){
+    try{await Promise.all([loadLibraries(),loadChatMessages()])}
     catch(error){console.warn("Unable to load libraries",error);extras.libraries=localLibraries();renderNotifications()}
   }
   document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));

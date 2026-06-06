@@ -515,6 +515,13 @@
 .avatarEditorUsernameDisplay strong{color:#fff4d0;font-size:15px;font-weight:820;letter-spacing:.015em}
 .avatarEditorUsernameDisplay span{color:rgba(238,232,220,.54);font-size:10.5px;font-weight:760;letter-spacing:.04em}
 .avatarEditorUsernameDisplay span.hidden{display:none!important}
+.profileStatsGrid{display:grid;grid-template-columns:repeat(5,minmax(84px,1fr));gap:10px;width:min(620px,100%);margin:16px auto 0}
+.profileStatsGrid span{display:grid;justify-items:center;align-content:center;min-height:72px;padding:13px 10px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),rgba(9,11,18,.60);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 18px 42px rgba(0,0,0,.22);text-align:center}
+.profileStatsGrid strong{display:block;color:#fff8db;font-size:25px;line-height:1;font-weight:900;letter-spacing:0;text-shadow:0 0 18px rgba(242,201,76,.16)}
+.profileStatsGrid small{display:block;margin-top:7px;color:rgba(238,232,220,.62);font-size:10px;line-height:1.1;font-weight:850;text-transform:uppercase;letter-spacing:.055em}
+.authPanel.accountProfileMode:not(.avatarEditorMode) .profileStatsGrid{width:min(520px,100%);margin:18px auto 28px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid{margin-top:-14px;margin-bottom:4px}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid span{min-height:78px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.018)),rgba(11,12,18,.72);border-color:rgba(242,201,76,.13)}
 .avatarChoiceTabs{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:3px;border:1px solid rgba(242,201,76,.20);border-radius:999px;background:rgba(0,0,0,.22)}
 .avatarChoiceTabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:rgba(232,226,216,.62);font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.045em;cursor:pointer}
 .avatarChoiceTabs button.active{background:linear-gradient(90deg,#ffec82,#f2c94c,#c99508);color:#111;box-shadow:0 0 18px rgba(242,201,76,.16)}
@@ -3155,6 +3162,50 @@ body.light .similarityBadge{background:#111827!important;border-color:#111827!im
 body.light .dangerLink{color:#b91c1c!important;border-color:#fecaca!important}
 .notificationWrap{position:relative}
 .notificationBell{position:relative}
+.notificationWrap{position:relative;display:flex;align-items:center;gap:8px}
+.topbarChatButton{position:relative;width:42px;height:42px;border-radius:999px;display:grid!important;place-items:center!important;color:#fff!important;background:var(--panel)!important;border:1px solid var(--line)!important;padding:0!important;cursor:pointer}
+.topbarChatButton:hover,.topbarChatButton.active,.topbarChatButton[aria-expanded="true"]{border-color:rgba(111,161,202,.55)!important;background:linear-gradient(145deg,rgba(111,161,202,.16),rgba(255,255,255,.045))!important}
+.topbarChatGlyph{position:relative;width:24px;height:21px;display:block}
+.topbarChatGlyph i{position:absolute;display:block;border:2px solid currentColor;border-radius:8px;width:17px;height:13px;background:transparent}
+.topbarChatGlyph i:after{content:"";position:absolute;left:3px;bottom:-5px;width:6px;height:6px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:skew(-18deg)}
+.topbarChatGlyph i:first-child{left:0;top:0;opacity:.74}
+.topbarChatGlyph i:last-child{right:0;bottom:0;background:rgba(111,161,202,.14)}
+.topbarChatButton .topbarChatGlyph{
+  width:24px!important;
+  height:24px!important;
+  display:grid!important;
+  place-items:center!important;
+}
+.topbarChatButton .topbarChatGlyph i{
+  display:none!important;
+}
+.topbarChatButton .topbarChatGlyph:before{
+  content:"💬"!important;
+  display:block!important;
+  font-size:21px!important;
+  line-height:1!important;
+  transform:translate(0,0)!important;
+}
+.topbarChatButton{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.topbarChatButton .topbarChatGlyph{
+  transform:translate(-2px,1px)!important;
+}
+.topbarChatButton .notificationBadge{right:-4px;top:-4px;background:linear-gradient(145deg,#6FA1CA,#263F59)!important;color:#fff!important}
+.topbarChatPanel{position:fixed;inset:0;z-index:112;display:grid;place-items:center;padding:12px;background:rgba(0,0,0,.68);backdrop-filter:blur(10px)}
+.topbarChatPanel.hidden{display:none!important}
+.topbarChatPanel #topbarChatContent{width:min(1080px,calc(100vw - 38px));height:min(760px,calc(100vh - 38px));min-height:0;border:1px solid rgba(111,161,202,.28);border-radius:28px;background:#07090d;box-shadow:0 34px 120px rgba(0,0,0,.74),0 0 0 1px rgba(255,255,255,.06),0 0 0 1px rgba(111,161,202,.05) inset;overflow:hidden}
+.topbarChatPanel .muzeChatShell{height:100%!important;min-height:0!important;margin:0!important;grid-template-columns:320px minmax(0,1fr)!important;grid-template-rows:1fr!important;gap:0!important;border:0!important;border-radius:0!important}
+.topbarChatPanel .muzeChatList,.topbarChatPanel .muzeChatPanel{border:0!important;border-radius:0!important;box-shadow:none!important}
+.topbarChatPanel .muzeChatList{display:block!important;max-height:none!important;height:100%!important;overflow:auto!important;border-right:1px solid rgba(255,255,255,.08)!important;border-bottom:0!important}
+.topbarChatPanel .muzeChatPanel{height:100%!important;min-height:0!important}
+.topbarChatPanel .muzeChatMessages{min-height:0!important}
+body.light .topbarChatButton{color:#fff!important;background:#111827!important}
+body.light .topbarChatPanel{background:rgba(0,0,0,.48)!important}
+body.light .topbarChatPanel #topbarChatContent{background:#101318!important}
 .notificationBadge{position:absolute;right:-4px;top:-4px;min-width:18px;height:18px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;font-weight:950;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid var(--bg)}
 .notificationPanel{position:absolute;right:0;top:52px;width:240px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow);z-index:90;color:var(--text);display:grid;gap:10px;font-size:13px}
 body.light .notificationPanel{background:#ffffff!important;border-color:#e5e1d8!important;color:#111827!important}
@@ -8790,7 +8841,7 @@ body.light .authPanel .adminOverviewUnlock{
     max-width:600px!important;
     margin:0 0 10px!important;
     color:rgba(255,255,255,.78)!important;
-    font-size:16px!important;
+    font-size:16.32px!important;
     line-height:1.42!important;
     font-weight:650!important;
   }
@@ -12311,6 +12362,384 @@ body{
   z-index:0!important;
 }
 
+/* Muze Chat */
+.muzeChatShell{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:18px;min-height:720px;margin:22px 0 42px;color:#fff}
+.muzeChatList,.muzeChatPanel{border:1px solid rgba(242,201,76,.20);background:radial-gradient(circle at 18% 0%,rgba(242,201,76,.12),transparent 34%),linear-gradient(145deg,rgba(13,13,14,.96),rgba(5,6,8,.98));box-shadow:0 28px 80px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden}
+.muzeChatList{border-radius:18px;padding:16px}.muzeChatListHead{padding:8px 8px 18px}
+.muzeChatListHead span,.muzeChatContext small,.chatShareBox small,.chatAlbumCard small,.chatLibraryShare small{display:block;color:#ffd51f;font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+.muzeChatListHead h2{margin:6px 0 8px;font-family:Georgia,"Times New Roman",serif;font-size:38px;line-height:1;color:#fff6df}
+.muzeChatListHead p{margin:0;color:rgba(255,255,255,.66);font-size:14px;line-height:1.45;font-weight:650}
+.muzeChatThread{position:relative;width:100%;display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:12px;align-items:center;margin:0 0 9px;padding:12px 10px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.035);color:#fff;text-align:left;cursor:pointer}
+.muzeChatThread.active{border-color:rgba(242,201,76,.46);background:linear-gradient(135deg,rgba(242,201,76,.16),rgba(255,255,255,.04));box-shadow:0 16px 34px rgba(0,0,0,.34)}
+.chatAvatar{position:relative;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#ffe36a,#9b6910);color:#070707;font-weight:950;box-shadow:0 0 24px rgba(242,201,76,.20)}
+.chatAvatar.hasChatPhoto{overflow:hidden!important;background:#0c1018!important;padding:0!important}
+.chatAvatar.hasChatPhoto img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center center!important;border-radius:50%!important;display:block!important}
+.chatAvatar.online:after{content:"";position:absolute;right:1px;bottom:2px;width:10px;height:10px;border-radius:50%;background:#8ee66d;border:2px solid #080808}
+.muzeChatThread strong{display:block;margin-bottom:3px;color:#fff;font-size:15px}.muzeChatThread small{display:block;color:rgba(255,255,255,.62);font-size:12px;line-height:1.25}.muzeChatThread em{align-self:start;color:rgba(255,255,255,.50);font-size:11px;font-style:normal;font-weight:800}
+.muzeChatThread b{position:absolute;right:10px;bottom:10px;min-width:20px;height:20px;display:grid;place-items:center;border-radius:999px;background:#ffd51f;color:#080808;font-size:11px;font-weight:950}
+.muzeChatPanel{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;border-radius:18px;min-width:0}
+.muzeChatHeader{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 22px;border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(90deg,rgba(255,255,255,.045),transparent)}
+.muzeChatHeader>div{display:flex;align-items:center;gap:13px}.muzeChatHeader h3{margin:0 0 4px;font-size:22px}.muzeChatHeader p{margin:0;color:rgba(255,255,255,.62);font-size:13px;font-weight:650}
+.muzeChatHeader>strong{flex:0 0 auto;border:1px solid rgba(242,201,76,.42);border-radius:999px;padding:9px 13px;color:#ffe36a;background:rgba(242,201,76,.10);font-size:13px}
+.muzeChatContext{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,.07)}
+.muzeChatContext div{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.muzeChatContext small{width:100%;margin-bottom:2px}.muzeChatContext span{border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 10px;background:rgba(255,255,255,.045);color:rgba(255,255,255,.78);font-size:12px;font-weight:800}
+.muzeChatMessages{padding:22px;overflow:auto;background:radial-gradient(circle at 86% 16%,rgba(242,201,76,.10),transparent 25%),linear-gradient(180deg,rgba(255,255,255,.02),transparent 28%)}
+.chatMessage{display:flex;margin:0 0 16px}.chatMessage.fromMe{justify-content:flex-end}.chatBubble{max-width:min(620px,78%);border:1px solid rgba(255,255,255,.10);border-radius:18px;padding:13px 15px 10px;background:rgba(255,255,255,.055);box-shadow:0 16px 34px rgba(0,0,0,.24)}.fromMe .chatBubble{border-color:rgba(242,201,76,.30);background:linear-gradient(145deg,rgba(92,70,8,.62),rgba(20,17,8,.90))}
+.chatBubble p{margin:0;color:rgba(255,255,255,.84);font-size:15px;line-height:1.45;font-weight:650}.chatBubble time{display:block;margin-top:8px;color:rgba(255,255,255,.42);font-size:11px;font-weight:800}
+.chatAlbumCard,.chatLibraryShare{width:100%;display:grid;align-items:center;gap:12px;border:1px solid rgba(242,201,76,.22);border-radius:14px;background:linear-gradient(145deg,rgba(0,0,0,.44),rgba(255,255,255,.045));color:#fff;text-align:left;cursor:pointer}.chatAlbumCard{grid-template-columns:82px minmax(0,1fr) auto;padding:10px 12px 10px 10px}.chatAlbumCard .cover{width:82px;height:82px;border-radius:10px;overflow:hidden}.chatAlbumCard strong,.chatLibraryShare strong,.chatShareBox strong{display:block;color:#fff;font-size:16px;line-height:1.15}.chatAlbumCard em,.chatLibraryShare em,.chatShareBox em{display:block;margin-top:4px;color:rgba(255,255,255,.60);font-size:12px;font-style:normal}.chatAlbumCard b{display:block;margin-top:8px;color:rgba(255,255,255,.78);font-size:12px;line-height:1.32}.chatAlbumCard i{color:#ffd51f;font-size:22px;font-style:normal;font-weight:950}
+.chatShareBox{min-width:250px;border:1px solid rgba(242,201,76,.20);border-radius:14px;padding:13px;background:rgba(0,0,0,.36)}.chatShareBox span{display:inline-flex;margin-top:10px;border-radius:999px;padding:7px 11px;background:#ffd51f;color:#080808;font-weight:950}
+.chatLibraryShare{grid-template-columns:minmax(0,1fr) auto;margin-top:10px;padding:13px}.chatLibraryShare div{display:flex;align-items:center}.chatLibraryShare img,.chatLibraryShare b{width:46px;height:46px;margin-left:-10px;border-radius:8px;border:1px solid rgba(0,0,0,.72);background:#151515;object-fit:cover}.chatLibraryShare img:first-child,.chatLibraryShare b:first-child{margin-left:0}.chatLibraryShare b{display:grid;place-items:center;color:#ffd51f;font-size:12px}
+.typingLine{display:flex;align-items:center;gap:5px;color:rgba(255,255,255,.56);font-size:12px;font-weight:800}.typingLine i{width:6px;height:6px;border-radius:50%;background:#ffd51f;opacity:.45;animation:muzeTyping 1.25s infinite ease-in-out}.typingLine i:nth-child(2){animation-delay:.14s}.typingLine i:nth-child(3){animation-delay:.28s}@keyframes muzeTyping{0%,70%,100%{transform:translateY(0);opacity:.35}35%{transform:translateY(-3px);opacity:1}}
+.muzeChatComposer{padding:14px 18px 18px;border-top:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.28)}.chatShareTray{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.chatShareTray button{border:1px solid rgba(242,201,76,.24);border-radius:999px;padding:8px 11px;background:rgba(242,201,76,.08);color:#ffe36a;font-size:12px;font-weight:900}.muzeChatComposer label{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}.muzeChatComposer input{min-width:0;height:48px;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:0 16px;background:rgba(255,255,255,.055);color:#fff;outline:0;font-weight:700}.muzeChatComposer label>button{border:0;border-radius:999px;padding:0 20px;background:linear-gradient(135deg,#ffe76c,#d89b10);color:#080808;font-weight:950}
+@media(max-width:900px){.muzeChatShell{grid-template-columns:1fr;min-height:0}.muzeChatList{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(260px,1fr);overflow-x:auto}.muzeChatListHead{min-width:260px}.muzeChatPanel{min-height:660px}.muzeChatContext{grid-template-columns:1fr}.chatBubble{max-width:92%}}
+@media(max-width:620px){.muzeChatHeader{align-items:flex-start;flex-direction:column}.chatAlbumCard{grid-template-columns:64px minmax(0,1fr)}.chatAlbumCard i{grid-column:2;font-size:15px}.chatAlbumCard .cover{width:64px;height:64px}.muzeChatComposer label{grid-template-columns:1fr}.muzeChatComposer label>button{height:44px}}
+
+/* Muze Chat blue accent override */
+.muzeChatList,.muzeChatPanel{border-color:rgba(90,184,255,.24)!important;background:radial-gradient(circle at 18% 0%,rgba(90,184,255,.15),transparent 34%),linear-gradient(145deg,rgba(13,13,14,.96),rgba(5,6,8,.98))!important}
+.muzeChatListHead span,.muzeChatContext small,.chatShareBox small,.chatAlbumCard small,.chatLibraryShare small{color:#5AB8FF!important}
+.muzeChatThread.active{border-color:rgba(90,184,255,.58)!important;background:linear-gradient(135deg,rgba(90,184,255,.18),rgba(255,255,255,.04))!important}
+.chatAvatar{background:linear-gradient(135deg,#8fd4ff,#5AB8FF)!important;box-shadow:0 0 24px rgba(90,184,255,.26)!important}
+.chatAvatar.online:after{background:#5AB8FF!important}
+.muzeChatThread b{background:#5AB8FF!important;color:#06101a!important}
+.muzeChatHeader>strong{border-color:rgba(90,184,255,.52)!important;color:#8fd4ff!important;background:rgba(90,184,255,.12)!important}
+.muzeChatMessages{background:radial-gradient(circle at 86% 16%,rgba(90,184,255,.11),transparent 25%),linear-gradient(180deg,rgba(255,255,255,.02),transparent 28%)!important}
+.fromMe .chatBubble{border-color:rgba(90,184,255,.38)!important;background:linear-gradient(145deg,rgba(20,66,122,.66),rgba(9,18,34,.92))!important}
+.chatAlbumCard,.chatLibraryShare{border-color:rgba(90,184,255,.30)!important}
+.chatShareBox{border-color:rgba(90,184,255,.28)!important}
+.typingLine i{background:#5AB8FF!important}
+.chatShareTray button{border-color:rgba(242,201,76,.24)!important;background:rgba(242,201,76,.08)!important;color:#ffe36a!important}
+.muzeChatComposer label>button{background:linear-gradient(135deg,#ffe76c,#d89b10)!important;color:#080808!important}
+.chatAlbumCard i,.chatLibraryShare b{color:#ffd51f!important}
+.ratingShare small{color:#ffd51f!important}
+.chatShareBox span{background:#ffd51f!important;color:#080808!important}
+
+/* Muze Chat strategic hierarchy */
+.muzeChatList{padding:18px!important}
+.muzeChatListHead{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:12px!important;align-items:start!important;padding:8px 6px 12px!important}
+.chatComposeButton{width:38px!important;height:38px!important;border-radius:50%!important;border:1px solid rgba(242,201,76,.34)!important;background:linear-gradient(135deg,rgba(242,201,76,.20),rgba(0,0,0,.34))!important;color:#ffd51f!important;font-size:24px!important;line-height:1!important;font-weight:900!important;cursor:pointer!important;box-shadow:0 10px 24px rgba(0,0,0,.28),0 0 18px rgba(242,201,76,.10)!important}
+.chatComposeMenu{display:grid!important;grid-template-columns:1fr!important;gap:7px!important;margin:0 0 15px!important;padding:10px!important;border:1px solid rgba(90,184,255,.16)!important;border-radius:14px!important;background:rgba(255,255,255,.035)!important}
+.chatComposeMenu button{min-height:30px!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:999px!important;background:rgba(0,0,0,.18)!important;color:rgba(255,255,255,.74)!important;font-size:11px!important;font-weight:900!important;text-align:left!important;padding:0 12px!important;cursor:pointer!important}
+.chatComposeMenu button:first-child{border-color:rgba(242,201,76,.26)!important;color:#ffe36a!important;background:rgba(242,201,76,.07)!important}
+.muzeChatThread{grid-template-columns:54px minmax(0,1fr) 42px!important;gap:14px!important;margin-bottom:12px!important;padding:14px 12px!important;border-radius:16px!important}
+.muzeChatThread.active{box-shadow:0 18px 42px rgba(0,0,0,.38),0 0 0 1px rgba(90,184,255,.12) inset!important}
+.chatAvatar{width:54px!important;height:54px!important;font-size:18px!important}
+.chatAvatar.online:after{right:2px!important;bottom:3px!important;width:12px!important;height:12px!important}
+.muzeChatThreadCopy{min-width:0!important;display:block!important}
+.muzeChatThreadCopy strong{font-size:16px!important;line-height:1.1!important}
+.muzeChatThreadCopy small{margin-top:4px!important;font-size:12.5px!important;line-height:1.28!important}
+.muzeChatThreadCopy i{display:inline-flex!important;margin-top:8px!important;border:1px solid rgba(90,184,255,.26)!important;border-radius:999px!important;padding:4px 8px!important;color:#5AB8FF!important;background:rgba(90,184,255,.08)!important;font-size:10px!important;font-style:normal!important;font-weight:950!important}
+.chatThreadMeta{display:grid!important;justify-items:end!important;gap:9px!important;align-self:start!important}
+.chatThreadMeta em{color:rgba(255,255,255,.68)!important;font-size:12px!important;font-style:normal!important;font-weight:900!important}
+.chatThreadMeta b{position:static!important;min-width:24px!important;height:24px!important;font-size:12px!important;box-shadow:0 0 18px rgba(90,184,255,.30)!important}
+.muzeChatThread.hasUnread .muzeChatThreadCopy strong{color:#fff!important}
+.chatEmptyPrompts{display:grid!important;gap:8px!important;margin-top:14px!important;padding:13px!important;border:1px dashed rgba(90,184,255,.22)!important;border-radius:16px!important;background:rgba(90,184,255,.035)!important}
+.chatEmptyPrompts span{color:rgba(255,255,255,.68)!important;font-size:12px!important;font-weight:850!important}
+.chatEmptyState{margin:18px!important;padding:18px!important;border:1px dashed rgba(111,161,202,.22)!important;border-radius:18px!important;background:rgba(111,161,202,.045)!important;color:rgba(255,255,255,.62)!important;font-size:14px!important;font-weight:650!important;line-height:1.45!important}
+.muzeChatMessages>.chatEmptyState{margin:0!important}
+.simpleMessengerChat.chatListOnly{grid-template-columns:minmax(280px,360px) minmax(0,1fr)!important}
+.simpleMessengerChat.chatListOnly .muzeChatPanel{display:none!important}
+.muzeChatHeader{display:grid!important;grid-template-columns:minmax(250px,.75fr) minmax(360px,1.25fr)!important;align-items:start!important;padding:22px 24px!important}
+.chatProfileIdentity{display:flex!important;align-items:center!important;gap:14px!important}
+.chatProfileWhy{display:grid!important;gap:9px!important;padding:14px 16px!important;border:1px solid rgba(90,184,255,.22)!important;border-radius:16px!important;background:linear-gradient(135deg,rgba(90,184,255,.10),rgba(255,255,255,.035))!important}
+.chatProfileWhy strong{display:inline-flex!important;width:max-content!important;max-width:100%!important;border:1px solid rgba(90,184,255,.52)!important;border-radius:999px!important;padding:8px 12px!important;background:rgba(90,184,255,.12)!important;color:#8fd4ff!important;font-size:13px!important;font-weight:950!important}
+.chatProfileWhy div{display:grid!important;grid-template-columns:118px minmax(0,1fr)!important;gap:8px!important;align-items:start!important}
+.chatProfileWhy small{color:#5AB8FF!important;font-size:11px!important;font-weight:950!important;text-transform:uppercase!important;letter-spacing:.06em!important}
+.chatProfileWhy span{color:rgba(255,255,255,.84)!important;font-size:13px!important;line-height:1.35!important;font-weight:750!important}
+.chatStarterStrip{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;padding:14px 22px!important;border-bottom:1px solid rgba(255,255,255,.07)!important;background:linear-gradient(90deg,rgba(90,184,255,.055),rgba(242,201,76,.035))!important}
+.chatStarterStrip button{min-height:92px!important;border:1px solid rgba(90,184,255,.18)!important;border-radius:14px!important;background:rgba(255,255,255,.035)!important;color:#fff!important;text-align:left!important;padding:12px!important;cursor:pointer!important}
+.chatStarterStrip button:nth-child(2){border-color:rgba(242,201,76,.24)!important;background:rgba(242,201,76,.055)!important}
+.chatStarterStrip small{display:block!important;margin-bottom:8px!important;color:#5AB8FF!important;font-size:10px!important;font-weight:950!important;text-transform:uppercase!important;letter-spacing:.06em!important}
+.chatStarterStrip button:nth-child(2) small{color:#ffd51f!important}
+.chatStarterStrip strong{display:block!important;color:#fff!important;font-size:14px!important;line-height:1.15!important}
+.chatStarterStrip span{display:block!important;margin-top:5px!important;color:rgba(255,255,255,.58)!important;font-size:12px!important;font-weight:750!important}
+.chatMessage.albumMessage .chatBubble{max-width:min(760px,88%)!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.chatMessage.albumMessage .chatBubble time{padding-left:4px!important}
+.chatAlbumCard{grid-template-columns:118px minmax(0,1fr) 66px!important;min-height:142px!important;padding:14px!important;border-radius:18px!important;background:radial-gradient(circle at 92% 12%,rgba(242,201,76,.12),transparent 30%),linear-gradient(145deg,rgba(12,18,28,.92),rgba(0,0,0,.76))!important;box-shadow:0 20px 48px rgba(0,0,0,.34),0 0 0 1px rgba(255,255,255,.035) inset!important}
+.chatAlbumCard .cover{width:118px!important;height:118px!important;border-radius:13px!important;box-shadow:0 16px 28px rgba(0,0,0,.34)!important}
+.chatAlbumCard small{font-size:11px!important;color:#5AB8FF!important}
+.chatAlbumCard strong{font-size:22px!important;line-height:1.06!important}
+.chatAlbumCard em{font-size:13px!important}
+.chatAlbumCard b{max-width:440px!important;margin-top:11px!important;font-size:13px!important;line-height:1.38!important}
+.chatAlbumCard i{justify-self:end!important;align-self:start!important;min-width:52px!important;height:52px!important;display:grid!important;place-items:center!important;border:1px solid rgba(242,201,76,.30)!important;border-radius:50%!important;background:rgba(242,201,76,.09)!important;font-size:20px!important;box-shadow:0 0 24px rgba(242,201,76,.12)!important}
+.chatBubble:not(:has(.chatAlbumCard)) p{font-size:14px!important;line-height:1.48!important;color:rgba(255,255,255,.76)!important}
+@media(max-width:980px){.muzeChatHeader{grid-template-columns:1fr!important}.chatStarterStrip{grid-template-columns:repeat(2,minmax(0,1fr))!important}.chatAlbumCard{grid-template-columns:92px minmax(0,1fr)!important}.chatAlbumCard i{grid-column:2!important;justify-self:start!important;width:auto!important;height:auto!important;border-radius:999px!important;padding:6px 10px!important}}
+@media(max-width:620px){.muzeChatThread{grid-template-columns:50px minmax(0,1fr) 34px!important}.chatAvatar{width:50px!important;height:50px!important}.chatProfileWhy div{grid-template-columns:1fr!important}.chatStarterStrip{grid-template-columns:1fr!important;padding:12px!important}.chatAlbumCard{grid-template-columns:72px minmax(0,1fr)!important;min-height:0!important;padding:10px!important}.chatAlbumCard .cover{width:72px!important;height:72px!important}.chatAlbumCard strong{font-size:17px!important}}
+
+/* Simplified messenger-style Muze Chat */
+.simpleMessengerChat{grid-template-columns:320px minmax(0,1fr)!important;gap:0!important;min-height:680px!important;margin-top:18px!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:18px!important;overflow:hidden!important;background:#07090d!important}
+.simpleMessengerChat .muzeChatList,.simpleMessengerChat .muzeChatPanel{border:0!important;border-radius:0!important;background:#080a0f!important;box-shadow:none!important}
+.simpleMessengerChat .muzeChatList{border-right:1px solid rgba(255,255,255,.08)!important;padding:14px!important}
+.simpleMessengerChat .muzeChatListHead{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:4px 4px 14px!important}
+.simpleMessengerChat .muzeChatListHead span,.simpleMessengerChat .muzeChatListHead p{display:none!important}
+.simpleMessengerChat .muzeChatListHead h2{margin:0!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:28px!important;line-height:1!important;color:#fff!important;letter-spacing:-.02em!important}
+.simpleMessengerChat .chatComposeButton{width:34px!important;height:34px!important;border-color:rgba(90,184,255,.30)!important;background:rgba(90,184,255,.12)!important;color:#5AB8FF!important;box-shadow:none!important;font-size:22px!important}
+.simpleMessengerChat .chatComposeButton{
+  display:grid!important;
+  place-items:center!important;
+  line-height:1!important;
+  padding:0!important;
+  transform:translateY(-2px)!important;
+}
+.simpleMessengerChat .chatComposeButton.active{
+  transform:translateY(-2px) rotate(45deg)!important;
+}
+.simpleMessengerChat .chatComposeMenu,.simpleMessengerChat .chatEmptyPrompts,.simpleMessengerChat .chatStarterStrip,.simpleMessengerChat .chatProfileWhy{display:none!important}
+.simpleMessengerChat .muzeChatThread{grid-template-columns:48px minmax(0,1fr) 40px!important;gap:11px!important;margin:0!important;padding:10px 8px!important;border:0!important;border-radius:12px!important;background:transparent!important;box-shadow:none!important}
+.simpleMessengerChat .muzeChatThread+.muzeChatThread{margin-top:3px!important}
+.simpleMessengerChat .muzeChatThread.active{background:rgba(90,184,255,.12)!important;box-shadow:none!important}
+.simpleMessengerChat .chatAvatar{width:48px!important;height:48px!important;font-size:17px!important;background:linear-gradient(135deg,#7fcfff,#5AB8FF)!important;box-shadow:none!important}
+.simpleMessengerChat .chatAvatar.online:after{width:10px!important;height:10px!important;right:1px!important;bottom:2px!important;background:#5AB8FF!important}
+.simpleMessengerChat .muzeChatThreadCopy strong{font-size:15px!important;font-weight:850!important;color:#fff!important}
+.simpleMessengerChat .muzeChatThreadCopy small{margin-top:3px!important;color:rgba(255,255,255,.58)!important;font-size:12px!important;line-height:1.25!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.simpleMessengerChat .muzeChatThreadCopy i{display:none!important}
+.simpleMessengerChat .chatThreadMeta{display:grid!important;justify-items:end!important;gap:7px!important}
+.simpleMessengerChat .chatThreadMeta em{font-size:11px!important;color:rgba(255,255,255,.48)!important;font-weight:750!important}
+.simpleMessengerChat .chatThreadMeta b{min-width:19px!important;height:19px!important;font-size:10px!important;background:#5AB8FF!important;box-shadow:none!important}
+.simpleMessengerChat .muzeChatPanel{grid-template-rows:auto auto minmax(0,1fr) auto!important;background:#090b10!important}
+.simpleMessengerChat .muzeChatHeader{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:12px 18px!important;border-bottom:1px solid rgba(255,255,255,.08)!important;background:#090b10!important}
+.simpleMessengerChat .chatProfileIdentity{gap:11px!important}.simpleMessengerChat .chatProfileIdentity .chatAvatar{width:42px!important;height:42px!important}
+.simpleMessengerChat .muzeChatHeader h3{font-size:16px!important;margin:0 0 2px!important}.simpleMessengerChat .muzeChatHeader p{font-size:12px!important;color:rgba(255,255,255,.58)!important}
+.simpleMessengerChat .muzeChatContext{display:flex!important;gap:8px!important;padding:10px 18px!important;overflow-x:auto!important;background:#090b10!important}
+.simpleMessengerChat .muzeChatContext div{display:flex!important;align-items:center!important;gap:6px!important;flex:0 0 auto!important}
+.simpleMessengerChat .muzeChatContext small{width:auto!important;margin:0!important;color:#5AB8FF!important;font-size:10px!important}
+.simpleMessengerChat .muzeChatContext span{padding:4px 8px!important;font-size:11px!important;background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.09)!important}
+.simpleMessengerChat .muzeChatMessages{padding:18px!important;background:#0b0d12!important}
+.simpleMessengerChat .chatBubble{max-width:68%!important;border:0!important;border-radius:18px!important;padding:10px 12px 8px!important;background:#1b1f28!important;box-shadow:none!important}
+.simpleMessengerChat .fromMe .chatBubble{background:#1f5f96!important;border:0!important}
+.simpleMessengerChat .chatBubble p{font-size:14px!important;line-height:1.38!important;color:rgba(255,255,255,.88)!important}
+.simpleMessengerChat .chatBubble time{margin-top:5px!important;font-size:10px!important;color:rgba(255,255,255,.42)!important}
+.simpleMessengerChat .chatMessage.albumMessage .chatBubble{max-width:420px!important;padding:0!important;background:transparent!important}
+.simpleMessengerChat .chatAlbumCard{grid-template-columns:64px minmax(0,1fr) auto!important;min-height:0!important;padding:8px!important;border-radius:14px!important;background:#151922!important;border-color:rgba(255,255,255,.08)!important;box-shadow:none!important}
+.simpleMessengerChat .chatAlbumCard .cover{width:64px!important;height:64px!important;border-radius:10px!important;box-shadow:none!important}
+.simpleMessengerChat .chatAlbumCard small{font-size:10px!important;color:#5AB8FF!important}.simpleMessengerChat .chatAlbumCard strong{font-size:15px!important;line-height:1.14!important}.simpleMessengerChat .chatAlbumCard em{font-size:11px!important}.simpleMessengerChat .chatAlbumCard b{display:none!important}.simpleMessengerChat .chatAlbumCard i{min-width:34px!important;height:34px!important;font-size:13px!important}
+.simpleMessengerChat .chatShareBox,.simpleMessengerChat .chatLibraryShare{border-color:rgba(255,255,255,.08)!important;background:#151922!important;border-radius:14px!important;box-shadow:none!important}
+.simpleMessengerChat .typingLine{font-size:12px!important;margin-left:4px!important}
+.simpleMessengerChat .muzeChatComposer{padding:12px 14px!important;background:#090b10!important;border-top:1px solid rgba(255,255,255,.08)!important}
+.simpleMessengerChat .chatShareTray{margin-bottom:8px!important}.simpleMessengerChat .chatShareTray button{padding:6px 10px!important;font-size:11px!important}
+.simpleMessengerChat .muzeChatComposer input{height:42px!important;background:#151922!important;border-color:rgba(255,255,255,.08)!important}.simpleMessengerChat .muzeChatComposer label>button{height:42px!important}
+@media(max-width:900px){.simpleMessengerChat{grid-template-columns:1fr!important}.simpleMessengerChat .muzeChatList{border-right:0!important;border-bottom:1px solid rgba(255,255,255,.08)!important}.simpleMessengerChat .muzeChatList{display:block!important;max-height:310px!important;overflow:auto!important}.simpleMessengerChat .muzeChatPanel{min-height:620px!important}}
+@media(max-width:620px){.simpleMessengerChat .chatBubble{max-width:86%!important}.simpleMessengerChat .chatAlbumCard{grid-template-columns:56px minmax(0,1fr)!important}.simpleMessengerChat .chatAlbumCard .cover{width:56px!important;height:56px!important}.simpleMessengerChat .chatAlbumCard i{grid-column:2!important;justify-self:start!important;width:auto!important;height:auto!important;border-radius:999px!important;padding:5px 8px!important}}
+
+/* Muze Chat UX refinement */
+.simpleMessengerChat .muzeChatThread{align-items:start!important;padding:12px 9px!important}
+.simpleMessengerChat .muzeChatThreadCopy i{display:inline-flex!important;margin:4px 0 5px!important;border:0!important;border-radius:0!important;padding:0!important;background:transparent!important;color:#5AB8FF!important;font-size:11px!important;font-style:normal!important;font-weight:950!important}
+.simpleMessengerChat .muzeChatThreadCopy small{white-space:normal!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important}
+.simpleMessengerChat .chatThreadMeta em{white-space:nowrap!important}
+.simpleMessengerChat .muzeChatThread.hasUnread{background:rgba(90,184,255,.055)!important}
+.simpleMessengerChat .muzeChatThread.hasUnread.active{background:rgba(90,184,255,.14)!important}
+.simpleMessengerChat .muzeChatHeader{padding:15px 18px!important}
+.simpleMessengerChat .muzeChatHeader p{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;margin-top:3px!important}
+.simpleMessengerChat .muzeChatHeader p strong{color:#8fd4ff!important;font-size:13px!important;font-weight:950!important}
+.simpleMessengerChat .muzeChatHeader p span{display:inline-flex!important;border:1px solid rgba(90,184,255,.24)!important;border-radius:999px!important;padding:3px 8px!important;background:rgba(90,184,255,.08)!important;color:#5AB8FF!important;font-size:11px!important;font-weight:900!important}
+.simpleMessengerChat .muzeChatContext{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;overflow:visible!important}
+.simpleMessengerChat .muzeChatContext div{min-width:0!important;flex-wrap:wrap!important}
+.simpleMessengerChat .muzeChatContext .chatConnectionPurpose{grid-column:1/-1!important;display:grid!important;gap:5px!important;padding:10px 12px!important;border:1px solid rgba(90,184,255,.14)!important;border-radius:12px!important;background:rgba(90,184,255,.045)!important}
+.simpleMessengerChat .chatConnectionPurpose p{margin:0!important;color:rgba(255,255,255,.76)!important;font-size:12.5px!important;line-height:1.35!important;font-weight:700!important}
+.simpleMessengerChat .chatMoreChip{color:#5AB8FF!important;border-color:rgba(90,184,255,.20)!important;background:rgba(90,184,255,.08)!important}
+.simpleMessengerChat .muzeChatContext small,
+.simpleMessengerChat .chatConnectionPurpose small{
+  color:#ffd51f!important;
+}
+.simpleMessengerChat .chatMoreChip{
+  color:#ffd51f!important;
+  border-color:rgba(242,201,76,.24)!important;
+  background:rgba(242,201,76,.08)!important;
+}
+.simpleMessengerChat .muzeChatContext .chatConnectionPurpose{
+  border-color:rgba(242,201,76,.16)!important;
+  background:rgba(242,201,76,.045)!important;
+}
+.simpleMessengerChat .muzeChatMessages{padding:22px 18px!important}
+.simpleMessengerChat .chatMessage{margin-bottom:20px!important}
+.simpleMessengerChat .chatBubble{max-width:58%!important;padding:12px 14px 9px!important;border-radius:19px!important}
+.simpleMessengerChat .chatBubble p{font-size:14.5px!important;line-height:1.45!important}
+.simpleMessengerChat .chatMessage.albumMessage .chatBubble{max-width:min(560px,78%)!important}
+.simpleMessengerChat .chatAlbumCard{grid-template-columns:86px minmax(0,1fr) 42px!important;gap:12px!important;padding:11px!important;border:1px solid rgba(90,184,255,.18)!important;background:linear-gradient(145deg,rgba(18,25,36,.96),rgba(9,11,16,.96))!important;box-shadow:0 16px 34px rgba(0,0,0,.24)!important}
+.simpleMessengerChat .chatAlbumCard .cover{width:86px!important;height:86px!important}
+.simpleMessengerChat .chatAlbumCard strong{font-size:17px!important}
+.simpleMessengerChat .chatAlbumCard b{display:block!important;margin-top:7px!important;font-size:12px!important;line-height:1.32!important;color:rgba(255,255,255,.68)!important}
+.simpleMessengerChat .chatAlbumCard i{width:40px!important;height:40px!important;min-width:40px!important;font-size:14px!important}
+.chatCardActions{display:flex!important;flex-wrap:wrap!important;gap:6px!important;margin-top:10px!important}
+.chatCardActions button{border:1px solid rgba(255,255,255,.12)!important;border-radius:999px!important;background:rgba(255,255,255,.045)!important;color:rgba(255,255,255,.76)!important;padding:6px 9px!important;font-size:10.5px!important;font-weight:900!important;cursor:pointer!important}
+.chatAlbumCard .chatCardActions button:first-child,.ratingShare span{border-color:rgba(242,201,76,.28)!important;background:rgba(242,201,76,.10)!important;color:#ffd51f!important}
+.chatLibraryShare .chatCardActions button:first-child{border-color:rgba(90,184,255,.28)!important;background:rgba(90,184,255,.09)!important;color:#8fd4ff!important}
+.simpleMessengerChat .chatLibraryShare{grid-template-columns:minmax(0,1fr) auto!important;padding:12px!important;border:1px solid rgba(90,184,255,.18)!important;background:linear-gradient(145deg,rgba(18,25,36,.96),rgba(9,11,16,.96))!important}
+.chatConversationStarters{display:flex!important;gap:8px!important;overflow-x:auto!important;margin-bottom:9px!important;padding-bottom:2px!important}
+.chatConversationStarters button{flex:0 0 auto!important;border:1px solid rgba(90,184,255,.18)!important;border-radius:999px!important;background:rgba(90,184,255,.07)!important;color:#8fd4ff!important;padding:7px 11px!important;font-size:11px!important;font-weight:900!important;cursor:pointer!important}
+.chatConversationStarters button:nth-child(3){border-color:rgba(242,201,76,.22)!important;background:rgba(242,201,76,.07)!important;color:#ffe36a!important}
+@media(max-width:900px){.simpleMessengerChat .muzeChatContext{grid-template-columns:1fr!important}.simpleMessengerChat .chatBubble{max-width:76%!important}.simpleMessengerChat .chatMessage.albumMessage .chatBubble{max-width:92%!important}}
+@media(max-width:620px){.simpleMessengerChat .chatBubble{max-width:88%!important}.simpleMessengerChat .chatAlbumCard{grid-template-columns:70px minmax(0,1fr)!important}.simpleMessengerChat .chatAlbumCard .cover{width:70px!important;height:70px!important}.simpleMessengerChat .chatAlbumCard i{grid-column:2!important;width:auto!important;height:auto!important;min-width:0!important}.chatCardActions button{padding:5px 8px!important}}
+
+/* Conversational shared-content bubbles */
+.simpleMessengerChat .chatMessage{margin-bottom:17px!important}
+.simpleMessengerChat .chatBubble{max-width:52%!important;padding:13px 15px 8px!important}
+.simpleMessengerChat .fromMe .chatBubble{background:linear-gradient(145deg,rgba(31,95,150,.72),rgba(17,49,79,.88))!important}
+.simpleMessengerChat .fromThem .chatBubble{background:#171a21!important}
+.simpleMessengerChat .chatBubble time{margin-top:4px!important;font-size:10px!important;line-height:1!important}
+.simpleMessengerChat .chatMessage.albumMessage .chatBubble{max-width:min(485px,70%)!important}
+.simpleMessengerChat .chatAlbumCard{grid-template-columns:72px minmax(0,1fr) 38px!important;gap:10px!important;padding:9px!important;min-height:0!important;border-radius:15px!important;box-shadow:0 10px 24px rgba(0,0,0,.20)!important}
+.simpleMessengerChat .chatAlbumCard .cover{width:72px!important;height:72px!important;border-radius:10px!important}
+.simpleMessengerChat .chatAlbumCard small,.simpleMessengerChat .chatLibraryShare small,.simpleMessengerChat .chatShareBox small{font-size:10px!important;line-height:1.1!important}
+.simpleMessengerChat .chatAlbumCard strong{font-size:15.5px!important;line-height:1.12!important}
+.simpleMessengerChat .chatAlbumCard em{font-size:11px!important;margin-top:2px!important}
+.simpleMessengerChat .chatAlbumCard b{margin-top:5px!important;font-size:11.5px!important;line-height:1.25!important}
+.simpleMessengerChat .chatAlbumCard i{width:34px!important;height:34px!important;min-width:34px!important;font-size:13px!important}
+.simpleMessengerChat .chatCardActions{gap:5px!important;margin-top:7px!important}
+.simpleMessengerChat .chatCardActions button{padding:4px 8px!important;font-size:10px!important}
+.simpleMessengerChat .chatShareBox{min-width:0!important;width:min(380px,100%)!important;padding:12px!important;border-radius:15px!important}
+.simpleMessengerChat .chatShareBox strong{font-size:13px!important;line-height:1.2!important;color:rgba(255,255,255,.76)!important}
+.simpleMessengerChat .chatShareBox p{margin:5px 0 0!important;font-size:14px!important;line-height:1.35!important}
+.simpleMessengerChat .ratingShare span{display:inline-flex!important;align-items:center!important;gap:6px!important;margin-top:10px!important;padding:7px 12px!important;border-radius:999px!important;font-size:19px!important;line-height:1!important;font-weight:950!important}
+.simpleMessengerChat .ratingShare span b{font-size:15px!important;line-height:1!important}
+.simpleMessengerChat .reviewShare p{font-size:15px!important;line-height:1.35!important;font-weight:750!important}
+.simpleMessengerChat .reviewShare em{margin-top:8px!important;font-size:12px!important;color:rgba(255,255,255,.58)!important}
+.simpleMessengerChat .chatLibraryShare{width:min(390px,100%)!important;grid-template-columns:minmax(0,1fr) auto!important;gap:10px!important;padding:10px!important;border-radius:15px!important}
+.simpleMessengerChat .chatLibraryShare strong{font-size:15.5px!important}
+.simpleMessengerChat .chatLibraryShare em{font-size:11px!important}
+.simpleMessengerChat .chatLibraryShare img,.simpleMessengerChat .chatLibraryShare b{width:38px!important;height:38px!important;border-radius:7px!important}
+@media(max-width:900px){.simpleMessengerChat .chatBubble{max-width:72%!important}.simpleMessengerChat .chatMessage.albumMessage .chatBubble{max-width:86%!important}}
+@media(max-width:620px){.simpleMessengerChat .chatBubble{max-width:88%!important}.simpleMessengerChat .chatAlbumCard{grid-template-columns:58px minmax(0,1fr)!important}.simpleMessengerChat .chatAlbumCard .cover{width:58px!important;height:58px!important}}
+
+/* Metallic steel-blue chat accent */
+.muzeChatList,.muzeChatPanel{border-color:rgba(94,159,214,.22)!important;background:radial-gradient(circle at 18% 0%,rgba(43,76,111,.22),transparent 34%),linear-gradient(145deg,rgba(13,13,14,.96),rgba(5,6,8,.98))!important}
+.muzeChatListHead span,.chatShareBox small,.chatAlbumCard small,.chatLibraryShare small,.simpleMessengerChat .muzeChatContext small,.simpleMessengerChat .muzeChatThreadCopy i{color:#5E9FD6!important}
+.muzeChatThread.active,.simpleMessengerChat .muzeChatThread.active{border-color:rgba(94,159,214,.46)!important;background:linear-gradient(135deg,rgba(43,76,111,.38),rgba(255,255,255,.035))!important}
+.simpleMessengerChat .muzeChatThread.hasUnread{background:rgba(43,76,111,.18)!important}
+.simpleMessengerChat .muzeChatThread.hasUnread.active{background:linear-gradient(135deg,rgba(43,76,111,.46),rgba(255,255,255,.035))!important}
+.chatAvatar,.simpleMessengerChat .chatAvatar{background:linear-gradient(145deg,#7DB6E8 0%,#5E9FD6 46%,#2B4C6F 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 0 18px rgba(43,76,111,.28)!important}
+.chatAvatar.online:after,.simpleMessengerChat .chatAvatar.online:after{background:#7DB6E8!important;box-shadow:0 0 0 2px #080808,0 0 8px rgba(125,182,232,.45)!important}
+.muzeChatThread b,.simpleMessengerChat .chatThreadMeta b{background:linear-gradient(145deg,#7DB6E8,#5E9FD6 62%,#2B4C6F)!important;color:#06101a!important;box-shadow:0 0 14px rgba(43,76,111,.34)!important}
+.muzeChatHeader>strong,.simpleMessengerChat .muzeChatHeader p strong{color:#7DB6E8!important}
+.simpleMessengerChat .muzeChatHeader p span{border-color:rgba(94,159,214,.28)!important;background:linear-gradient(145deg,rgba(94,159,214,.13),rgba(43,76,111,.16))!important;color:#7DB6E8!important}
+.muzeChatMessages{background:radial-gradient(circle at 86% 16%,rgba(43,76,111,.16),transparent 25%),linear-gradient(180deg,rgba(255,255,255,.02),transparent 28%)!important}
+.fromMe .chatBubble,.simpleMessengerChat .fromMe .chatBubble{border-color:rgba(94,159,214,.32)!important;background:linear-gradient(145deg,rgba(43,76,111,.78),rgba(16,34,53,.92))!important}
+.chatAlbumCard,.chatLibraryShare,.simpleMessengerChat .chatAlbumCard,.simpleMessengerChat .chatLibraryShare{border-color:rgba(94,159,214,.22)!important}
+.chatShareBox,.simpleMessengerChat .chatShareBox{border-color:rgba(94,159,214,.22)!important}
+.typingLine i{background:#7DB6E8!important}
+.chatLibraryShare .chatCardActions button:first-child,.chatConversationStarters button{border-color:rgba(94,159,214,.24)!important;background:linear-gradient(145deg,rgba(94,159,214,.10),rgba(43,76,111,.12))!important;color:#7DB6E8!important}
+.simpleMessengerChat .chatMoreChip{color:#ffd51f!important;border-color:rgba(242,201,76,.24)!important;background:rgba(242,201,76,.08)!important}
+
+/* Chat refinement: quieter audiophile steel-blue and denser music sharing */
+.muzeChatList,.muzeChatPanel{border-color:rgba(90,141,185,.22)!important;background:radial-gradient(circle at 18% 0%,rgba(38,63,89,.20),transparent 34%),linear-gradient(145deg,rgba(13,13,14,.96),rgba(5,6,8,.98))!important}
+.muzeChatListHead span,.chatShareBox small,.chatAlbumCard small,.chatLibraryShare small,.simpleMessengerChat .muzeChatContext small,.simpleMessengerChat .muzeChatThreadCopy i{color:#5A8DB9!important}
+.muzeChatThread.active,.simpleMessengerChat .muzeChatThread.active{border-color:rgba(90,141,185,.42)!important;background:linear-gradient(135deg,rgba(38,63,89,.34),rgba(255,255,255,.03))!important}
+.simpleMessengerChat .muzeChatThread.hasUnread{background:rgba(38,63,89,.16)!important}
+.chatAvatar,.simpleMessengerChat .chatAvatar{background:linear-gradient(145deg,#6FA1CA 0%,#5A8DB9 48%,#263F59 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 16px rgba(38,63,89,.26)!important}
+.chatAvatar.online:after,.simpleMessengerChat .chatAvatar.online:after{background:#6FA1CA!important;box-shadow:0 0 0 2px #080808,0 0 7px rgba(111,161,202,.38)!important}
+.muzeChatThread b,.simpleMessengerChat .chatThreadMeta b{background:linear-gradient(145deg,#6FA1CA,#5A8DB9 62%,#263F59)!important;color:#06101a!important;box-shadow:0 0 12px rgba(38,63,89,.32)!important}
+.simpleMessengerChat .muzeChatHeader p strong{color:#6FA1CA!important}
+.simpleMessengerChat .muzeChatHeader p span{border-color:rgba(90,141,185,.26)!important;background:linear-gradient(145deg,rgba(90,141,185,.11),rgba(38,63,89,.14))!important;color:#6FA1CA!important}
+.chatConnectionContext{padding:9px 18px!important;border-bottom:1px solid rgba(255,255,255,.07)!important;background:linear-gradient(90deg,rgba(242,201,76,.045),rgba(38,63,89,.075))!important}
+.chatConnectionContext small{display:block!important;margin-bottom:5px!important;color:#ffd51f!important;font-size:10.5px!important;font-weight:950!important;text-transform:uppercase!important;letter-spacing:.06em!important}
+.chatConnectionContext p{margin:0!important;color:rgba(255,255,255,.76)!important;font-size:12.5px!important;line-height:1.3!important;font-weight:760!important}
+.simpleMessengerChat .muzeChatMessages{padding:18px 18px!important;background:radial-gradient(circle at 86% 16%,rgba(38,63,89,.12),transparent 25%),#0b0d12!important}
+.simpleMessengerChat .chatMessage{margin-bottom:14px!important}
+.simpleMessengerChat .chatBubble{padding:12px 14px 7px!important}
+.simpleMessengerChat .chatAlbumCard,.simpleMessengerChat .chatLibraryShare{border-color:rgba(242,201,76,.18)!important;background:linear-gradient(145deg,rgba(18,22,27,.98),rgba(9,11,14,.98))!important;box-shadow:0 12px 28px rgba(0,0,0,.24)!important}
+.simpleMessengerChat .chatAlbumCard small,.simpleMessengerChat .chatLibraryShare small{color:#5A8DB9!important}
+.simpleMessengerChat .chatAlbumCard{grid-template-columns:78px minmax(0,1fr) 38px!important}
+.simpleMessengerChat .chatAlbumCard .cover{width:78px!important;height:78px!important}
+.chatConversationStarters button{border-color:rgba(90,141,185,.20)!important;background:linear-gradient(145deg,rgba(90,141,185,.075),rgba(38,63,89,.10))!important;color:#6FA1CA!important}
+.chatLibraryShare .chatCardActions button:first-child{border-color:rgba(90,141,185,.24)!important;background:rgba(90,141,185,.08)!important;color:#6FA1CA!important}
+.fromMe .chatBubble,.simpleMessengerChat .fromMe .chatBubble{border-color:rgba(90,141,185,.30)!important;background:linear-gradient(145deg,rgba(38,63,89,.76),rgba(15,31,48,.92))!important}
+.typingLine i{background:#6FA1CA!important}
+.chatInputWrap{position:relative!important;display:block!important;min-width:0!important}
+.muzeChatComposer .chatInputWrap input{width:100%!important;padding-right:48px!important;box-sizing:border-box!important}
+.chatEmojiButton{position:absolute!important;right:7px!important;top:50%!important;transform:translateY(-50%)!important;width:32px!important;height:32px!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:50%!important;background:rgba(255,255,255,.045)!important;color:#fff!important;font-size:16px!important;line-height:1!important;display:grid!important;place-items:center!important;cursor:pointer!important;padding:0!important}
+.chatEmojiButton:hover{border-color:rgba(90,141,185,.34)!important;background:rgba(90,141,185,.12)!important}
+.chatEmojiPicker{position:absolute!important;right:0!important;bottom:50px!important;z-index:8!important;width:min(384px,calc(100vw - 48px))!important;max-height:356px!important;overflow:auto!important;display:block!important;padding:0 10px 10px!important;border:1px solid rgba(90,141,185,.24)!important;border-radius:16px!important;background:linear-gradient(145deg,rgba(16,20,27,.98),rgba(6,8,12,.98))!important;box-shadow:0 18px 48px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.06)!important;scroll-behavior:smooth!important;overscroll-behavior:contain!important}
+.chatEmojiPicker[hidden]{display:none!important}
+.chatEmojiTools{position:sticky!important;top:0!important;z-index:2!important;padding:10px 0 8px!important;background:linear-gradient(180deg,rgba(12,15,20,.99) 0%,rgba(12,15,20,.97) 78%,rgba(12,15,20,0) 100%)!important}
+.chatEmojiSearchField{height:40px!important;display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;align-items:center!important;gap:7px!important;margin:0 0 8px!important;padding:0 12px!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:11px!important;background:rgba(255,255,255,.07)!important;box-sizing:border-box!important}
+.chatEmojiSearchField span{color:rgba(255,255,255,.62)!important;font-size:15px!important;line-height:1!important}
+.chatEmojiTools input{width:100%!important;min-width:0!important;border:0!important;outline:0!important;background:transparent!important;color:#fff!important;font:inherit!important;font-size:15px!important;font-weight:700!important;padding:0!important}
+.chatEmojiTools input::placeholder{color:rgba(255,255,255,.62)!important}
+.chatEmojiNav{display:flex!important;align-items:center!important;gap:5px!important;overflow-x:auto!important;overflow-y:hidden!important;padding:0 0 3px!important;scrollbar-width:none!important}
+.chatEmojiNav::-webkit-scrollbar{display:none!important}
+.chatEmojiNav button{width:34px!important;min-width:34px!important;height:34px!important;border-radius:10px!important;color:rgba(255,255,255,.86)!important;font-size:19px!important;filter:saturate(.95)!important}
+.chatEmojiNav button:hover,.chatEmojiNav button:focus-visible{background:rgba(90,141,185,.18)!important;outline:0!important}
+.chatEmojiResults{display:block!important}
+.chatEmojiGroup{display:grid!important;grid-template-columns:repeat(8,1fr)!important;gap:5px!important;margin-bottom:10px!important}
+.chatEmojiGroup strong{grid-column:1/-1!important;margin:2px 0 3px!important;color:#c9d7e4!important;font-size:13px!important;font-weight:900!important;text-transform:none!important;letter-spacing:0!important}
+.chatEmojiPicker button{height:34px!important;border:0!important;border-radius:10px!important;background:transparent!important;font-size:20px!important;line-height:1!important;cursor:pointer!important;padding:0!important}
+.chatEmojiPicker button:hover{background:rgba(90,141,185,.16)!important}
+.chatEmojiPicker button[hidden],.chatEmojiGroup[hidden],.chatEmojiNoResults[hidden]{display:none!important}
+.chatEmojiNoResults{padding:18px 8px 14px!important;color:rgba(255,255,255,.58)!important;font-size:13px!important;text-align:center!important}
+.muzeChatComposer label>button.chatSendIconButton{width:46px!important;min-width:46px!important;padding:0!important;display:grid!important;place-items:center!important}
+.chatSendIconButton svg{width:19px!important;height:19px!important;display:block!important;fill:currentColor!important;transform:translateX(1px)!important}
+.simpleMessengerChat .muzeChatComposer label>button.chatSendIconButton,
+.muzeChatComposer label>button.chatSendIconButton{
+  background:linear-gradient(135deg,#6FA1CA,#5A8DB9 62%,#263F59)!important;
+  color:#06101a!important;
+  border:1px solid rgba(111,161,202,.48)!important;
+  box-shadow:0 10px 24px rgba(38,63,89,.30),0 0 18px rgba(111,161,202,.18)!important;
+}
+.simpleMessengerChat .muzeChatComposer label>button.chatSendIconButton:hover,
+.muzeChatComposer label>button.chatSendIconButton:hover{
+  background:linear-gradient(135deg,#8bb9dc,#6FA1CA 58%,#315b80)!important;
+  box-shadow:0 12px 28px rgba(38,63,89,.38),0 0 22px rgba(111,161,202,.24)!important;
+}
+.simpleMessengerChat .chatConnectionContext small,
+.chatConnectionContext small{
+  color:#fff!important;
+  font-weight:950!important;
+}
+.simpleMessengerChat .chatConnectionContext p,
+.chatConnectionContext p{
+  color:#fff!important;
+  font-weight:900!important;
+}
+.simpleMessengerChat .chatAlbumCard .chatCardActions button:first-child,
+.chatAlbumCard .chatCardActions button:first-child{
+  color:#fff!important;
+  border-color:rgba(255,255,255,.34)!important;
+  background:rgba(255,255,255,.08)!important;
+}
+.simpleMessengerChat .chatAlbumCard i,
+.chatAlbumCard i,
+.simpleMessengerChat .ratingShare span,
+.ratingShare span{
+  color:#fff!important;
+  border-color:rgba(255,255,255,.28)!important;
+  background:rgba(255,255,255,.08)!important;
+  box-shadow:none!important;
+}
+.simpleMessengerChat .ratingShare span b,
+.ratingShare span b{
+  color:#fff!important;
+}
+@media(max-width:620px){.chatEmojiPicker{right:auto!important;left:0!important;width:min(340px,calc(100vw - 32px))!important}.chatEmojiGroup{grid-template-columns:repeat(6,1fr)!important}}
+@media(max-width:760px){
+  .topbarChatPanel{
+    position:fixed!important;
+    inset:0!important;
+    width:auto!important;
+    height:auto!important;
+    padding:12px!important;
+    place-items:center!important;
+  }
+  .topbarChatPanel #topbarChatContent{
+    width:min(1080px,calc(100vw - 24px))!important;
+    height:min(760px,calc(100vh - 24px))!important;
+  }
+  .topbarChatPanel .muzeChatShell{
+    grid-template-columns:minmax(210px,32%) minmax(0,1fr)!important;
+    grid-template-rows:1fr!important;
+  }
+  .topbarChatPanel .muzeChatList{
+    height:100%!important;
+    max-height:none!important;
+    overflow:auto!important;
+    border-right:1px solid rgba(255,255,255,.08)!important;
+    border-bottom:0!important;
+  }
+  .topbarChatPanel .muzeChatPanel{
+    height:100%!important;
+    min-height:0!important;
+  }
+}
+
+
 .authPanel.accountProfileMode .profileAvatarPreview img.uploadedAvatarPhoto,
 .authPanel.accountProfileMode:not(.avatarEditorMode) .profileAvatarPreview img.uploadedAvatarPhoto,
 .avatarPreview img.uploadedAvatarPhoto,
@@ -12364,14 +12793,13 @@ body{
   #albumModal .linerHeroSide{
     align-self:start!important;
   }
+  #albumModal .linerHeroSide{
+    margin-top:0!important;
+    transform:translateY(-18px) scale(.9292)!important;
+    transform-origin:top right!important;
+  }
   #albumModal .linerHero > .linerHeroSoul{
-    grid-column:1 / 3!important;
-    grid-row:2!important;
-    width:100%!important;
-    margin:-100px 0 0!important;
-    min-height:0!important;
-    padding:13px 22px!important;
-    align-self:start!important;
+    display:none!important;
   }
   #albumModal .linerHero > .linerHeroSoul .returnIcon{
     width:42px!important;
@@ -12479,4 +12907,778 @@ body{
   transform:translateX(-6%) scale(1.36)!important;
   transform-origin:center top!important;
   z-index:0!important;
+}
+
+/* Dedicated full-page chat view */
+body.chatView .hero,
+body.chatView .setupWarning,
+body.chatView .controls,
+body.chatView .tabs{
+  display:none!important;
+}
+body.chatView #content,
+body.chatView .simpleMessengerChat{
+  margin-top:0!important;
+}
+.simpleMessengerChat .chatCloseButton{
+  position:relative!important;
+  flex:0 0 auto!important;
+  width:38px!important;
+  height:38px!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  border-radius:50%!important;
+  background:rgba(255,255,255,.055)!important;
+  color:#fff!important;
+  cursor:pointer!important;
+  display:grid!important;
+  place-items:center!important;
+}
+.simpleMessengerChat .chatCloseButton:hover{
+  border-color:rgba(111,161,202,.55)!important;
+  background:rgba(111,161,202,.14)!important;
+}
+.simpleMessengerChat .chatCloseButton span,
+.simpleMessengerChat .chatCloseButton:before,
+.simpleMessengerChat .chatCloseButton:after{
+  content:""!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  width:15px!important;
+  height:2px!important;
+  border-radius:999px!important;
+  background:currentColor!important;
+  transform-origin:center!important;
+}
+.simpleMessengerChat .chatCloseButton span{
+  display:none!important;
+}
+.simpleMessengerChat .chatCloseButton:before{
+  transform:translate(-50%,-50%) rotate(45deg)!important;
+}
+.simpleMessengerChat .chatCloseButton:after{
+  transform:translate(-50%,-50%) rotate(-45deg)!important;
+}
+
+/* Keep the popup using the same two-column chat design as the full-page view. */
+.topbarChatPanel .simpleMessengerChat{
+  grid-template-columns:320px minmax(0,1fr)!important;
+  grid-template-rows:1fr!important;
+  min-height:0!important;
+}
+.topbarChatPanel .simpleMessengerChat .muzeChatList{
+  display:block!important;
+  height:100%!important;
+  max-height:none!important;
+  border-right:1px solid rgba(255,255,255,.08)!important;
+  border-bottom:0!important;
+}
+.topbarChatPanel .simpleMessengerChat .muzeChatPanel{
+  height:100%!important;
+  min-height:0!important;
+}
+.topbarChatPanel .simpleMessengerChat .muzeChatHeader{
+  padding-top:22px!important;
+  padding-bottom:14px!important;
+}
+@media(max-width:760px){
+  .topbarChatPanel .simpleMessengerChat{
+    grid-template-columns:minmax(210px,32%) minmax(0,1fr)!important;
+  }
+}
+
+/* Premium chat profile header */
+.simpleMessengerChat .muzeChatHeader{
+  align-items:flex-start!important;
+  padding:26px 28px 22px!important;
+  gap:24px!important;
+  background:linear-gradient(180deg,rgba(13,18,27,.98),rgba(9,11,16,.98))!important;
+  border-bottom:1px solid rgba(255,255,255,.075)!important;
+}
+.topbarChatPanel .simpleMessengerChat .muzeChatHeader{
+  padding-top:30px!important;
+  padding-bottom:24px!important;
+}
+.simpleMessengerChat .chatProfileIdentity{
+  align-items:center!important;
+  gap:20px!important;
+  min-width:0!important;
+}
+.simpleMessengerChat .chatProfileIdentity .chatAvatar{
+  width:64px!important;
+  height:64px!important;
+  min-width:64px!important;
+  font-size:20px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 0 26px rgba(38,63,89,.34)!important;
+}
+.simpleMessengerChat .chatProfileIdentity .chatAvatar.online:after{
+  width:13px!important;
+  height:13px!important;
+  right:4px!important;
+  bottom:5px!important;
+}
+.simpleMessengerChat .muzeChatHeader h3{
+  margin:0 0 8px!important;
+  color:#fff!important;
+  font-size:20px!important;
+  line-height:1.08!important;
+  font-weight:900!important;
+}
+.simpleMessengerChat .muzeChatHeader p{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:9px!important;
+  margin:0!important;
+}
+.simpleMessengerChat .muzeChatHeader p strong{
+  color:rgba(255,255,255,.72)!important;
+  font-size:12px!important;
+  font-weight:800!important;
+}
+.simpleMessengerChat .muzeChatHeader p span{
+  padding:4px 9px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(111,161,202,.26)!important;
+  background:rgba(111,161,202,.08)!important;
+  color:#8bb8dd!important;
+  font-size:10.5px!important;
+  font-weight:850!important;
+}
+.simpleMessengerChat .chatCloseButton{
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  margin-top:2px!important;
+}
+.simpleMessengerChat .chatCloseButton:before,
+.simpleMessengerChat .chatCloseButton:after{
+  width:12px!important;
+  height:2px!important;
+}
+.simpleMessengerChat .chatConnectionContext{
+  padding:16px 28px 18px!important;
+  border-bottom:1px solid rgba(255,255,255,.07)!important;
+  background:linear-gradient(180deg,rgba(10,13,19,.98),rgba(9,11,16,.98))!important;
+}
+.simpleMessengerChat .chatConnectionContext small,
+.chatConnectionContext small{
+  display:block!important;
+  margin:0 0 10px!important;
+  color:#fff!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:950!important;
+  text-transform:uppercase!important;
+  letter-spacing:.06em!important;
+}
+.simpleMessengerChat .chatMutualArtistPills{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-width:0!important;
+}
+.simpleMessengerChat .chatMutualArtistPills span{
+  display:inline-flex!important;
+  align-items:center!important;
+  max-width:100%!important;
+  min-height:26px!important;
+  padding:6px 11px!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.045)!important;
+  color:rgba(255,255,255,.78)!important;
+  font-size:12px!important;
+  line-height:1.1!important;
+  font-weight:800!important;
+  white-space:normal!important;
+}
+.simpleMessengerChat .chatMutualArtistPills p,
+.chatConnectionContext p{
+  margin:0!important;
+  color:rgba(255,255,255,.78)!important;
+  font-size:13px!important;
+  line-height:1.4!important;
+  font-weight:760!important;
+}
+.simpleMessengerChat .chatSelfProfileCard{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:44px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:12px!important;
+  margin:8px 0 2px!important;
+  min-height:89px!important;
+  padding:13px 12px!important;
+  border:1px solid rgba(111,161,202,.18)!important;
+  border-radius:16px!important;
+  background:linear-gradient(145deg,rgba(111,161,202,.10),rgba(255,255,255,.035))!important;
+  color:#fff!important;
+  text-align:left!important;
+  cursor:pointer!important;
+}
+.simpleMessengerChat .chatSelfProfileCard:hover{
+  border-color:rgba(111,161,202,.34)!important;
+  background:linear-gradient(145deg,rgba(111,161,202,.15),rgba(255,255,255,.045))!important;
+}
+.simpleMessengerChat .chatSelfAvatar{
+  width:44px!important;
+  height:44px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#101722!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 18px rgba(38,63,89,.32)!important;
+}
+.simpleMessengerChat .chatSelfAvatar img,
+.simpleMessengerChat .chatSelfAvatar svg{
+  width:44px!important;
+  height:44px!important;
+  min-width:44px!important;
+  max-width:44px!important;
+  min-height:44px!important;
+  max-height:44px!important;
+  display:block!important;
+  object-fit:cover!important;
+  aspect-ratio:1/1!important;
+  border-radius:50%!important;
+}
+.simpleMessengerChat .chatSelfAvatar img.uploadedAvatarPhoto{
+  object-position:center 18%!important;
+  transform:translate(-6%,-9%) scale(1.36)!important;
+  transform-origin:center 18%!important;
+}
+.simpleMessengerChat .chatSelfProfileCard .chatSelfCopy{
+  min-width:0!important;
+  display:grid!important;
+  gap:4px!important;
+  align-content:center!important;
+  justify-content:start!important;
+}
+.simpleMessengerChat .chatSelfProfileCard small{
+  color:#8bb8dd!important;
+  font-size:10px!important;
+  line-height:1!important;
+  font-weight:950!important;
+  text-transform:uppercase!important;
+  letter-spacing:.06em!important;
+}
+.simpleMessengerChat .chatSelfProfileCard strong{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:#fff!important;
+  font-size:14px!important;
+  line-height:1.15!important;
+  font-weight:900!important;
+}
+.simpleMessengerChat .chatSelfProfileCard em{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:rgba(255,255,255,.58)!important;
+  font-size:11px!important;
+  line-height:1.15!important;
+  font-style:normal!important;
+  font-weight:800!important;
+  letter-spacing:0!important;
+}
+.simpleMessengerChat .chatSelfStats{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:6px!important;
+  margin-top:2px!important;
+}
+.simpleMessengerChat .chatSelfStats b{
+  min-width:0!important;
+  display:grid!important;
+  gap:2px!important;
+  padding:7px 8px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.035)!important;
+  font-weight:800!important;
+}
+.simpleMessengerChat .chatSelfStats i{
+  color:#fff!important;
+  font-size:15px!important;
+  line-height:1!important;
+  font-style:normal!important;
+  font-weight:950!important;
+}
+.simpleMessengerChat .chatSelfStats em{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:rgba(255,255,255,.58)!important;
+  font-size:9.5px!important;
+  line-height:1.1!important;
+  font-style:normal!important;
+  font-weight:800!important;
+}
+@media(max-width:620px){
+  .simpleMessengerChat .muzeChatHeader{
+    padding:22px 18px 18px!important;
+    gap:16px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatHeader{
+    padding-top:24px!important;
+    padding-bottom:18px!important;
+  }
+  .simpleMessengerChat .chatProfileIdentity{
+    gap:15px!important;
+  }
+  .simpleMessengerChat .chatProfileIdentity .chatAvatar{
+    width:58px!important;
+    height:58px!important;
+    min-width:58px!important;
+  }
+  .simpleMessengerChat .chatConnectionContext{
+    padding:14px 18px 16px!important;
+  }
+}
+@media(max-width:760px){
+  .profileStatsGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    width:100%;
+  }
+  .profileStatsGrid span{
+    min-height:68px;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid{
+    margin-top:-8px;
+  }
+}
+
+/* Edit profile spacing refinement */
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorHero{
+  gap:42px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorHeroPreview{
+  margin-top:10px!important;
+  margin-bottom:18px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorUsernameDisplay{
+  gap:9px!important;
+  margin-top:4px!important;
+  margin-bottom:26px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorUsernameDisplay strong{
+  font-size:17px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorUsernameDisplay span{
+  font-size:11px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid{
+  width:min(540px,100%)!important;
+  gap:8px!important;
+  margin-top:14px!important;
+  margin-bottom:18px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid span{
+  min-height:58px!important;
+  padding:9px 8px!important;
+  border-radius:13px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid strong{
+  font-size:21px!important;
+}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid small{
+  margin-top:5px!important;
+  font-size:8.8px!important;
+  letter-spacing:.045em!important;
+}
+@media(max-width:760px){
+  .authPanel.accountProfileMode.avatarEditorMode .avatarEditorHero{
+    gap:30px!important;
+  }
+  .authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid{
+    margin-top:8px!important;
+  }
+}
+
+/* Chatbox typography: softer, non-bold text */
+.simpleMessengerChat :is(p,span,small,strong,b,em,i,time){
+  font-weight:500!important;
+}
+.simpleMessengerChat :is(.muzeChatListHead h2,.muzeChatHeader h3){
+  font-weight:650!important;
+}
+.simpleMessengerChat :is(button,.chatComposeButton,.chatSendIconButton){
+  font-weight:650!important;
+}
+.simpleMessengerChat .muzeChatComposer,
+.simpleMessengerChat .muzeChatComposer label,
+.simpleMessengerChat .chatInputWrap,
+.simpleMessengerChat .muzeChatComposer input{
+  pointer-events:auto!important;
+}
+.simpleMessengerChat .muzeChatComposer input{
+  user-select:text!important;
+  -webkit-user-select:text!important;
+  font-weight:500!important;
+}
+.simpleMessengerChat .chatComposeButton.active{
+  transform:rotate(45deg)!important;
+  border-color:rgba(111,161,202,.55)!important;
+  background:rgba(111,161,202,.18)!important;
+}
+.chatUserSearchPanel{
+  display:grid!important;
+  gap:9px!important;
+  margin:0 0 12px!important;
+  padding:10px!important;
+  border:1px solid rgba(111,161,202,.20)!important;
+  border-radius:16px!important;
+  background:rgba(111,161,202,.055)!important;
+}
+.chatUserSearchPanel label{
+  display:block!important;
+  min-width:0!important;
+}
+.chatUserSearchPanel input{
+  width:100%!important;
+  height:38px!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:999px!important;
+  background:#111620!important;
+  color:#fff!important;
+  outline:0!important;
+  padding:0 13px!important;
+  font-size:13px!important;
+  font-weight:500!important;
+}
+.chatUserSearchPanel input:focus{
+  border-color:rgba(111,161,202,.44)!important;
+  box-shadow:0 0 0 3px rgba(111,161,202,.10)!important;
+}
+.chatUserSearchResults{
+  display:grid!important;
+  gap:6px!important;
+}
+.chatUserSearchResult{
+  width:100%!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:36px minmax(0,1fr)!important;
+  gap:10px!important;
+  align-items:center!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:13px!important;
+  background:rgba(255,255,255,.035)!important;
+  color:#fff!important;
+  padding:8px!important;
+  text-align:left!important;
+  cursor:pointer!important;
+}
+.chatUserSearchResult:hover{
+  border-color:rgba(111,161,202,.28)!important;
+  background:rgba(111,161,202,.10)!important;
+}
+.chatUserSearchResult .chatAvatar{
+  width:36px!important;
+  height:36px!important;
+  min-width:36px!important;
+}
+.chatUserSearchResult span{
+  min-width:0!important;
+  display:grid!important;
+  gap:2px!important;
+}
+.chatUserSearchResult strong,
+.chatUserSearchResult small{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+.chatUserSearchResult strong{
+  color:#fff!important;
+  font-size:13.5px!important;
+}
+.chatUserSearchResult small,
+.chatUserSearchEmpty{
+  color:rgba(255,255,255,.58)!important;
+  font-size:11.5px!important;
+}
+.chatUserSearchEmpty{
+  padding:8px 4px!important;
+}
+
+/* Mojokoso uses a pre-cropped square avatar file, so do not apply portrait zoom offsets. */
+.libraryAvatar img[src*="mojokoso-avatar"],
+.mockAvatar img[src*="mojokoso-avatar"],
+.chatAvatar img[src*="mojokoso-avatar"],
+.simpleMessengerChat .chatSelfAvatar img[src*="mojokoso-avatar"]{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  object-position:center center!important;
+  transform:none!important;
+  transform-origin:center center!important;
+  border-radius:50%!important;
+}
+
+/* Mobile topbar: prevent logo/tagline/actions from overlapping. */
+@media(max-width:650px){
+  .topbar{
+    display:grid!important;
+    grid-template-columns:52px minmax(0,1fr) auto!important;
+    align-items:center!important;
+    gap:8px!important;
+    margin-bottom:16px!important;
+  }
+  .topbar .menuBtn{
+    width:48px!important;
+    height:48px!important;
+    grid-column:1!important;
+  }
+  .topbar .brandWrap{
+    grid-column:2!important;
+    width:100%!important;
+    min-width:0!important;
+    overflow:hidden!important;
+    margin-left:-6px!important;
+    gap:0!important;
+  }
+  .topbar .brandLogo{
+    height:74px!important;
+    max-width:82px!important;
+    margin-right:-15px!important;
+    transform:translateY(-5px)!important;
+  }
+  .topbar .brandWrap:before{
+    left:20px!important;
+    top:18px!important;
+    width:42px!important;
+    height:30px!important;
+  }
+  .topbar .brandWrap:after{
+    left:10px!important;
+    top:53px!important;
+    width:56px!important;
+    height:18px!important;
+  }
+  .topbar .brandWrap .tagline{
+    min-width:0!important;
+    max-width:128px!important;
+    overflow:hidden!important;
+    display:-webkit-box!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    font-size:12.5px!important;
+    line-height:1.08!important;
+    margin-left:27px!important;
+    transform:translateY(-8px)!important;
+  }
+  .topbar .notificationWrap{
+    grid-column:3!important;
+    justify-self:end!important;
+    gap:8px!important;
+    min-width:max-content!important;
+  }
+  .topbar .topbarChatButton,
+  .topbar .notificationBell{
+    width:44px!important;
+    height:44px!important;
+    min-width:44px!important;
+  }
+  .topbar .authButton{
+    grid-column:1 / -1!important;
+    width:100%!important;
+    min-height:48px!important;
+    margin:6px 0 0!important;
+    justify-content:center!important;
+  }
+}
+
+/* Mobile chat popup: use a single-column phone layout instead of squeezed desktop columns. */
+@media(max-width:650px){
+  .topbarChatPanel{
+    padding:10px!important;
+    place-items:center!important;
+  }
+  .topbarChatPanel #topbarChatContent{
+    width:calc(100vw - 20px)!important;
+    height:calc(100vh - 20px)!important;
+    border-radius:24px!important;
+    overflow:hidden!important;
+  }
+  .topbarChatPanel .simpleMessengerChat{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    grid-template-rows:auto minmax(0,1fr)!important;
+    height:100%!important;
+    min-height:0!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatList{
+    height:100%!important;
+    max-height:none!important;
+    min-height:0!important;
+    overflow:auto!important;
+    border-right:0!important;
+    border-bottom:1px solid rgba(255,255,255,.08)!important;
+    padding:16px 14px 12px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatListHead{
+    padding:2px 8px 12px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatListHead h2{
+    font-size:25px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatThread{
+    grid-template-columns:42px minmax(0,1fr) auto!important;
+    gap:10px!important;
+    padding:10px!important;
+    min-height:64px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatAvatar{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatThreadCopy strong{
+    max-width:100%!important;
+    display:block!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+    font-size:14px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatThreadCopy small{
+    max-width:100%!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    font-size:11.5px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatThreadMeta{
+    align-self:start!important;
+    min-width:36px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatThreadMeta em{
+    font-size:10px!important;
+    white-space:nowrap!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatPanel{
+    display:none!important;
+    height:100%!important;
+    min-height:0!important;
+    grid-template-rows:auto auto minmax(0,1fr) auto!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatHeader{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 30px!important;
+    gap:12px!important;
+    align-items:start!important;
+    padding:16px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatProfileIdentity{
+    gap:12px!important;
+    min-width:0!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatProfileIdentity .chatAvatar{
+    width:50px!important;
+    height:50px!important;
+    min-width:50px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatHeader h3{
+    font-size:18px!important;
+    margin-bottom:5px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatHeader p{
+    gap:6px!important;
+    font-size:11.5px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatHeader p span{
+    padding:4px 7px!important;
+    font-size:10.5px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatCloseButton{
+    width:28px!important;
+    height:28px!important;
+    min-width:28px!important;
+    justify-self:end!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatConnectionContext{
+    padding:12px 16px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatMutualArtistPills{
+    gap:7px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatMutualArtistPills span{
+    max-width:100%!important;
+    padding:6px 9px!important;
+    border-radius:999px!important;
+    font-size:11px!important;
+    line-height:1.15!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatMessages{
+    padding:14px!important;
+    min-height:0!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatBubble{
+    max-width:88%!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatComposer{
+    padding:10px 12px 12px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatComposer label{
+    grid-template-columns:minmax(0,1fr) 44px!important;
+    gap:8px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .muzeChatComposer input{
+    height:42px!important;
+    font-size:14px!important;
+  }
+  .topbarChatPanel .simpleMessengerChat .chatSendIconButton{
+    width:44px!important;
+    min-width:44px!important;
+    height:44px!important;
+  }
+  .topbarChatPanel #topbarChatContent.mobileChatConversationOpen .simpleMessengerChat{
+    grid-template-rows:minmax(0,1fr)!important;
+  }
+  .topbarChatPanel #topbarChatContent.mobileChatConversationOpen .muzeChatList{
+    display:none!important;
+  }
+  .topbarChatPanel #topbarChatContent.mobileChatConversationOpen .muzeChatPanel{
+    display:grid!important;
+    height:100%!important;
+    min-height:0!important;
+    border-radius:0!important;
+  }
+  .topbarChatPanel #topbarChatContent.mobileChatConversationOpen .muzeChatHeader{
+    position:sticky!important;
+    top:0!important;
+    z-index:3!important;
+  }
+  .topbarChatPanel #topbarChatContent.mobileChatConversationOpen .muzeChatMessages{
+    overflow:auto!important;
+  }
+  .topbarChatPanel #topbarChatContent.mobileChatConversationOpen .muzeChatComposer{
+    position:sticky!important;
+    bottom:0!important;
+    z-index:3!important;
+  }
+}
+
+/* Final chat compose plus alignment override. */
+.simpleMessengerChat .chatComposeButton,
+.topbarChatPanel .simpleMessengerChat .chatComposeButton{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0 0 4px!important;
+  line-height:0!important;
+  font-size:22px!important;
+}
+.simpleMessengerChat .chatComposeButton.active,
+.topbarChatPanel .simpleMessengerChat .chatComposeButton.active{
+  transform:rotate(45deg)!important;
 }
