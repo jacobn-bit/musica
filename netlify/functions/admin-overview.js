@@ -73,20 +73,28 @@ exports.handler = async function(event) {
       return text ? JSON.parse(text) : null;
     };
 
-    const album_key = String(body.album_key || "").trim();
+    const normalizeAlbumKey = value => String(value || "")
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    let album_key = String(body.album_key || "").trim();
     const album_ref = String(body.album_ref || "").trim();
     const album_id = String(body.album_id || "").trim();
-    const title = String(body.title || "").trim();
+    let title = String(body.title || body.album_title || body.name || "").trim();
     const artist = String(body.artist || "").trim();
     const comment_id = String(body.comment_id || "").trim();
     const reply_id = String(body.reply_id || "").trim();
     const library_id = String(body.library_id || "").trim();
+    const album_item = body.album_item && typeof body.album_item === "object" ? body.album_item : null;
     const loved_track_key = String(body.loved_track_key || "").trim();
     const loved_track_name = String(body.loved_track_name || "").trim();
     const admin_ratings_count = body.admin_ratings_count === undefined || body.admin_ratings_count === null || body.admin_ratings_count === "" ? null : Math.max(0, Math.round(Number(body.admin_ratings_count)));
     const admin_score = body.admin_score === undefined || body.admin_score === null || body.admin_score === "" ? null : Math.round(Number(body.admin_score) * 10) / 10;
     const mood_score = body.mood_score === undefined || body.mood_score === null || body.mood_score === "" ? null : Math.max(0, Math.min(100, Math.round(Number(body.mood_score))));
-    const manual_genre = String(body.manual_genre || "").replace(/\s+/g, " ").trim().slice(0, 40);
+    const manual_genre = String(body.manual_genre || body.genre || body.category || "").replace(/\s+/g, " ").trim().slice(0, 40);
     const hero_focus = String(body.hero_focus || "").trim();
     const overview_focus = String(body.overview_focus || "").trim();
     const moment_focus = String(body.moment_focus || "").trim();
@@ -179,6 +187,8 @@ exports.handler = async function(event) {
 
     if (action === "set_album_genre") {
       const overview = String(body.overview || "").trim();
+      if (!title && album_key) title = album_key;
+      if (!album_key && title) album_key = normalizeAlbumKey(title);
       if (!album_key || !title || !manual_genre) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and genre are required." }) };
       }
@@ -246,6 +256,38 @@ exports.handler = async function(event) {
       await api(`library_follows?library_id=eq.${encodeURIComponent(library_id)}`, { method: "DELETE" });
       await api(`user_libraries?id=eq.${encodeURIComponent(library_id)}`, { method: "DELETE" });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    if (action === "add_library_album") {
+      if (!library_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Library id is required." }) };
+      if (!album_item || !String(album_item.title || "").trim()) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album item is required." }) };
+      const rows = await api(`user_libraries?id=eq.${encodeURIComponent(library_id)}&select=id,items`, { method: "GET" });
+      const library = rows && rows[0];
+      if (!library) return { statusCode: 404, headers, body: JSON.stringify({ error: "Library not found." }) };
+      const cleanItem = {
+        id: String(album_item.id || album_item.spotify_id || `${album_item.artist || ""}-${album_item.title || ""}`).trim(),
+        title: String(album_item.title || "").trim(),
+        artist: String(album_item.artist || "").trim(),
+        year: String(album_item.year || "").trim(),
+        genre: String(album_item.genre || "").trim(),
+        cover_url: String(album_item.cover_url || "").trim(),
+        spotify_url: String(album_item.spotify_url || "").trim(),
+        summary: String(album_item.summary || "").trim(),
+        rating: album_item.rating || "",
+        added_at: album_item.added_at || new Date().toISOString()
+      };
+      const sameAlbum = (a, b) => {
+        const norm = value => String(value || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, " ").trim();
+        return (a.id && b.id && String(a.id) === String(b.id)) || (norm(a.title) === norm(b.title) && norm(a.artist) === norm(b.artist));
+      };
+      const items = Array.isArray(library.items) ? library.items : [];
+      const nextItems = items.some(item => sameAlbum(item, cleanItem)) ? items : [...items, cleanItem];
+      const updated = await api(`user_libraries?id=eq.${encodeURIComponent(library_id)}`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ items: nextItems, album_count: nextItems.length, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: updated ? updated[0] : null }) };
     }
 
     if (action === "delete_overview") {
