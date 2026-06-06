@@ -13442,39 +13442,43 @@ body.chatView .simpleMessengerChat{
     grid-column:2!important;
     width:100%!important;
     min-width:0!important;
-    overflow:hidden!important;
-    margin-left:-6px!important;
-    gap:0!important;
+    overflow:visible!important;
+    margin-left:0!important;
+    gap:8px!important;
+    justify-content:center!important;
   }
   .topbar .brandLogo{
-    height:74px!important;
-    max-width:82px!important;
-    margin-right:-15px!important;
-    transform:translateY(-5px)!important;
+    width:auto!important;
+    height:61px!important;
+    max-width:79px!important;
+    margin-right:0!important;
+    object-fit:contain!important;
+    object-position:center center!important;
+    border-radius:0!important;
+    transform:translateY(-3px)!important;
+    filter:drop-shadow(0 7px 13px rgba(0,0,0,.38)) contrast(1.08) saturate(1.06)!important;
   }
   .topbar .brandWrap:before{
-    left:20px!important;
-    top:18px!important;
-    width:42px!important;
-    height:30px!important;
+    left:calc(50% - 70px)!important;
+    top:13px!important;
+    width:38px!important;
+    height:26px!important;
+    opacity:.55!important;
+    filter:blur(10px)!important;
   }
-  .topbar .brandWrap:after{
-    left:10px!important;
-    top:53px!important;
-    width:56px!important;
-    height:18px!important;
-  }
+  .topbar .brandWrap:after{display:none!important}
   .topbar .brandWrap .tagline{
     min-width:0!important;
-    max-width:128px!important;
+    max-width:154px!important;
     overflow:hidden!important;
-    display:-webkit-box!important;
-    -webkit-line-clamp:2!important;
-    -webkit-box-orient:vertical!important;
-    font-size:12.5px!important;
-    line-height:1.08!important;
-    margin-left:27px!important;
-    transform:translateY(-8px)!important;
+    display:block!important;
+    color:rgba(218,211,198,.68)!important;
+    font-size:11.4px!important;
+    line-height:1.28!important;
+    letter-spacing:.012em!important;
+    margin-left:0!important;
+    transform:translateY(-1px)!important;
+    font-weight:560!important;
   }
   .topbar .notificationWrap{
     grid-column:3!important;
@@ -13502,10 +13506,14 @@ body.chatView .simpleMessengerChat{
   .topbarChatPanel{
     padding:10px!important;
     place-items:center!important;
+    align-items:start!important;
+    height:100dvh!important;
+    overflow:hidden!important;
   }
   .topbarChatPanel #topbarChatContent{
     width:calc(100vw - 20px)!important;
-    height:calc(100vh - 20px)!important;
+    height:calc(var(--mobile-chat-height, 100dvh) - 20px)!important;
+    max-height:calc(var(--mobile-chat-height, 100dvh) - 20px)!important;
     border-radius:24px!important;
     overflow:hidden!important;
   }
@@ -13621,6 +13629,7 @@ body.chatView .simpleMessengerChat{
   .topbarChatPanel .simpleMessengerChat .muzeChatMessages{
     padding:14px!important;
     min-height:0!important;
+    overscroll-behavior:contain!important;
   }
   .topbarChatPanel .simpleMessengerChat .chatBubble{
     max-width:88%!important;
@@ -13634,7 +13643,7 @@ body.chatView .simpleMessengerChat{
   }
   .topbarChatPanel .simpleMessengerChat .muzeChatComposer input{
     height:42px!important;
-    font-size:14px!important;
+    font-size:16px!important;
   }
   .topbarChatPanel .simpleMessengerChat .chatSendIconButton{
     width:44px!important;
@@ -13665,6 +13674,23 @@ body.chatView .simpleMessengerChat{
     position:sticky!important;
     bottom:0!important;
     z-index:3!important;
+  }
+  .topbarChatPanel.keyboardOpen{
+    padding:4px!important;
+  }
+  .topbarChatPanel.keyboardOpen #topbarChatContent{
+    width:calc(100vw - 8px)!important;
+    height:calc(var(--mobile-chat-height, 100dvh) - 8px)!important;
+    max-height:calc(var(--mobile-chat-height, 100dvh) - 8px)!important;
+    border-radius:18px!important;
+  }
+  .topbarChatPanel.keyboardOpen .simpleMessengerChat .muzeChatHeader{
+    padding-top:12px!important;
+    padding-bottom:10px!important;
+  }
+  .topbarChatPanel.keyboardOpen .simpleMessengerChat .chatConnectionContext{
+    padding-top:9px!important;
+    padding-bottom:9px!important;
   }
 }
 

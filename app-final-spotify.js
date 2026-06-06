@@ -48,10 +48,26 @@ const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRati
 const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
 const MUZE_AVATAR_ICONS=Array.from({length:22},(_,i)=>i+12).filter(n=>![14,27].includes(n)).map(n=>`assets/avatar-icons/avatar-icon-${String(n).padStart(2,"0")}.png`);
 const PROFILE_AVATAR_OVERRIDES={
-  mojokoso:"assets/profile-photos/mojokoso-avatar.jpg?v=face-crop-20260606",
-  val:"assets/profile-photos/val-avatar.png?v=inner-crop-20260606",
-  valentina:"assets/profile-photos/val-avatar.png?v=inner-crop-20260606"
+  mojokoso:"assets/profile-icons/mojokoso-avatar.jpg?v=face-crop-20260607",
+  val:"assets/profile-icons/val-avatar.png?v=inner-crop-20260607",
+  valentina:"assets/profile-icons/val-avatar.png?v=inner-crop-20260607"
 };
+function publicAvatarFallbackUrl(url=""){
+  const clean=String(url||"").trim();
+  if(!clean||clean.includes("/public/"))return "";
+  if(clean.startsWith("assets/profile-icons/"))return "public/"+clean;
+  if(clean.startsWith("/assets/profile-icons/"))return "/public"+clean;
+  if(clean.startsWith("assets/profile-photos/"))return "public/"+clean;
+  if(clean.startsWith("/assets/profile-photos/"))return "/public"+clean;
+  return "";
+}
+function avatarImgMarkup(url,label){
+  const fallback=publicAvatarFallbackUrl(url);
+  const onerror=fallback
+    ? `this.onerror=function(){this.remove()};this.src='${escapeJsString(fallback)}'`
+    : "this.remove()";
+  return '<img src="'+escapeHtml(url)+'" data-fallback-src="'+escapeHtml(fallback)+'" onerror="'+escapeHtml(onerror)+'" alt="'+escapeHtml(label)+' avatar">';
+}
 function profileAvatarOverride(profile={}){
   const username=String(profile.username||profile.name||"").trim().toLowerCase();
   return PROFILE_AVATAR_OVERRIDES[username]||"";
@@ -4507,7 +4523,7 @@ function libraryAvatarMarkup(library){
   const resolved={...(library||{}),...(profile||{})};
   const label=String(resolved.username||resolved.title||"Listener");
   const avatarUrl=String(profileAvatarOverride(resolved)||resolved.avatar_url||resolved.profile_avatar_url||resolved.photo_url||"").trim();
-  if(avatarUrl)return '<img src="'+escapeHtml(avatarUrl)+'" alt="'+escapeHtml(label)+' avatar">';
+  if(avatarUrl)return avatarImgMarkup(avatarUrl,label);
   const avatarSvgValue=String(resolved.avatar_svg||resolved.profile_avatar_svg||"").trim();
   if(avatarSvgValue.startsWith("<svg"))return avatarSvgValue;
   let config=resolved.avatar_config||resolved.profile_avatar_config||null;
@@ -4663,6 +4679,44 @@ async function markChatThreadRead(thread){
 }
 function chatCurrentTimeLabel(){
   return new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+}
+let mobileChatViewportReady=false;
+function isMobileChatViewport(){return window.matchMedia?.("(max-width: 650px)")?.matches||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"")}
+function syncMobileChatViewport(){
+  const panel=$("#topbarChatPanel");
+  if(!panel)return;
+  const isMobile=isMobileChatViewport();
+  const visual=window.visualViewport;
+  const height=Math.max(360,Math.floor(visual?.height||window.innerHeight||window.screen.height||720));
+  document.documentElement.style.setProperty("--mobile-chat-height",height+"px");
+  const keyboardOpen=!!(isMobile&&visual&&visual.height<window.innerHeight-80);
+  panel.classList.toggle("keyboardOpen",keyboardOpen);
+  if(keyboardOpen){
+    $("#topbarChatContent")?.scrollTo?.({top:0,behavior:"auto"});
+    document.scrollingElement?.scrollTo?.({top:0,behavior:"auto"});
+  }
+}
+function installMobileChatViewportSync(){
+  if(mobileChatViewportReady)return;
+  mobileChatViewportReady=true;
+  window.visualViewport?.addEventListener("resize",syncMobileChatViewport);
+  window.visualViewport?.addEventListener("scroll",syncMobileChatViewport);
+  window.addEventListener("resize",syncMobileChatViewport);
+}
+function bindMobileChatInputViewport(){
+  installMobileChatViewportSync();
+  syncMobileChatViewport();
+  const input=$("#chatMessageInput");
+  if(!input||input.dataset.mobileViewportBound)return;
+  input.dataset.mobileViewportBound="1";
+  input.addEventListener("focus",()=>{
+    syncMobileChatViewport();
+    requestAnimationFrame(()=>{
+      $("#topbarChatContent")?.scrollTo?.({top:0,behavior:"auto"});
+      input.scrollIntoView?.({block:"nearest",inline:"nearest",behavior:"auto"});
+    });
+  });
+  input.addEventListener("blur",()=>setTimeout(syncMobileChatViewport,120));
 }
 function chatLastMessageText(message){
   if(!message)return "";
@@ -5008,6 +5062,7 @@ chatView=function(target=chatTarget()){
   const messagesHtml=active.messages.length?active.messages.map(chatMessageHtml).join(""):"";
   target.innerHTML=`<section class="muzeChatShell simpleMessengerChat"><aside class="muzeChatList"><div class="muzeChatListHead"><div><h2>Chat</h2><p>Share albums, compare libraries, discuss records.</p></div><button class="chatComposeButton ${state.chatUserSearchOpen?"active":""}" type="button" title="Start conversation" onclick="toggleChatUserSearch(event)">+</button></div>${chatUserSearchHtml()}${threadButtons}${chatSelfProfileCard()}</aside><section class="muzeChatPanel"><header class="muzeChatHeader"><div class="chatProfileIdentity">${chatAvatarMarkup(active.profile||(!active.group?active.library:null)||active.name,active.online,activeIndex)}<div><h3>${escapeHtml(active.name)}</h3><p><strong>${escapeHtml(chatCompatibilityText(active.match,true))}</strong><span>${escapeHtml(chatMatchLabel(active.match))}</span></p></div></div><button class="chatCloseButton" type="button" onclick="closeChatView()" aria-label="Close chat"><span aria-hidden="true"></span></button></header>${chatConnectionContext(active)}<div class="muzeChatMessages">${messagesHtml}</div><footer class="muzeChatComposer"><label><span class="chatInputWrap"><input id="chatMessageInput" placeholder="${escapeHtml(inputPlaceholder)}" onkeydown="if(event.key==='Enter')sendChatMessage('${activeId}')"><button class="chatEmojiButton" type="button" onclick="toggleChatEmojiPicker()" title="Open emoji picker" aria-label="Open emoji picker">&#128578;</button>${chatEmojiPickerHtml()}</span><button class="chatSendIconButton" type="button" onclick="sendChatMessage('${activeId}')" title="Send message" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 20.2 21 12 3.8 3.8l2.5 7.2L14 12l-7.7 1-2.5 7.2Z"></path></svg></button></label></footer></section></section>`;
   if(state.chatUserSearchOpen)requestAnimationFrame(()=>$("#chatUserSearchInput")?.focus());
+  bindMobileChatInputViewport();
   if(active)markChatThreadRead(active);
 }
 window.toggleChatUserSearch=async function(event){
@@ -5051,10 +5106,12 @@ window.closeChatView=function(){
   if(panel&&!panel.classList.contains("hidden")){
     const content=$("#topbarChatContent");
     if(content?.classList.contains("mobileChatConversationOpen")){
+      panel.classList.remove("keyboardOpen");
       content.classList.remove("mobileChatConversationOpen");
       content.scrollTop=0;
       return;
     }
+    panel.classList.remove("keyboardOpen");
     closeTopbarChat();
     return;
   }
@@ -5582,8 +5639,8 @@ window.addSpotifyAlbum=async function(a,button){
   }
 };
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
-function closeTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");if(panel)panel.classList.add("hidden");if(button&&!document.body.classList.contains("chatView")){button.classList.remove("active");button.setAttribute("aria-expanded","false")}}
-async function openTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");const panelContent=$("#topbarChatContent");if(!panel||!panelContent)return;$("#notificationPanel")?.classList.add("hidden");panel.classList.remove("hidden");if(button){button.classList.add("active");button.setAttribute("aria-expanded","true")}try{await Promise.all([loadLibraries(),loadChatMessages(),loadChatSelfStats()])}catch(error){console.warn("Unable to refresh chat people",error)}chatView(panelContent);closeNav()}
+function closeTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");if(panel){panel.classList.remove("keyboardOpen");panel.classList.add("hidden")}if(button&&!document.body.classList.contains("chatView")){button.classList.remove("active");button.setAttribute("aria-expanded","false")}}
+async function openTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");const panelContent=$("#topbarChatContent");if(!panel||!panelContent)return;$("#notificationPanel")?.classList.add("hidden");panel.classList.remove("hidden");installMobileChatViewportSync();syncMobileChatViewport();if(button){button.classList.add("active");button.setAttribute("aria-expanded","true")}try{await Promise.all([loadLibraries(),loadChatMessages(),loadChatSelfStats()])}catch(error){console.warn("Unable to refresh chat people",error)}chatView(panelContent);closeNav()}
 function toggleTopbarChat(){const panel=$("#topbarChatPanel");if(panel&&!panel.classList.contains("hidden"))closeTopbarChat();else openTopbarChat()}
 updateNavUsername();$("#topbarChatButton").onclick=e=>{e.stopPropagation();toggleTopbarChat()};$("#topbarChatPanel").onclick=e=>{if(e.target&&e.target.id==="topbarChatPanel")closeTopbarChat();else e.stopPropagation()};$("#notificationBell").onclick=async e=>{e.stopPropagation();closeTopbarChat();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>{$("#notificationPanel")?.classList.add("hidden");closeTopbarChat()});$("#navSetUsername").onclick=openNavProfileMenu;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=handleAvatarPhotoSelected;const saveUsernameButton=$("#saveUsernameButton");if(saveUsernameButton){saveUsernameButton.onclick=handleSaveUsernameAction;saveUsernameButton.addEventListener("pointerup",handleSaveUsernameAction);saveUsernameButton.addEventListener("touchend",handleSaveUsernameAction,{passive:false})}$("#profileUsernameInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")handleSaveUsernameAction(e)});avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};const saveAvatarButton=$("#saveAvatarButton");if(saveAvatarButton){saveAvatarButton.onclick=handleSaveAvatarAction;saveAvatarButton.addEventListener("pointerup",handleSaveAvatarAction);saveAvatarButton.addEventListener("touchend",handleSaveAvatarAction,{passive:false})}$("#skipAvatarButton").onclick=hideAvatarSetup;
 if($("#avatarCategoryToggle"))$("#avatarCategoryToggle").onclick=toggleAvatarCategoryMenu;
