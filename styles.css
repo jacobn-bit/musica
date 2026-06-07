@@ -3215,6 +3215,31 @@ body.light .notificationBell{color:#111827!important;background:#ffffff!importan
 .notificationBadge.hidden{display:none!important}
 
 .notificationPanel.hidden{display:none!important}
+.notificationItem{
+  display:grid;
+  gap:3px;
+  padding:9px 0;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+.notificationItem:first-child{border-top:0}
+.notificationItem strong{
+  font-size:12px;
+  color:#fff;
+}
+.notificationItem span{
+  color:rgba(255,255,255,.72);
+  line-height:1.35;
+}
+.notificationItem em{
+  color:rgba(255,255,255,.45);
+  font-size:11px;
+  font-style:normal;
+}
+.notificationItem.unread strong{color:#ffd51f}
+body.light .notificationItem{border-top-color:#eee7dc}
+body.light .notificationItem strong{color:#111827}
+body.light .notificationItem span{color:#4b5563}
+body.light .notificationItem em{color:#6b7280}
 
 /* Artist discovery cards */
 .artistGrid{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:22px;align-items:start}
@@ -8017,6 +8042,82 @@ body.light .authPanel .adminOverviewUnlock{
 .listenerCard span{display:block!important;color:rgba(255,255,255,.48)!important;font-size:11px!important;margin-top:2px!important;}
 .listenerCard p{grid-column:1/-1!important;margin:4px 0 0!important;color:rgba(255,255,255,.86)!important;font-size:15px!important;line-height:1.35!important;font-weight:450!important;}
 .listenerCard small{grid-column:1/-1!important;color:rgba(255,255,255,.60)!important;font-size:12px!important;margin-top:8px!important;}
+.listenerCardActions{
+  grid-column:1/-1!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:16px!important;
+  margin-top:8px!important;
+}
+.listenerLikeButton,
+.reactionLikeButton,
+.listenerReplyButton{
+  border:0!important;
+  background:transparent!important;
+  color:rgba(255,255,255,.60)!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  width:max-content!important;
+  padding:0!important;
+  font:inherit!important;
+  font-size:12px!important;
+  line-height:1!important;
+  cursor:pointer!important;
+}
+.listenerLikeButton{margin-top:0!important;}
+.listenerReplyButton{font-size:12px!important;font-weight:700!important;}
+.reactionLikeButton{font-size:13px!important;}
+.listenerLikeButton span,
+.reactionLikeButton span{color:inherit!important;font-size:14px!important;margin:0!important;}
+.listenerLikeButton:hover,
+.reactionLikeButton:hover,
+.listenerReplyButton:hover,
+.listenerLikeButton.liked,
+.reactionLikeButton.liked{color:rgba(255,255,255,.60)!important;}
+.listenerReplyBox{
+  grid-column:1/-1!important;
+  margin-top:10px!important;
+  padding:10px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:12px!important;
+  background:rgba(0,0,0,.22)!important;
+}
+.listenerReplyBox.hidden{display:none!important;}
+.listenerReplyBox textarea{
+  width:100%!important;
+  min-height:52px!important;
+  resize:none!important;
+  border:0!important;
+  outline:0!important;
+  background:transparent!important;
+  color:#fff!important;
+  font:inherit!important;
+  font-size:13px!important;
+  line-height:1.35!important;
+}
+.listenerReplyBox textarea::placeholder{color:rgba(255,255,255,.46)!important;}
+.listenerReplyBox>div{
+  display:flex!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+  margin-top:8px!important;
+}
+.listenerReplyBox button{
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.04)!important;
+  color:rgba(255,255,255,.68)!important;
+  padding:7px 12px!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  cursor:pointer!important;
+}
+.listenerReplyBox button:first-child{
+  border:0!important;
+  background:#ffd12d!important;
+  color:#111!important;
+}
 .listenerCard.empty{display:block!important;color:rgba(255,255,255,.62)!important;}
 @media(max-width:1050px){
   .linerAlbumPage{padding:18px 22px 28px!important;}
@@ -11106,10 +11207,10 @@ body{
     margin-top:12px!important;
   }
   .albumTrackSections .linerFeaturedTrack{
-    min-height:118px!important;
+    min-height:126px!important;
     height:auto!important;
     margin:0 0 12px!important;
-    padding:15px 14px!important;
+    padding:17px 14px!important;
     display:grid!important;
     grid-template-columns:36px minmax(0,1fr) auto!important;
     gap:10px!important;
@@ -11261,13 +11362,18 @@ body{
     width:auto!important;
     min-width:0!important;
     text-align:center!important;
+    font-size:14px!important;
+    line-height:1!important;
+    font-weight:700!important;
+    opacity:.72!important;
   }
   .albumTrackSections .trackPulse{
     grid-column:2!important;
-    width:30px!important;
-    height:30px!important;
-    min-width:30px!important;
+    width:22px!important;
+    height:22px!important;
+    min-width:22px!important;
     justify-self:center!important;
+    font-size:11px!important;
   }
   .albumTrackSections .linerTrackRow > strong{
     display:block!important;
@@ -11276,8 +11382,9 @@ body{
     max-width:100%!important;
     width:100%!important;
     color:#fff!important;
-    font-size:13px!important;
+    font-size:11.5px!important;
     line-height:1.25!important;
+    font-weight:650!important;
     white-space:normal!important;
     overflow:visible!important;
     text-overflow:clip!important;
@@ -11428,6 +11535,48 @@ body{
     padding-right:12px!important;
     scroll-padding-left:12px!important;
     scroll-padding-right:12px!important;
+  }
+}
+
+/* Album popup scroll stability */
+#albumModal{
+  overscroll-behavior:contain!important;
+  touch-action:pan-y!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+#albumModal .modalPanel{
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  scroll-behavior:auto!important;
+  scrollbar-gutter:stable!important;
+  will-change:scroll-position!important;
+}
+#albumModalContent,
+#albumModal .linerAlbumPage{
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
+  transform:translateZ(0)!important;
+}
+@media(min-width:1051px){
+  #albumModalContent,
+  #albumModal .linerAlbumPage{
+    backface-visibility:visible!important;
+    -webkit-backface-visibility:visible!important;
+    transform:none!important;
+  }
+}
+html:has(#albumModal:not(.hidden)),
+body:has(#albumModal:not(.hidden)){
+  overflow:hidden!important;
+}
+@media(max-width:850px){
+  #albumModal{
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  #albumModal .modalPanel{
+    will-change:auto!important;
   }
 }
 
@@ -12817,12 +12966,18 @@ body{
     padding:6px 10px!important;
     font-size:10px!important;
   }
+  #albumModal .linerHero{
+    padding-bottom:42px!important;
+  }
   #albumModal .albumSeeMorePill{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
     position:fixed!important;
     left:50%!important;
-    top:auto!important;
-    bottom:calc(2.5vh + 24px)!important;
-    z-index:7!important;
+    top:auto;
+    bottom:auto;
+    z-index:10001!important;
     transform:translateX(-50%)!important;
     border:1px solid rgba(255,213,31,.42)!important;
     border-radius:999px!important;
@@ -12846,6 +13001,44 @@ body{
 @media(max-width:1050px){
   #albumModal .albumSeeMorePill{
     display:none!important;
+  }
+}
+
+/* Stable album popup scroller: desktop panel, mobile shell */
+@media(min-width:1051px){
+  #albumModal:not(.hidden){
+    overflow:hidden!important;
+    align-items:center!important;
+  }
+  #albumModal .modalPanel{
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    scroll-behavior:smooth!important;
+  }
+  #albumModalContent,
+  #albumModal .linerAlbumPage{
+    transform:none!important;
+    contain:paint!important;
+  }
+}
+@media(max-width:1050px){
+  #albumModal:not(.hidden){
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  #albumModal .modalPanel{
+    overflow:visible!important;
+    overscroll-behavior:auto!important;
+  }
+  #albumModalContent,
+  #albumModal .linerAlbumPage{
+    transform:none!important;
+    backface-visibility:visible!important;
+    -webkit-backface-visibility:visible!important;
   }
 }
 
@@ -13707,4 +13900,454 @@ body.chatView .simpleMessengerChat{
 .simpleMessengerChat .chatComposeButton.active,
 .topbarChatPanel .simpleMessengerChat .chatComposeButton.active{
   transform:rotate(45deg)!important;
+}
+
+/* Messenger-style online presence dot. */
+.chatAvatar.online:after,
+.simpleMessengerChat .chatAvatar.online:after,
+.topbarChatPanel .simpleMessengerChat .chatAvatar.online:after,
+.simpleMessengerChat .chatProfileIdentity .chatAvatar.online:after{
+  content:""!important;
+  position:absolute!important;
+  right:1px!important;
+  bottom:2px!important;
+  width:12px!important;
+  height:12px!important;
+  border-radius:50%!important;
+  background:#31d158!important;
+  border:2px solid #080b10!important;
+  box-shadow:0 0 0 1px rgba(49,209,88,.28),0 0 8px rgba(49,209,88,.42)!important;
+  z-index:4!important;
+}
+.simpleMessengerChat .chatProfileIdentity .chatAvatar.online:after{
+  width:14px!important;
+  height:14px!important;
+  right:2px!important;
+  bottom:2px!important;
+}
+.chatHeaderPresence,
+.simpleMessengerChat .chatHeaderPresence{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  margin-left:9px!important;
+  color:#31d158!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-style:normal!important;
+  font-weight:850!important;
+  text-transform:lowercase!important;
+  vertical-align:middle!important;
+}
+.chatHeaderPresence i,
+.simpleMessengerChat .chatHeaderPresence i{
+  display:block!important;
+  width:6px!important;
+  height:6px!important;
+  border-radius:50%!important;
+  background:#31d158!important;
+  box-shadow:0 0 6px rgba(49,209,88,.55)!important;
+}
+
+/* Song sharing from album tracklists. */
+.albumTrackSections .trackTableHead,
+.albumTrackSections .linerTrackRow{
+  grid-template-columns:38px 34px minmax(0,1fr) 112px 112px 112px!important;
+}
+.albumTrackSections .trackTableHead span:nth-child(2){grid-column:3!important}
+.albumTrackSections .trackTableHead span:nth-child(3){grid-column:4!important;display:block!important;text-align:center!important}
+.albumTrackSections .trackTableHead span:nth-child(4){grid-column:5!important;text-align:center!important;padding-left:0!important}
+.albumTrackSections .trackTableHead span:nth-child(5){grid-column:6!important;display:block!important;text-align:center!important}
+.albumTrackSections .trackRowScore{grid-column:5!important;justify-self:center!important;margin-left:0!important}
+.albumTrackSections .trackDots{grid-column:6!important}
+.albumTrackSections .trackShareButton{
+  grid-column:4!important;
+  justify-self:center!important;
+  width:22px!important;
+  height:22px!important;
+  display:grid!important;
+  place-items:center!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:rgba(255,255,255,.34)!important;
+  font-size:14px!important;
+  line-height:1!important;
+  cursor:pointer!important;
+  box-shadow:none!important;
+  padding:0!important;
+}
+.albumTrackSections .trackShareButton svg{
+  width:16px!important;
+  height:16px!important;
+  display:block!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.35!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+.albumTrackSections .trackShareButton:hover{
+  color:rgba(255,255,255,.52)!important;
+  border-color:transparent!important;
+  background:transparent!important;
+}
+.trackShareSheet{
+  position:fixed!important;
+  inset:0!important;
+  z-index:12000!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:20px!important;
+  background:rgba(0,0,0,.44)!important;
+  opacity:0!important;
+  transition:opacity .16s ease!important;
+}
+.trackShareSheet.open{opacity:1!important}
+.trackSharePanel{
+  width:min(520px,calc(100vw - 32px))!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  border-radius:18px!important;
+  background:linear-gradient(145deg,#111720,#080b10)!important;
+  box-shadow:0 28px 80px rgba(0,0,0,.52)!important;
+  color:#fff!important;
+  padding:18px!important;
+}
+.trackSharePanel header{
+  display:flex!important;
+  justify-content:space-between!important;
+  gap:16px!important;
+  align-items:flex-start!important;
+  margin-bottom:16px!important;
+}
+.trackSharePanel header small,
+.trackSharePanel section small{
+  display:block!important;
+  color:#7db6e8!important;
+  text-transform:uppercase!important;
+  font-size:11px!important;
+  font-weight:900!important;
+  letter-spacing:.08em!important;
+  margin-bottom:5px!important;
+}
+.trackSharePanel header strong{display:block!important;font-size:22px!important;line-height:1.1!important}
+.trackSharePanel header span{display:block!important;margin-top:5px!important;color:rgba(255,255,255,.58)!important;font-size:13px!important}
+.trackSharePanel header>button{
+  width:34px!important;
+  height:34px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(255,255,255,.13)!important;
+  background:rgba(255,255,255,.07)!important;
+  color:#fff!important;
+  font-size:22px!important;
+  cursor:pointer!important;
+}
+.trackShareActions{
+  display:grid!important;
+  grid-template-columns:repeat(5,1fr)!important;
+  gap:8px!important;
+  margin-bottom:17px!important;
+}
+.trackShareActions.systemOnly{
+  grid-template-columns:1fr!important;
+}
+.trackShareActions.systemOnly button{
+  min-height:44px!important;
+  border-radius:12px!important;
+  color:#06101a!important;
+  background:linear-gradient(145deg,#8ec9f3,#5a9fd6)!important;
+  border-color:rgba(255,255,255,.18)!important;
+  font-size:14px!important;
+}
+.trackShareChoiceList{
+  display:grid!important;
+  gap:8px!important;
+}
+.trackShareChoiceList button{
+  width:100%!important;
+  min-height:58px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  gap:4px!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:12px!important;
+  background:rgba(255,255,255,.055)!important;
+  color:#fff!important;
+  padding:10px 13px!important;
+  cursor:pointer!important;
+  text-align:left!important;
+}
+.trackShareChoiceList button:hover{
+  border-color:rgba(125,182,232,.38)!important;
+  background:rgba(125,182,232,.10)!important;
+}
+.trackShareChoiceList strong{
+  color:#fff!important;
+  font-size:14px!important;
+  line-height:1.1!important;
+}
+.trackShareChoiceList span{
+  color:rgba(255,255,255,.55)!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+}
+.trackShareMiniSheet{
+  position:fixed!important;
+  inset:0!important;
+  z-index:12000!important;
+  background:transparent!important;
+  opacity:0!important;
+  pointer-events:auto!important;
+  transition:opacity .10s ease!important;
+}
+.trackShareMiniSheet.open{opacity:1!important}
+.trackShareMiniMenu{
+  position:fixed!important;
+  left:0;
+  top:0;
+  width:168px!important;
+  display:grid!important;
+  gap:4px!important;
+  padding:6px!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:8px!important;
+  background:#05070a!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.48)!important;
+  color:#fff!important;
+}
+.trackShareMiniMenu>button{
+  min-height:30px!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:#11151b!important;
+  color:rgba(255,255,255,.82)!important;
+  padding:6px 9px!important;
+  text-align:left!important;
+  font-size:12px!important;
+  font-weight:750!important;
+  cursor:pointer!important;
+}
+.trackShareMiniMenu>button:hover{
+  background:#18202a!important;
+  color:#fff!important;
+}
+.trackShareMiniMenu.muzeChatMiniMenu{
+  width:220px!important;
+}
+.trackShareMiniMenu.muzeChatMiniMenu>strong{
+  display:block!important;
+  padding:4px 7px 2px!important;
+  color:rgba(255,255,255,.68)!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.trackShareMiniMenu .trackShareUsers{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:4px!important;
+}
+.trackShareMiniMenu .trackShareUsers button{
+  min-height:30px!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:#11151b!important;
+  color:rgba(255,255,255,.82)!important;
+  padding:5px 8px!important;
+  font-size:12px!important;
+  font-weight:750!important;
+}
+.trackShareMiniMenu .trackShareUsers .chatAvatar{
+  width:22px!important;
+  height:22px!important;
+  flex:0 0 22px!important;
+}
+.albumTrackSections .linerTrackRow.sharedTrackTarget{
+  background:linear-gradient(90deg,rgba(125,182,232,.18),rgba(255,255,255,.035))!important;
+  outline:1px solid rgba(125,182,232,.35)!important;
+  border-radius:8px!important;
+  box-shadow:0 0 22px rgba(90,141,185,.16)!important;
+}
+.trackShareActions button,
+.trackShareUsers button{
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.06)!important;
+  color:#fff!important;
+  min-height:36px!important;
+  font-size:12px!important;
+  font-weight:850!important;
+  cursor:pointer!important;
+}
+.trackShareUsers{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:8px!important;
+}
+.trackShareUsers button{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  justify-content:flex-start!important;
+  border-radius:12px!important;
+  padding:7px 9px!important;
+}
+.trackShareUsers .chatAvatar{width:30px!important;height:30px!important;flex:0 0 30px!important}
+.trackShareEmpty{color:rgba(255,255,255,.55)!important;font-size:13px!important;padding:8px 0!important}
+@media(max-width:768px){
+  .albumTrackSections .trackTableHead,
+  .albumTrackSections .linerTrackRow{
+    grid-template-columns:24px 32px minmax(0,1fr) 28px 24px!important;
+  }
+  .albumTrackSections .trackTableHead span:nth-child(3){
+    grid-column:4!important;
+    display:block!important;
+    font-size:0!important;
+    transform:none!important;
+    width:auto!important;
+  }
+  .albumTrackSections .trackTableHead span:nth-child(3):after{
+    content:"Share";
+    font-size:9px!important;
+  }
+  .albumTrackSections .trackTableHead span:nth-child(4){
+    grid-column:5!important;
+    display:block!important;
+    font-size:0!important;
+    transform:none!important;
+    width:auto!important;
+  }
+  .albumTrackSections .trackTableHead span:nth-child(4):after{
+    content:"Score";
+    font-size:9px!important;
+  }
+  .albumTrackSections .trackTableHead span:nth-child(5){
+    display:none!important;
+  }
+  .albumTrackSections .trackShareButton{
+    grid-column:4!important;
+    width:22px!important;
+    height:22px!important;
+  }
+  .albumTrackSections .trackRowScore{
+    grid-column:5!important;
+  }
+  .trackShareActions{grid-template-columns:1fr 1fr!important}
+  .trackShareUsers{grid-template-columns:1fr!important}
+}
+
+@media(max-width:768px){
+  .albumTrackSections .trackTableHead,
+  .albumTrackSections .linerTrackRow{
+    grid-template-columns:24px 20px minmax(0,1fr) 28px 24px!important;
+  }
+  .albumTrackSections .trackPulse{
+    width:18px!important;
+    height:18px!important;
+    min-width:18px!important;
+    padding:0!important;
+    font-size:0!important;
+    line-height:1!important;
+    display:block!important;
+    position:relative!important;
+    color:rgba(255,255,255,.48)!important;
+  }
+  .albumTrackSections .trackPulse:not(.isPreviewing)::before{
+    left:5px!important;
+    top:4px!important;
+    border-top:5px solid transparent!important;
+    border-bottom:5px solid transparent!important;
+    border-left:8px solid rgba(255,255,255,.48)!important;
+  }
+  .albumTrackSections .trackPulse.isPreviewing::before,
+  .albumTrackSections .trackPulse.isPreviewing::after{
+    top:5px!important;
+    width:2px!important;
+    height:8px!important;
+    background:rgba(255,255,255,.48)!important;
+  }
+  .albumTrackSections .trackPulse.isPreviewing::before{left:6px!important;}
+  .albumTrackSections .trackPulse.isPreviewing::after{left:10px!important;}
+  .albumTrackSections .trackNo{
+    font-size:11px!important;
+    line-height:1!important;
+    font-weight:700!important;
+    opacity:.68!important;
+  }
+}
+
+@media(max-width:850px){
+  #albumModal .linerAlbumPage{
+    padding-top:14px!important;
+  }
+  #albumModal #closeAlbumModal.close.cleanClose{
+    position:fixed!important;
+    top:16px!important;
+    right:16px!important;
+    z-index:10050!important;
+    width:42px!important;
+    height:42px!important;
+    background:rgba(7,8,11,.68)!important;
+    backdrop-filter:blur(12px)!important;
+    -webkit-backdrop-filter:blur(12px)!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.35)!important;
+  }
+  #albumModal .linerTabs{
+    margin-top:0!important;
+    padding-right:52px!important;
+  }
+}
+
+@media(max-width:850px){
+  #albumModal .linerAlbumPage.showRatingsPanels .linerActions{
+    display:none!important;
+  }
+}
+
+#albumModal .reactionsPanel .linerPanelTitle .listenerIcon{
+  position:relative!important;
+  display:grid!important;
+  place-items:center!important;
+  font-size:0!important;
+  color:transparent!important;
+  background:radial-gradient(circle at 50% 50%,rgba(255,213,31,.14),rgba(255,213,31,.05) 58%,rgba(0,0,0,.10))!important;
+  box-shadow:inset 0 0 0 1px rgba(255,213,31,.24),0 0 22px rgba(255,213,31,.10)!important;
+}
+#albumModal .reactionsPanel .linerPanelTitle .listenerIcon:before{
+  content:""!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  width:25px!important;
+  height:25px!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:
+    radial-gradient(circle at 50% 50%,#111 0 10%,transparent 11%),
+    radial-gradient(circle at 50% 50%,transparent 0 21%,rgba(0,0,0,.42) 22% 25%,transparent 26% 34%,rgba(0,0,0,.32) 35% 38%,transparent 39% 47%,rgba(0,0,0,.28) 48% 51%,transparent 52%),
+    conic-gradient(from 18deg,#ffe55f 0 14%,#b98700 15% 25%,#ffd21f 26% 45%,#8e6500 46% 55%,#ffdf47 56% 75%,#b18400 76% 88%,#fff08c 89% 100%)!important;
+  -webkit-mask:radial-gradient(circle,#000 0 68%,transparent 69%)!important;
+  mask:radial-gradient(circle,#000 0 68%,transparent 69%)!important;
+  transform:translate(-50%,-50%)!important;
+  box-sizing:border-box!important;
+  outline:0!important;
+  overflow:hidden!important;
+  filter:drop-shadow(0 4px 10px rgba(255,213,31,.18))!important;
+}
+#albumModal .reactionsPanel .linerPanelTitle .listenerIcon:after{
+  content:""!important;
+  display:block!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  width:5px!important;
+  height:5px!important;
+  border-radius:50%!important;
+  background:#050608!important;
+  transform:translate(-50%,-50%)!important;
+  box-shadow:0 0 0 2px rgba(255,213,31,.45)!important;
 }

@@ -44,7 +44,8 @@ function resetStaleClientData(){
 }
 resetStaleClientData();
 const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",chatThread:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+let deepLinkHandled=false;
 const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
 const MUZE_AVATAR_ICONS=Array.from({length:22},(_,i)=>i+12).filter(n=>![14,27].includes(n)).map(n=>`assets/avatar-icons/avatar-icon-${String(n).padStart(2,"0")}.png`);
 const PROFILE_AVATAR_OVERRIDES={
@@ -520,10 +521,28 @@ async function loadUserProfile(){
     const savedAvatarUrl=String(data.avatar_url||"");
     state.selectedAvatarIcon=MUZE_AVATAR_ICONS.includes(savedAvatarUrl)?savedAvatarUrl:null;
     if(data.username)localStorage.setItem("musicaUsername",data.username);
+    await linkCurrentUserLibraryProfile(data.username);
+  }else{
+    const username=(currentUsername()||authMetadataName(user)||authEmailPrefix(user)||"").trim().replace(/^@+/,"").slice(0,32);
+    if(username){
+      const created=await saveUserProfile({username});
+      if(created)return created;
+    }
   }
   renderAvatarTargets();
   syncAvatarControls();
   return data;
+}
+async function linkCurrentUserLibraryProfile(usernameValue=profileLibraryUsername()){
+  const user=loggedInUser();
+  const username=String(usernameValue||"").trim();
+  if(!db||!user||!username)return;
+  try{
+    const {error}=await db.from("user_libraries").update({user_id:user.id,updated_at:new Date().toISOString()}).ilike("username",username).is("user_id",null);
+    if(error&&!/user_id|schema cache|column/i.test(error.message||""))console.warn("Unable to link public library to account",error.message||error);
+  }catch(error){
+    console.warn("Unable to link public library to account",error?.message||error);
+  }
 }
 async function saveUserProfile(fields){
   const user=loggedInUser();
@@ -538,6 +557,7 @@ async function saveUserProfile(fields){
   const {data,error}=await withAvatarTimeout(db.from("user_profiles").upsert(row,{onConflict:"user_id"}).select().single(),"saving avatar profile",20000);
   if(error){console.error("[Muze avatar] Profile save failed",{fields,error});setAuthStatus(authErrorMessage(error),"error");return null}
   state.userProfile=data;
+  await linkCurrentUserLibraryProfile(data.username||fields.username);
   if(Object.prototype.hasOwnProperty.call(fields,"avatar_url")){
     const savedAvatarUrl=String(data.avatar_url||"");
     state.selectedAvatarIcon=MUZE_AVATAR_ICONS.includes(savedAvatarUrl)?savedAvatarUrl:null;
@@ -985,6 +1005,8 @@ async function submitAuth(event){
 }
 async function logoutAuth(){
   if(!db){setAuthStatus("Supabase is not configured, so logout could not complete.","error");return}
+  await updateOwnPresence(false);
+  if(presenceTimer){clearInterval(presenceTimer);presenceTimer=null}
   const {error}=await db.auth.signOut();
   if(error){setAuthStatus(error.message,"error");return}
   state.authSession=null;
@@ -1001,15 +1023,17 @@ async function initAuth(){
   if(error)authDebug("get session error",{message:error.message,status:error.status,name:error.name});
   state.authSession=data?.session||null;
   await loadUserProfile();
+  startPresenceHeartbeat();
   syncAuthUi();
-  if(state.view==="libraries"||state.view==="chat"){await Promise.all([loadLibraries(),loadChatMessages()]);render()}
+  if(state.view==="libraries"||state.view==="chat"){await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence()]);render()}
   db.auth.onAuthStateChange(async (event,session)=>{
     authDebug("state change",{event,hasSession:Boolean(session),email:session?.user?.email||null});
     const wasLoggedOut=!loggedInUser();
     state.authSession=session||null;
     await loadUserProfile();
+    if(session)startPresenceHeartbeat();else stopPresenceHeartbeat();
     syncAuthUi();
-    if(state.view==="libraries"||state.view==="chat"){await Promise.all([loadLibraries(),loadChatMessages()]);render()}
+    if(state.view==="libraries"||state.view==="chat"){await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence()]);render()}
     if(wasLoggedOut&&session)resumePendingAuthAction();
   });
 }
@@ -2311,6 +2335,7 @@ function trackCommentIdentity(){
   const avatarUrl=String(state.userProfile?.avatar_url||meta.avatar_url||meta.picture||"").trim();
   return {user_id:user?.id||null,name,avatar_url:avatarUrl};
 }
+function commentProfilePayload(){return trackCommentIdentity()}
 function trackCommentAvatarMarkup(comment={},name="Listener"){
   const isMine=comment.user_id&&loggedInUser()?.id&&String(comment.user_id)===String(loggedInUser().id);
   const avatarUrl=String(comment.avatar_url||"").trim();
@@ -2318,7 +2343,28 @@ function trackCommentAvatarMarkup(comment={},name="Listener"){
   if(isMine&&avatarHasValue())return `<span class="commentAvatar hasProfileAvatar">${currentAvatarMarkup()}</span>`;
   return `<span class="commentAvatar">${escapeHtml(String(name||"L").slice(0,1).toUpperCase()||"L")}</span>`;
 }
-function ratingName(){const saved=currentUsername().trim();if(saved&&confirm(`Rate as "${saved}"? Press Cancel to choose Anonymous or another username.`))return saved;const name=(prompt("Enter a username for this rating, or leave blank for Anonymous:")||"").trim();if(name){localStorage.setItem("musicaUsername",name);return name}return "Anonymous"}
+function profileForAuthor(row={},name=""){
+  const userId=String(row.user_id||"").trim();
+  const username=String(row.username||row.name||name||"").trim().toLowerCase();
+  if(userId&&loggedInUser()?.id&&String(loggedInUser().id)===userId)return state.userProfile||null;
+  return (extras.profileDirectory||[]).find(profile=>
+    (userId&&String(profile.user_id||"")===userId)||
+    (username&&String(profile.username||"").trim().toLowerCase()===username)
+  )||null;
+}
+function avatarMarkupForAuthor(row={},name="Listener",className="listenerCardAvatar"){
+  const profile=profileForAuthor(row,name);
+  const resolved={...(row||{}),...(profile||{}),username:profile?.username||row.username||name};
+  const avatarUrl=String(profileAvatarOverride(resolved)||resolved.avatar_url||resolved.profile_avatar_url||"").trim();
+  if(avatarUrl)return `<div class="${className}">${avatarImgMarkup(avatarUrl,name)}</div>`;
+  const avatarSvgValue=String(resolved.avatar_svg||resolved.profile_avatar_svg||"").trim();
+  if(avatarSvgValue.startsWith("<svg"))return `<div class="${className}">${avatarSvgValue}</div>`;
+  let config=resolved.avatar_config||resolved.profile_avatar_config||null;
+  if(typeof config==="string"){try{config=JSON.parse(config)}catch(e){config=null}}
+  if(config&&typeof config==="object")return `<div class="${className}">${avatarSvg(config)}</div>`;
+  return `<div class="${className}">${escapeHtml(String(name||"L").slice(0,1).toUpperCase()||"L")}</div>`;
+}
+function ratingName(){const saved=currentUsername().trim();if(saved)return saved;const profile=String(state.userProfile?.username||"").trim();if(profile)return profile;const name=(prompt("Enter a username for this rating, or leave blank for Anonymous:")||"").trim();if(name){localStorage.setItem("musicaUsername",name);return name}return "Anonymous"}
 window.toggleRatingDetails=function(id,button){
   const panel=$("#"+id);
   if(!panel)return;
@@ -2365,6 +2411,8 @@ function localComments(){return JSON.parse(localStorage.getItem("musicaAlbumComm
 function saveLocalComments(comments){localStorage.setItem("musicaAlbumComments",JSON.stringify(comments))}
 function localCommentReplies(){return JSON.parse(localStorage.getItem("musicaAlbumCommentReplies")||"{}")}
 function saveLocalCommentReplies(replies){localStorage.setItem("musicaAlbumCommentReplies",JSON.stringify(replies))}
+function localCommentLikes(){try{return JSON.parse(localStorage.getItem("muzeAlbumCommentLikes")||"{}")||{}}catch(error){return {}}}
+function saveLocalCommentLikes(likes){localStorage.setItem("muzeAlbumCommentLikes",JSON.stringify(likes||{}))}
 function localId(prefix="local"){return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`}
 function domSafeId(value){return String(value??"").replace(/[^a-zA-Z0-9_-]/g,"_")}
 function localTrackRatings(){return JSON.parse(localStorage.getItem("musicaTrackRatings")||"{}")}
@@ -2437,6 +2485,82 @@ function trackCommentReactionRow(row={},ref=""){
   const id=row.id||row.local_id||localId("track-comment");
   return {...row,id,local_id:row.local_id||id,album_ref:row.album_ref||ref,reaction_type:"song_comment"};
 }
+function reactionLikeKey(row={}){
+  return reactionDedupeKey(row);
+}
+function reactionLikeBaseCount(row={}){
+  return Math.max(0,Number(row.like_count??row.likes??0)||0);
+}
+function reactionLiked(row={}){
+  const local=localCommentLikes();
+  const key=reactionLikeKey(row);
+  if(Object.prototype.hasOwnProperty.call(local,key))return Boolean(local[key]);
+  return Boolean(row.liked_by_me);
+}
+function reactionLikeCount(row={}){
+  const base=reactionLikeBaseCount(row);
+  const liked=reactionLiked(row);
+  if(liked&&!row.liked_by_me)return base+1;
+  if(!liked&&row.liked_by_me)return Math.max(0,base-1);
+  return base;
+}
+function reactionLikeButton(albumId,row={},className="reactionLikeButton"){
+  const liked=reactionLiked(row);
+  const count=reactionLikeCount(row);
+  const label=liked?"Unlike this reaction":"Like this reaction";
+  return `<button type="button" class="${className}${liked?" liked":""}" aria-label="${label}" aria-pressed="${liked?"true":"false"}" onclick="toggleReactionLike('${escapeJsString(albumId)}','${escapeJsString(reactionLikeKey(row))}')"><span aria-hidden="true">${liked?"&#9829;":"&#9825;"}</span> ${count}</button>`;
+}
+async function createCommentLikeNotification(comment,albumId){
+  const user=loggedInUser();
+  if(!db||!user||!comment||comment.reaction_type==="song_comment"||!isUuid(comment.id)||!isUuid(comment.user_id))return;
+  if(String(comment.user_id)===String(user.id))return;
+  const album=state.albums.find(a=>String(a.id)===String(albumId))||{};
+  const actor=currentUsername()||savedProfileUsername()||user.email||"Someone";
+  const body=`${actor} liked your comment${album.title?` on ${album.title}`:""}.`;
+  try{
+    const {error}=await db.from("notifications").upsert({
+      recipient_id:comment.user_id,
+      actor_id:user.id,
+      notification_type:"comment_like",
+      entity_type:"album_comment",
+      entity_id:comment.id,
+      album_ref:albumRef(albumId),
+      album_title:album.title||"",
+      body
+    },{onConflict:"recipient_id,actor_id,notification_type,entity_id"});
+    if(error)throw error;
+  }catch(error){
+    console.warn("[Muze] Comment like notification could not be created",error?.message||error);
+  }
+}
+function isUuid(value){
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||""));
+}
+async function hydrateAlbumCommentLikes(rows=[]){
+  const user=loggedInUser();
+  if(!db||!rows.length)return rows;
+  const ids=rows.map(row=>row.id).filter(isUuid);
+  if(!ids.length)return rows;
+  try{
+    const {data,error}=await db.from("album_comment_likes").select("comment_id,user_id").in("comment_id",ids);
+    if(error)throw error;
+    const counts={};
+    const likedByMe=new Set();
+    (data||[]).forEach(like=>{
+      const id=String(like.comment_id||"");
+      counts[id]=(counts[id]||0)+1;
+      if(user&&String(like.user_id||"")===String(user.id))likedByMe.add(id);
+    });
+    rows.forEach(row=>{
+      const id=String(row.id||"");
+      row.like_count=counts[id]||0;
+      row.liked_by_me=likedByMe.has(id);
+    });
+  }catch(error){
+    console.warn("[Muze] Album comment likes could not be loaded",error?.message||error);
+  }
+  return rows;
+}
 function reactionDedupeKey(row={}){
   const type=row.reaction_type||"album_comment";
   if(row.id)return `${type}:id:${row.id}`;
@@ -2467,8 +2591,13 @@ async function loadComments(albumId){
   const ref=albumRef(albumId);
   extras.commentReplies[ref]=extras.commentReplies[ref]||{};
   if(db){
-    const {data,error}=await db.from("album_comments").select("id,name,comment,created_at").eq("album_ref",ref).order("created_at",{ascending:false}).limit(30);
+    let result=await db.from("album_comments").select("id,user_id,name,avatar_url,comment,created_at").eq("album_ref",ref).order("created_at",{ascending:false}).limit(30);
+    if(result.error&&/column|schema cache|avatar_url|user_id/i.test(result.error.message||"")){
+      result=await db.from("album_comments").select("id,name,comment,created_at").eq("album_ref",ref).order("created_at",{ascending:false}).limit(30);
+    }
+    const data=result.data, error=result.error;
     if(!error){
+      await hydrateAlbumCommentLikes(data||[]);
       let trackRows=[];
       let trackError=null;
       let trackResult=await db.from("track_comments").select("id,user_id,name,avatar_url,comment,track_key,track_name,created_at").eq("album_ref",ref).order("created_at",{ascending:false}).limit(100);
@@ -2604,13 +2733,44 @@ window.updateReviewCounter=function(){
   const counter=$("#commentCounter");
   if(counter&&text)counter.textContent=`${text.value.length}/500`;
 }
+window.toggleReactionLike=async function(albumId,likeKey){
+  const ref=albumRef(albumId);
+  const comments=extras.comments[ref]||[];
+  const comment=comments.find(row=>reactionLikeKey(row)===likeKey);
+  if(!comment)return;
+  const wasLiked=reactionLiked(comment);
+  const nextLiked=!wasLiked;
+  const local=localCommentLikes();
+  local[likeKey]=nextLiked;
+  saveLocalCommentLikes(local);
+  comment.like_count=Math.max(0,reactionLikeBaseCount(comment)+(nextLiked?1:-1));
+  comment.liked_by_me=nextLiked;
+  renderComments(albumId);
+  const user=loggedInUser();
+  const canSync=db&&user&&comment.reaction_type!=="song_comment"&&isUuid(comment.id);
+  if(!canSync)return;
+  try{
+    if(nextLiked){
+      const {error}=await db.from("album_comment_likes").upsert({comment_id:comment.id,user_id:user.id},{onConflict:"comment_id,user_id"});
+      if(error)throw error;
+      await createCommentLikeNotification(comment,albumId);
+    }else{
+      const {error}=await db.from("album_comment_likes").delete().eq("comment_id",comment.id).eq("user_id",user.id);
+      if(error)throw error;
+    }
+    await loadComments(albumId);
+    renderComments(albumId);
+  }catch(error){
+    console.warn("[Muze] Album comment like could not be synced",error?.message||error);
+  }
+}
 function renderComments(albumId){
   const host=$("#commentsList");
   if(!host)return;
   const ref=albumRef(albumId);
   const comments=extras.comments[ref]||[];
   const replyMap=extras.commentReplies[ref]||{};
-  renderListenerCards(comments);
+  renderListenerCards(comments,albumId);
   const allButton=$("#allReactionsButton");
   if(allButton){
     const total=comments.length||0;
@@ -2630,11 +2790,10 @@ function renderComments(albumId){
     const isSongReaction=c.reaction_type==="song_comment";
     const trackLine=isSongReaction&&c.track_name?`<span class="songReactionTrack">on &ldquo;${escapeHtml(c.track_name)}&rdquo;</span>`:"";
     const adminDelete=isAdminUnlocked()&&!isSongReaction&&commentId?`<button class="adminTinyDelete" onclick="deleteAlbumCommentAdmin('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Delete</button>`:"";
-    const likeCount=Number(c.likes||c.like_count||0);
-    const likes=likeCount>0?`<span>&#9825; ${likeCount}</span>`:"";
+    const likes=reactionLikeButton(albumId,c,"reactionLikeButton");
     const title=c.title||c.review_title||c.headline||"";
     const reviewDate=formatReviewDate(c.created_at);
-    return `<article class="linerReaction reviewItem" data-comment-id="${escapeHtml(commentId)}"><div class="reactionAvatar reviewAvatar">${escapeHtml(initial)}</div><div class="reactionBody reviewBody"><div class="reactionMeta reviewMeta"><strong>${escapeHtml(name)}</strong><span class="verifiedListener">Verified Listener</span>${trackLine}</div><div class="reviewRatingLine">${reviewStarRow(c)}${reviewDate?`<span class="reviewDate">Reviewed on ${escapeHtml(reviewDate)}</span>`:""}</div>${title?`<h4 class="reviewTitle">${escapeHtml(title)}</h4>`:""}<p>${escapeHtml(c.comment||c.text||"")}</p><div class="reactionActions reviewActions">${likes}<button onclick="openReactionReplyBox('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(name)}')">Reply</button>${adminDelete}</div>${replies.length?`<button class="viewReplies" onclick="toggleReactionReplies(this)">Hide ${replies.length} ${replies.length===1?"reply":"replies"}</button>`:""}<div id="reactionReplies-${safeId}" class="reactionReplies">${repliesHtml}</div><div id="reactionReplyBox-${safeId}" class="reactionReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${escapeHtml(name)}..."></textarea><div class="reactionReplyControls"><button onclick="submitReactionReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeReactionReplyBox('${escapeJsString(commentId)}')">Cancel</button></div></div></div><button class="reactionMore" onclick="toggleReactionMenu(this)">???</button></article>`
+    return `<article class="linerReaction reviewItem" data-comment-id="${escapeHtml(commentId)}">${avatarMarkupForAuthor(c,name,"reactionAvatar reviewAvatar")}<div class="reactionBody reviewBody"><div class="reactionMeta reviewMeta"><strong>${escapeHtml(name)}</strong><span class="verifiedListener">Verified Listener</span>${trackLine}</div><div class="reviewRatingLine">${reviewStarRow(c)}${reviewDate?`<span class="reviewDate">Reviewed on ${escapeHtml(reviewDate)}</span>`:""}</div>${title?`<h4 class="reviewTitle">${escapeHtml(title)}</h4>`:""}<p>${escapeHtml(c.comment||c.text||"")}</p><div class="reactionActions reviewActions">${likes}<button onclick="openReactionReplyBox('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(name)}')">Reply</button>${adminDelete}</div>${replies.length?`<button class="viewReplies" onclick="toggleReactionReplies(this)">Hide ${replies.length} ${replies.length===1?"reply":"replies"}</button>`:""}<div id="reactionReplies-${safeId}" class="reactionReplies">${repliesHtml}</div><div id="reactionReplyBox-${safeId}" class="reactionReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${escapeHtml(name)}..."></textarea><div class="reactionReplyControls"><button onclick="submitReactionReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeReactionReplyBox('${escapeJsString(commentId)}')">Cancel</button></div></div></div><button class="reactionMore" onclick="toggleReactionMenu(this)">???</button></article>`
   }).join(""):`<div class="emptyMini albumReactionEmpty">What moment on this album hits hardest?</div>`;
 }
 window.addAlbumComment=async function(albumId){
@@ -2650,11 +2809,17 @@ window.addAlbumComment=async function(albumId){
   if(reviewTitle)reviewMeta.title=reviewTitle;
   if(reviewRating)reviewMeta.rating=reviewRating;
   if(db){
-    const {data,error}=await db.from("album_comments").insert({album_ref:ref,device_id:state.deviceId,name,comment}).select("id,name,comment,created_at").single();
+    const profile=commentProfilePayload();
+    const insertRow={album_ref:ref,device_id:state.deviceId,name,comment,...profile};
+    let result=await db.from("album_comments").insert(insertRow).select("id,user_id,name,avatar_url,comment,created_at").single();
+    if(result.error&&/column|schema cache|avatar_url|user_id/i.test(result.error.message||"")){
+      result=await db.from("album_comments").insert({album_ref:ref,device_id:state.deviceId,name,comment}).select("id,name,comment,created_at").single();
+    }
+    const data=result.data, error=result.error;
     if(error){
       const all=localComments();
       all[ref]=all[ref]||[];
-      all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString(),...reviewMeta});
+      all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString(),...profile,...reviewMeta});
       saveLocalComments(all);
     }else if(Object.keys(reviewMeta).length){
       const meta=localReviewMeta();
@@ -2662,9 +2827,10 @@ window.addAlbumComment=async function(albumId){
       saveLocalReviewMeta(meta);
     }
   }else{
+    const profile=commentProfilePayload();
     const all=localComments();
     all[ref]=all[ref]||[];
-    all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString(),...reviewMeta});
+    all[ref].push({id:localId("comment"),name,comment,created_at:new Date().toISOString(),...profile,...reviewMeta});
     saveLocalComments(all);
   }
   textInput.value="";
@@ -2993,6 +3159,16 @@ function trackCommentButtonHtml(albumId,key,trackName,count=0){
   const badge=safeCount?`<span class="trackCommentBadge">${safeCount>99?"99+":safeCount}</span>`:"";
   return `<button class="trackDots trackCommentBubble" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(trackName)}')" aria-label="Open ${safeCount} comment${safeCount===1?"":"s"} for ${escapeHtml(trackName)}"><span class="trackCommentEmoji" aria-hidden="true">&#128172;</span>${badge}</button>`;
 }
+function trackShareButtonHtml(albumId,key,trackName){
+  return `<button class="trackShareButton" onclick="openTrackShareSheet(event,'${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(trackName)}')" aria-label="Share ${escapeHtml(trackName)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="3.2"></circle><circle cx="18" cy="6" r="3.2"></circle><circle cx="18" cy="18" r="3.2"></circle><path d="M8.8 10.5 15.2 7.5M8.8 13.5l6.4 3"></path></svg></button>`;
+}
+function muzeTrackUrl(albumId,trackKeyValue){
+  const url=new URL(location.href);
+  url.searchParams.set("album",String(albumId||""));
+  url.searchParams.set("track",String(trackKeyValue||""));
+  url.hash="track";
+  return url.href;
+}
 function renderTrackList(albumId){
   const host=$("#trackRatingsList");
   if(!host)return;
@@ -3028,10 +3204,11 @@ function renderTrackList(albumId){
     const scoreHtml=score?`&#9733; <span class="trackScoreNumber">${escapeHtml(score)}</span>`:"&#9733;";
     const trackVibe=trackVibes[key]||trackLiveVibe(track,{index:i,total:tracks.length,album});
     const lovedRowAdmin=trackCommentButtonHtml(albumId,key,track.name,trackCommentCounts[key]||0);
-    return `<div class="linerTrackRow"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><span class="trackVibePill">${escapeHtml(trackVibe)}</span>${lovedRowAdmin}</div>`;
+    const shareButton=trackShareButtonHtml(albumId,key,track.name);
+    return `<div class="linerTrackRow" data-track-key="${escapeHtml(key)}"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${shareButton}<button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><span class="trackVibePill">${escapeHtml(trackVibe)}</span>${lovedRowAdmin}</div>`;
   }).join("");
   const featuredHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>&ldquo;The production on this is untouchable. Every bar hits.&rdquo;</p><em>- community review</em>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K</span></div><div class="momentWhy"><strong>Why it hits</strong><span>Most replayed track</span><span>Feel-good classic</span><span>appears in 136 playlists</span></div><div class="featureCover">${coverHtml}</div></section>`;
-  const tableHtml=`<section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Title</span><span>Community score</span><span>Comment</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
+  const tableHtml=`<section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Title</span><span>Share</span><span>Community score</span><span>Comment</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
   host.innerHTML=featuredHtml+tableHtml;
 }
 
@@ -3040,6 +3217,97 @@ window.toggleFullTracklist=function(albumId){
   if(!host)return;
   host.dataset.expanded=host.dataset.expanded==="true"?"false":"true";
   renderTrackList(albumId);
+}
+function trackSharePayload(albumId,trackKeyValue,trackName){
+  const album=state.albums.find(a=>String(a.id)===String(albumId))||{};
+  const track=(extras.tracks[albumRef(albumId)]||[]).find(item=>trackKey(item)===trackKeyValue)||{name:trackName};
+  const title=String(track.name||trackName||"this song");
+  const albumTitle=String(album.title||"this album");
+  const artist=String(album.artist||"");
+  const url=muzeTrackUrl(albumId,trackKeyValue);
+  const text=`${title} from ${albumTitle}${artist?` by ${artist}`:""} on Muze`;
+  return {album,track,title,albumTitle,artist,url,text,body:`Shared song: ${text}`};
+}
+function shareUrlFor(kind,payload){
+  const text=encodeURIComponent(payload.text);
+  const url=encodeURIComponent(payload.url||location.href);
+  if(kind==="facebook")return `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+  if(kind==="whatsapp")return `https://wa.me/?text=${text}%20${url}`;
+  if(kind==="gmail")return `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent("Song from Muze")}&body=${text}%0A${url}`;
+  return "";
+}
+function trackShareUsersHtml(albumId,trackKeyValue,trackName){
+  const users=chatCommunityProfiles(visibleLibraries().filter(l=>!(l.device_id===state.deviceId||l.isMine))).filter(user=>String(user.user_id||"").trim()).slice(0,5);
+  if(!users.length)return `<div class="trackShareEmpty">No Muze users found yet.</div>`;
+  return users.map((user,index)=>{
+    const username=user.username||user.name||"Muze user";
+    return `<button type="button" onclick="sendTrackShareToMuze('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}','${escapeJsString(user.user_id)}')">${chatAvatarMarkup(user,isUserOnline(user.user_id),index)}<span>${escapeHtml(username)}</span></button>`;
+  }).join("");
+}
+window.closeTrackShareSheet=function(){
+  document.getElementById("trackShareSheet")?.remove();
+}
+window.openTrackShareSheet=function(event,albumId,trackKeyValue,trackName){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  closeTrackShareSheet();
+  const sheet=document.createElement("div");
+  sheet.id="trackShareSheet";
+  sheet.className="trackShareSheet trackShareMiniSheet";
+  sheet.innerHTML=`<div class="trackShareMiniMenu"><button type="button" onclick="nativeTrackShare('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}')">Share</button><button type="button" onclick="showTrackMuzeShareOptions('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}')">Share to Muze user</button></div>`;
+  sheet.onclick=closeTrackShareSheet;
+  document.body.appendChild(sheet);
+  const rect=event?.currentTarget?.getBoundingClientRect?.();
+  const menu=sheet.querySelector(".trackShareMiniMenu");
+  if(menu)menu.onclick=e=>e.stopPropagation();
+  if(rect&&menu){
+    const left=Math.min(window.innerWidth-176,Math.max(8,rect.left+rect.width+8));
+    const top=Math.min(window.innerHeight-82,Math.max(8,rect.top-10));
+    menu.style.left=`${left}px`;
+    menu.style.top=`${top}px`;
+  }
+  requestAnimationFrame(()=>sheet.classList.add("open"));
+}
+window.showTrackMuzeShareOptions=function(albumId,trackKeyValue,trackName){
+  const sheet=document.getElementById("trackShareSheet");
+  const panel=sheet?.querySelector(".trackShareMiniMenu");
+  if(!panel)return;
+  const payload=trackSharePayload(albumId,trackKeyValue,trackName);
+  panel.classList.add("muzeChatMiniMenu");
+  panel.innerHTML=`<strong>${escapeHtml(payload.title)}</strong><div class="trackShareUsers">${trackShareUsersHtml(albumId,trackKeyValue,trackName)}<button type="button" class="trackShareSearchUser" onclick="sendTrackShareToUsername('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}')"><span>Search username</span></button></div>`;
+}
+window.nativeTrackShare=async function(albumId,trackKeyValue,trackName){
+  const payload=trackSharePayload(albumId,trackKeyValue,trackName);
+  closeTrackShareSheet();
+  if(navigator.share){
+    await navigator.share({title:payload.title,text:payload.text,url:payload.url}).catch(()=>{});
+  }else{
+    await copyTrackShare(albumId,trackKeyValue,trackName);
+  }
+}
+window.copyTrackShare=async function(albumId,trackKeyValue,trackName){
+  const payload=trackSharePayload(albumId,trackKeyValue,trackName);
+  await navigator.clipboard?.writeText(`${payload.text}\n${payload.url}`).catch(()=>{});
+  alert("Song share text copied. Paste it into Instagram or any app.");
+}
+window.sendTrackShareToMuze=async function(albumId,trackKeyValue,trackName,userId){
+  if(!requireAuth("message",()=>sendTrackShareToMuze(albumId,trackKeyValue,trackName,userId)))return;
+  const recipientId=String(userId||"").trim();
+  if(!recipientId){alert("Choose a Muze user to share this song with.");return}
+  const payload=trackSharePayload(albumId,trackKeyValue,trackName);
+  const row={sender_id:loggedInUser().id,recipient_id:recipientId,body:payload.body,message_type:"track"};
+  const {data,error}=await db.from("chat_messages").insert(row).select("id,sender_id,recipient_id,body,message_type,created_at,read_at").single();
+  if(error){alert(error.message||"Song could not be shared.");return}
+  extras.chatMessages=[...(extras.chatMessages||[]),data];
+  closeTrackShareSheet();
+  alert(`Shared "${payload.title}" on Muze.`);
+}
+window.sendTrackShareToUsername=async function(albumId,trackKeyValue,trackName){
+  const username=(prompt("Enter their Muze username:")||"").trim().replace(/^@+/,"");
+  if(!username)return;
+  const profile=await lookupChatProfileByUsername({name:username,profile:{username},library:{username}});
+  if(!profile?.user_id){alert(`I could not find a Muze user called "${username}".`);return}
+  await sendTrackShareToMuze(albumId,trackKeyValue,trackName,profile.user_id);
 }
 
 async function loadTrackComments(albumId,trackKeyValue){
@@ -3206,59 +3474,35 @@ function updateAlbumSeeMorePlacement(){
   pill.style.transform="";
   if(modal.classList.contains("hidden")||window.innerWidth<=1050)return;
   const panel=modal.querySelector(".modalPanel");
-  const actions=modal.querySelector(".linerActions");
-  const stats=modal.querySelector(".linerStats");
-  const copy=modal.querySelector(".linerHeroCopy");
-  if(!panel||!actions||!stats||!copy)return;
-  const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+  if(!panel)return;
   const panelRect=panel.getBoundingClientRect();
-  const actionRect=actions.getBoundingClientRect();
-  const actionButtons=[...actions.querySelectorAll("button,a")].map(el=>el.getBoundingClientRect());
-  const statsRect=stats.getBoundingClientRect();
-  const copyRect=copy.getBoundingClientRect();
   const pillRect=pill.getBoundingClientRect();
-  const crowdedByAction=actionButtons.some(rect=>overlaps(pillRect,rect)||((pillRect.top-rect.bottom)<34&&pillRect.right>rect.left&&pillRect.left<rect.right));
-  const crowded=overlaps(pillRect,actionRect)||overlaps(pillRect,statsRect)||overlaps(pillRect,copyRect)||crowdedByAction||actionRect.bottom>pillRect.top-28;
-  if(!crowded)return;
-  const rightLimit=panelRect.right-24;
-  const rightSpace=rightLimit-actionRect.right;
-  const pillWidth=pillRect.width||96;
-  const pillHeight=pillRect.height||23;
-  const firstAction=actionButtons[0]||actionRect;
-  const lastAction=actionButtons[actionButtons.length-1]||actionRect;
-  const clearTop=Math.max(...actionButtons.map(rect=>rect.bottom),actionRect.bottom)+12;
-  if(rightSpace>pillWidth+24&&actionRect.right+24+pillWidth<rightLimit){
-    pill.style.left=`${actionRect.right+24+(pillWidth/2)}px`;
-    pill.style.top=`${Math.max(panelRect.top+24,Math.min(actionRect.top+(actionRect.height-pillHeight)/2,panelRect.bottom-pillHeight-24))}px`;
-  }else{
-    const leftCenter=firstAction.left+(firstAction.width/2);
-    pill.style.left=`${Math.max(panelRect.left+24+(pillWidth/2),Math.min(leftCenter,panelRect.right-24-(pillWidth/2)))}px`;
-    pill.style.top=`${Math.max(clearTop,Math.min(panelRect.bottom-pillHeight-24,Math.max(firstAction.bottom,lastAction.bottom)+16))}px`;
-  }
+  const pillHeight=pillRect.height||24;
+  pill.style.left=`${panelRect.left+(panelRect.width/2)}px`;
+  pill.style.top=`${Math.max(panelRect.top+18,panelRect.bottom-pillHeight-38)}px`;
   pill.style.bottom="auto";
   pill.style.transform="translateX(-50%)";
+}
+function albumModalScrollContainer(){
+  const modal=document.querySelector("#albumModal");
+  const panel=document.querySelector("#albumModal .modalPanel");
+  if(window.innerWidth<=850)return modal||panel||document.scrollingElement;
+  return panel||modal||document.scrollingElement;
 }
 window.scrollAlbumSeeMore=function(event){
   event?.preventDefault?.();
   event?.stopPropagation?.();
-  const panel=document.querySelector("#albumModal .modalPanel");
-  const modal=document.querySelector("#albumModal");
-  const content=document.querySelector("#albumModalContent");
   const target=document.querySelector("#albumModal .linerFeaturedTrack")||document.querySelector("#albumModal #trackRatingsList")||document.querySelector("#albumModal .albumTrackSections");
   if(!target)return;
-  const scrollers=[panel,modal,content,document.scrollingElement].filter(Boolean);
-  let moved=false;
-  scrollers.forEach(scroller=>{
-    if(typeof scroller.scrollTo!=="function")return;
+  const scroller=albumModalScrollContainer();
+  if(scroller&&typeof scroller.scrollTo==="function"&&scroller.scrollHeight>scroller.clientHeight+4){
     const rect=scroller.getBoundingClientRect?.()||{top:0};
     const targetRect=target.getBoundingClientRect();
     const top=(scroller.scrollTop||0)+targetRect.top-rect.top-12;
-    if(scroller.scrollHeight>scroller.clientHeight+4){
-      scroller.scrollTo({top:Math.max(0,top),behavior:"smooth"});
-      moved=true;
-    }
-  });
-  if(!moved)target.scrollIntoView({behavior:"smooth",block:"start"});
+    scroller.scrollTo({top:Math.max(0,top),behavior:"smooth"});
+    return;
+  }
+  target.scrollIntoView({behavior:"smooth",block:"start"});
 }
 window.openAlbumOverviewPopup=function(){
   const album=state.albums.find(x=>albumRef(x.id)===albumRef(extras.currentAlbumId));
@@ -3294,15 +3538,24 @@ window.openReactionReplyBox=function(albumId,commentId,name){
   const textarea=box.querySelector("textarea");
   if(textarea){textarea.placeholder=`Reply to ${name||"Listener"}...`;textarea.focus()}
 }
+window.openListenerCardReply=function(albumId,commentId,name){
+  if(!requireAuth("chat",()=>window.openListenerCardReply(albumId,commentId,name)))return;
+  document.querySelectorAll(".listenerReplyBox").forEach(box=>box.classList.add("hidden"));
+  const box=$("#listenerReplyBox-"+domSafeId(commentId));
+  if(!box)return;
+  box.classList.remove("hidden");
+  const textarea=box.querySelector("textarea");
+  if(textarea){textarea.placeholder=`Reply to ${name||"Listener"}...`;textarea.focus()}
+}
+window.closeListenerCardReply=function(commentId){
+  const box=$("#listenerReplyBox-"+domSafeId(commentId));
+  if(box)box.classList.add("hidden");
+}
 window.closeReactionReplyBox=function(commentId){
   const box=$("#reactionReplyBox-"+domSafeId(commentId));
   if(box)box.classList.add("hidden");
 }
-window.submitReactionReply=async function(albumId,commentId){
-  if(!requireAuth("chat",()=>window.submitReactionReply(albumId,commentId)))return;
-  const box=$("#reactionReplyBox-"+domSafeId(commentId));
-  const textarea=box?.querySelector("textarea");
-  const reply=(textarea?.value||"").trim();
+async function postReactionReply(albumId,commentId,reply,textarea=null){
   if(!reply)return;
   const ref=albumRef(albumId);
   const name=(currentUsername()||$("#commentName")?.value||"Listener").trim()||"Listener";
@@ -3326,6 +3579,18 @@ window.submitReactionReply=async function(albumId,commentId){
   renderComments(albumId);
   const replies=$("#reactionReplies-"+domSafeId(commentId));
   if(replies)replies.classList.remove("hidden");
+}
+window.submitReactionReply=async function(albumId,commentId){
+  if(!requireAuth("chat",()=>window.submitReactionReply(albumId,commentId)))return;
+  const box=$("#reactionReplyBox-"+domSafeId(commentId));
+  const textarea=box?.querySelector("textarea");
+  await postReactionReply(albumId,commentId,(textarea?.value||"").trim(),textarea);
+}
+window.submitListenerCardReply=async function(albumId,commentId){
+  if(!requireAuth("chat",()=>window.submitListenerCardReply(albumId,commentId)))return;
+  const box=$("#listenerReplyBox-"+domSafeId(commentId));
+  const textarea=box?.querySelector("textarea");
+  await postReactionReply(albumId,commentId,(textarea?.value||"").trim(),textarea);
 }
 window.toggleReactionReplies=function(button){
   const replies=button?.closest(".reactionBody")?.querySelector(".reactionReplies");
@@ -3872,16 +4137,20 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
   const username=ratingName();
   const ref=albumRef(albumId);
   const previousValue=(extras.trackRatings[ref]||{})[trackKeyValue]||localTrackRating(albumId,trackKeyValue)||0;
-  if(db){
-    const {error}=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,rating:value},{onConflict:"album_ref,track_key,device_id"});
-    if(error)setLocalTrackRating(albumId,trackKeyValue,value);
-  }else setLocalTrackRating(albumId,trackKeyValue,value);
+  setLocalTrackRating(albumId,trackKeyValue,value);
   applyOptimisticSongScore(albumId,trackKeyValue,trackName,value,previousValue);
   renderTrackList(albumId);
-  await Promise.all([loadTrackRatings(albumId),loadSongScores(albumId),loadTrackRatingDetails(albumId,trackKeyValue)]);
-  const scoreAfter=(extras.songScores[ref]||{})[trackKeyValue]||(trackName?(extras.songScores[ref]||{})[String(trackName).toLowerCase()]:null);
-  if(!scoreAfter||Number(scoreAfter.ratings_count)<=0)applyOptimisticSongScore(albumId,trackKeyValue,trackName,value,previousValue);
-  renderTrackList(albumId);
+  const sync=async()=>{
+    if(db){
+      const {error}=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,rating:value},{onConflict:"album_ref,track_key,device_id"});
+      if(error)console.warn("Song rating saved locally but Supabase sync failed",error.message||error);
+    }
+    await Promise.all([loadTrackRatings(albumId),loadSongScores(albumId),loadTrackRatingDetails(albumId,trackKeyValue)]);
+    const scoreAfter=(extras.songScores[ref]||{})[trackKeyValue]||(trackName?(extras.songScores[ref]||{})[String(trackName).toLowerCase()]:null);
+    if(!scoreAfter||Number(scoreAfter.ratings_count)<=0)applyOptimisticSongScore(albumId,trackKeyValue,trackName,value,previousValue);
+    renderTrackList(albumId);
+  };
+  sync().catch(error=>console.warn("Song rating refresh failed",error));
 }
 
 function updateNavUsername(){
@@ -3901,6 +4170,39 @@ function unreadChatCount(){
   if(!user)return 0;
   return (extras.chatMessages||[]).filter(message=>String(message.recipient_id||"")===String(user.id)&&!message.read_at).length;
 }
+function unreadNotificationRows(){
+  return (extras.notifications||[]).filter(notification=>!notification.read_at);
+}
+function unreadNotificationCount(){
+  return unreadFollowerCount()+unreadNotificationRows().length;
+}
+async function loadNotifications(){
+  const user=loggedInUser();
+  if(!db||!user){extras.notifications=[];return extras.notifications}
+  try{
+    const {data,error}=await db.from("notifications").select("id,notification_type,body,album_ref,album_title,created_at,read_at").eq("recipient_id",user.id).order("created_at",{ascending:false}).limit(25);
+    if(error)throw error;
+    extras.notifications=data||[];
+  }catch(error){
+    console.warn("[Muze] Notifications could not be loaded",error?.message||error);
+    extras.notifications=[];
+  }
+  return extras.notifications;
+}
+async function markNotificationsRead(){
+  const user=loggedInUser();
+  const unread=unreadNotificationRows();
+  if(!db||!user||!unread.length)return;
+  try{
+    const ids=unread.map(notification=>notification.id).filter(Boolean);
+    if(!ids.length)return;
+    const {error}=await db.from("notifications").update({read_at:new Date().toISOString()}).in("id",ids).eq("recipient_id",user.id);
+    if(error)throw error;
+    extras.notifications=extras.notifications.map(notification=>ids.includes(notification.id)?{...notification,read_at:new Date().toISOString()}:notification);
+  }catch(error){
+    console.warn("[Muze] Notifications could not be marked read",error?.message||error);
+  }
+}
 function renderChatBadge(){
   const badge=$("#topbarChatBadge");
   if(!badge)return;
@@ -3910,13 +4212,19 @@ function renderChatBadge(){
 }
 function renderNotifications(){
   const badge=$("#notificationBadge"),panel=$("#notificationPanel");
-  const count=unreadFollowerCount();
+  const count=unreadNotificationCount();
   if(badge){badge.textContent=count>99?"99+":String(count);badge.classList.toggle("hidden",count===0)}
   renderChatBadge();
-  if(panel&&!panel.classList.contains('hidden')){panel.innerHTML=count?'<strong>'+count+' new follower'+(count===1?'':'s')+'</strong>':'No new notifications.'}
+  if(panel&&!panel.classList.contains('hidden')){
+    const rows=extras.notifications||[];
+    const followerCount=unreadFollowerCount();
+    const followerHtml=followerCount?`<strong>${followerCount} new follower${followerCount===1?"":"s"}</strong>`:"";
+    const rowHtml=rows.length?rows.slice(0,8).map(row=>`<div class="notificationItem ${row.read_at?"":"unread"}"><strong>${escapeHtml(row.notification_type==="comment_like"?"Comment liked":"Notification")}</strong><span>${escapeHtml(row.body||"You have a new notification.")}</span><em>${timeAgo(row.created_at)}</em></div>`).join(""):"";
+    panel.innerHTML=followerHtml+rowHtml||(count?"":"No new notifications.");
+  }
 }
 window.markFollowerNotificationsRead=function(){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));renderNotifications()}
-async function refreshNotifications(){await Promise.all([loadLibraries(),loadChatMessages()]);renderNotifications()}
+async function refreshNotifications(){await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence(),loadNotifications()]);renderNotifications()}
 function setLibraryUsername(){
   if(!requireAuth("profile",setLibraryUsername))return;
   const name=(prompt("Choose a public username for your library:",currentUsername()||"")||"").trim();
@@ -4132,6 +4440,7 @@ async function syncMyLibrary(){
   if(!requireAuth("save",syncMyLibrary))return false;
   const username=profileLibraryUsername()||ratingName();
   if(!username)return false;
+  const user=loggedInUser();
   const existing=matchingPublishedLibrary();
   const merged=[...(Array.isArray(existing?.items)?existing.items:[]),...myLibraryItems()].reduce((items,item)=>{
     const live=liveLibraryItem(item);
@@ -4141,13 +4450,15 @@ async function syncMyLibrary(){
   const items=liveLibraryItems(merged);
   saveMyLibraryItems(items);
   const title=($("#libraryTitle")?.value||existing?.title||(username+"'s Library")).trim()||(username+"'s Library");
-  const basePayload={device_id:existing?.device_id||state.deviceId,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
+  const basePayload={device_id:existing?.device_id||state.deviceId,user_id:user?.id||existing?.user_id||null,username,title,items,album_count:items.length,updated_at:new Date().toISOString()};
+  const legacyPayload={device_id:basePayload.device_id,username,title,items,album_count:items.length,updated_at:basePayload.updated_at};
   const payload={...basePayload,...profileAvatarFields()};
   if(db){
     let query=existing?.id?db.from("user_libraries").update(payload).eq("id",existing.id):db.from("user_libraries").upsert(payload,{onConflict:"device_id"});
     let {error}=await query;
     if(error&&/avatar_|profile_avatar_|schema cache|column/i.test(error.message||"")){
-      query=existing?.id?db.from("user_libraries").update(basePayload).eq("id",existing.id):db.from("user_libraries").upsert(basePayload,{onConflict:"device_id"});
+      const retryPayload=/user_id/i.test(error.message||"")?legacyPayload:basePayload;
+      query=existing?.id?db.from("user_libraries").update(retryPayload).eq("id",existing.id):db.from("user_libraries").upsert(retryPayload,{onConflict:"device_id"});
       const retry=await query;
       error=retry.error;
     }
@@ -4228,6 +4539,54 @@ async function loadLibraryFollows(){
 function rememberFollowedLibrary(libraryId){
   extras.libraryFollows=[...new Set([...(extras.libraryFollows||[]).map(String),String(libraryId)])];
   saveLocalLibraryFollows(extras.libraryFollows);
+}
+let presenceTimer=null;
+function presenceCutoffMs(){return 2*60*1000}
+function isPresenceFresh(value){
+  const time=value?new Date(value).getTime():0;
+  return Boolean(time&&Date.now()-time<presenceCutoffMs());
+}
+function isUserOnline(userId){
+  const id=String(userId||"").trim();
+  return Boolean(id&&isPresenceFresh(extras.userPresence?.[id]));
+}
+async function updateOwnPresence(isOnline=true){
+  const user=loggedInUser();
+  if(!db||!user)return;
+  const row={user_id:user.id,last_seen_at:new Date().toISOString(),is_online:!!isOnline};
+  try{
+    const {error}=await db.from("user_presence").upsert(row,{onConflict:"user_id"});
+    if(error&&!/user_presence|schema cache|relation|column/i.test(error.message||""))console.warn("Unable to update presence",error.message||error);
+    if(!error)extras.userPresence={...(extras.userPresence||{}),[user.id]:row.last_seen_at};
+  }catch(error){
+    console.warn("Unable to update presence",error?.message||error);
+  }
+}
+async function loadUserPresence(){
+  if(!db){extras.userPresence={};return extras.userPresence}
+  try{
+    const {data,error}=await db.from("user_presence").select("user_id,last_seen_at,is_online").gte("last_seen_at",new Date(Date.now()-presenceCutoffMs()).toISOString()).eq("is_online",true);
+    if(error){
+      if(!/user_presence|schema cache|relation|column/i.test(error.message||""))console.warn("Unable to load presence",error.message||error);
+      extras.userPresence={};
+      return extras.userPresence;
+    }
+    extras.userPresence=Object.fromEntries((data||[]).filter(row=>isPresenceFresh(row.last_seen_at)).map(row=>[String(row.user_id),row.last_seen_at]));
+  }catch(error){
+    console.warn("Unable to load presence",error?.message||error);
+    extras.userPresence={};
+  }
+  return extras.userPresence;
+}
+function startPresenceHeartbeat(){
+  if(presenceTimer)clearInterval(presenceTimer);
+  if(!db||!loggedInUser())return;
+  updateOwnPresence(true);
+  presenceTimer=setInterval(()=>updateOwnPresence(true),30000);
+}
+function stopPresenceHeartbeat(){
+  if(presenceTimer){clearInterval(presenceTimer);presenceTimer=null}
+  updateOwnPresence(false);
 }
 async function loadProfileDirectory(){
   if(db){
@@ -4613,7 +4972,7 @@ function saveChatLocalMessages(messages){
 }
 function chatSchemaUnavailable(error){
   const message=String(error?.message||error||"");
-  return /chat_messages|schema cache|relation|column/i.test(message);
+  return /schema cache|relation .*chat_messages.*does not exist|could not find .*chat_messages|column .* does not exist|Could not find the .* column/i.test(message);
 }
 function chatMessageTimeLabel(value){
   const date=value?new Date(value):new Date();
@@ -4637,7 +4996,137 @@ async function loadChatMessages(){
   return extras.chatMessages;
 }
 function chatParticipantId(thread){
-  return String(thread?.profile?.user_id||thread?.library?.user_id||thread?.recipient_user_id||"").trim();
+  const direct=String(thread?.profile?.user_id||thread?.library?.user_id||thread?.recipient_user_id||profileDirectoryMatch(thread)?.user_id||"").trim();
+  if(direct)return direct;
+  const id=String(thread?.id||"");
+  const match=id.match(/^person-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+  return match?match[1]:"";
+}
+function normalizeChatProfileKey(value){
+  return String(value||"")
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/,"")
+    .replace(/[’']/g,"'")
+    .replace(/\s*'s\s+library$/,"")
+    .replace(/\s+library$/,"")
+    .replace(/[^a-z0-9._-]+/g," ")
+    .trim();
+}
+function chatProfileMatchKeys(thread){
+  return [
+    thread?.profile?.username,
+    thread?.profile?.name,
+    thread?.profile?.title,
+    thread?.library?.username,
+    thread?.library?.name,
+    thread?.name
+  ].flatMap(value=>{
+    const normalized=normalizeChatProfileKey(value);
+    return normalized?[normalized,normalized.replace(/\s+/g,"")]:[];
+  }).filter(Boolean);
+}
+function profileDirectoryMatch(thread){
+  const keys=chatProfileMatchKeys(thread);
+  if(!keys.length)return null;
+  return (extras.profileDirectory||[]).find(profile=>{
+    const username=normalizeChatProfileKey(profile.username);
+    const name=normalizeChatProfileKey(profile.name);
+    const title=normalizeChatProfileKey(profile.title);
+    const emailPrefix=normalizeChatProfileKey(String(profile.email||"").split("@")[0]);
+    const candidates=[username,name,title,emailPrefix].filter(Boolean).flatMap(value=>[value,value.replace(/\s+/g,"")]);
+    return candidates.some(value=>keys.includes(value));
+  })||null;
+}
+async function publicProfileByUserId(userId){
+  const id=String(userId||"").trim();
+  if(!db||!id)return null;
+  try{
+    let result=await db.from("public_user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").eq("user_id",id).limit(1).maybeSingle();
+    if(result.error&&/public_user_profiles|relation|schema cache/i.test(result.error.message||"")){
+      result=await db.from("user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").eq("user_id",id).limit(1).maybeSingle();
+    }
+    if(!result.error&&result.data?.user_id)return result.data;
+    const libraryResult=await db.from("user_libraries").select("user_id,username,title,updated_at").eq("user_id",id).order("updated_at",{ascending:false}).limit(1).maybeSingle();
+    if(!libraryResult.error&&libraryResult.data?.user_id){
+      return {
+        user_id:libraryResult.data.user_id,
+        username:libraryResult.data.username,
+        title:libraryResult.data.title
+      };
+    }
+  }catch(error){
+    console.warn("Unable to verify Muze user",error?.message||error);
+  }
+  return null;
+}
+async function lookupChatProfileByUsername(thread){
+  if(!db)return null;
+  const keys=[...new Set(chatProfileMatchKeys(thread))].filter(Boolean);
+  if(!keys.length)return null;
+  for(const key of keys){
+    const usernames=[...new Set([key,key.replace(/\s+/g,"")].filter(Boolean))];
+    for(const username of usernames){
+      try{
+        let result=await db.from("public_user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").ilike("username",username).limit(1).maybeSingle();
+        if(result.error&&/public_user_profiles|relation|schema cache/i.test(result.error.message||"")){
+          result=await db.from("user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").ilike("username",username).limit(1).maybeSingle();
+        }
+        if(result.error)continue;
+        if(result.data?.user_id){
+          extras.profileDirectory=[result.data,...(extras.profileDirectory||[]).filter(profile=>String(profile.user_id||"")!==String(result.data.user_id))];
+          return result.data;
+        }
+        const libraryResult=await db.from("user_libraries").select("user_id,username,title,updated_at").ilike("username",username).not("user_id","is",null).order("updated_at",{ascending:false}).limit(1).maybeSingle();
+        if(!libraryResult.error&&libraryResult.data?.user_id){
+          const profile={
+            user_id:libraryResult.data.user_id,
+            username:libraryResult.data.username,
+            title:libraryResult.data.title
+          };
+          extras.profileDirectory=[profile,...(extras.profileDirectory||[]).filter(item=>String(item.user_id||"")!==String(profile.user_id))];
+          return profile;
+        }
+      }catch(error){
+        console.warn("Unable to look up Muze user",error?.message||error);
+      }
+    }
+  }
+  return null;
+}
+async function resolveChatRecipientId(thread){
+  const direct=chatParticipantId(thread);
+  if(direct){
+    const verified=await publicProfileByUserId(direct);
+    if(verified){
+      thread.recipient_user_id=verified.user_id;
+      thread.profile={...(thread.profile||{}),...verified,user_id:verified.user_id};
+      thread.library={...(thread.library||{}),...verified,user_id:verified.user_id};
+      return verified.user_id;
+    }
+    if(thread){
+      thread.recipient_user_id="";
+      if(thread.profile)thread.profile.user_id="";
+      if(thread.library)thread.library.user_id="";
+    }
+  }
+  let profile=profileDirectoryMatch(thread);
+  if(!profile&&db){
+    await loadProfileDirectory().catch(error=>console.warn("Unable to refresh Muze users",error));
+    profile=profileDirectoryMatch(thread);
+  }
+  if(profile?.user_id){
+    const verified=await publicProfileByUserId(profile.user_id);
+    profile=verified||null;
+  }
+  if(!profile)profile=await lookupChatProfileByUsername(thread);
+  const id=String(profile?.user_id||"").trim();
+  if(id&&thread){
+    thread.recipient_user_id=id;
+    thread.profile={...(thread.profile||{}),...(profile||{}),user_id:id};
+    thread.library={...(thread.library||{}),...(profile||{}),user_id:id};
+  }
+  return id;
 }
 function chatRemoteMessagesForThread(thread){
   const user=loggedInUser();
@@ -4763,24 +5252,25 @@ function chatThreadFromLibrary(library,index){
   const second=items[1]||chatAlbumByText(index%2?"rumours":"to pimp a butterfly",index+1);
   const match=librarySimilarity(library.items||[]);
   const name=library.username||library.name||"Listener";
-  const recipientUserId=String(library.user_id||"").trim();
+  const profile=profileForLibrary(library);
+  const recipientUserId=String(library.user_id||profile?.user_id||"").trim();
   const id=String(recipientUserId||library.id||library.device_id||name||index).replace(/[^a-z0-9_-]+/gi,"-").toLowerCase();
   const mutualArtists=mutualArtistsForLibrary(library);
   const sharedAlbums=mutualAlbumsForLibrary(library);
   const thread={
     id:"person-"+id,
     name,
-    profile:library,
+    profile:{...library,...(profile||{}),user_id:recipientUserId||library.user_id||profile?.user_id||null},
     recipient_user_id:recipientUserId,
     role:"Shared albums and listener notes",
-    online:index%3===0,
+    online:isUserOnline(recipientUserId),
     unread:0,
     time:"",
     match:match===null?Math.max(58,92-index*7):match,
     artists:mutualArtists,
     sharedAlbums,
     albums:[album.title||"Abbey Road",second.title||"To Pimp a Butterfly"],
-    library,
+    library:{...library,user_id:recipientUserId||library.user_id||profile?.user_id||null},
     preview:"No messages yet.",
     messages:[]
   };
@@ -4791,6 +5281,43 @@ function chatThreadFromLibrary(library,index){
 }
 function chatThreadIdForProfile(profile,index=0){
   return chatThreadFromLibrary(profile,index).id;
+}
+function chatStableThreadId(thread){
+  const participantId=chatParticipantId(thread);
+  if(participantId)return "person-"+String(participantId).replace(/[^a-z0-9_-]+/gi,"-").toLowerCase();
+  return String(thread?.id||"");
+}
+function chatProfileForUserId(userId){
+  const id=String(userId||"").trim();
+  if(!id)return null;
+  return (extras.profileDirectory||[]).find(profile=>String(profile.user_id||"")===id)||null;
+}
+function chatThreadFromParticipantId(userId,index=0){
+  const id=String(userId||"").trim();
+  if(!id)return null;
+  const profile=chatProfileForUserId(id)||{};
+  const username=String(profile.username||profile.name||profile.title||"Muze user").trim();
+  const thread={
+    id:"person-"+id,
+    name:username,
+    profile:{...profile,user_id:id,username},
+    recipient_user_id:id,
+    role:"Real Muze conversation",
+    online:isUserOnline(id),
+    unread:0,
+    time:"",
+    match:0,
+    artists:[],
+    sharedAlbums:[],
+    albums:[],
+    library:{...profile,user_id:id,username},
+    preview:"No messages yet.",
+    messages:[]
+  };
+  const messages=chatRemoteMessagesForThread(thread);
+  const last=messages[messages.length-1];
+  const unread=chatUnreadForThread(thread);
+  return {...thread,messages,preview:chatLastMessageText(last)||thread.preview,time:last?.time||thread.time,unread:last?.side==="me"?0:unread};
 }
 function chatSearchProfiles(query=""){
   const q=String(query||"").trim().toLowerCase().replace(/^@/,"");
@@ -4822,7 +5349,25 @@ function chatConversationData(){
   const libraries=visibleLibraries();
   const community=libraries.filter(l=>!(l.device_id===state.deviceId||l.isMine||(currentUsername()&&String(l.username||"").toLowerCase()===currentUsername().toLowerCase())));
   const people=chatCommunityProfiles(community);
-  return people.map(chatThreadFromLibrary);
+  const threads=people.map(chatThreadFromLibrary);
+  Object.values(extras.chatAdHocThreads||{}).forEach(savedThread=>{
+    if(savedThread&&!threads.some(thread=>thread.id===savedThread.id))threads.push(savedThread);
+  });
+  const user=loggedInUser();
+  if(user){
+    const ids=[...new Set((extras.chatMessages||[]).map(message=>{
+      const sender=String(message.sender_id||"");
+      const recipient=String(message.recipient_id||"");
+      return sender===String(user.id)?recipient:recipient===String(user.id)?sender:"";
+    }).filter(Boolean))];
+    ids.forEach((id,index)=>{
+      if(!threads.some(thread=>chatParticipantId(thread)===id||thread.id==="person-"+id)){
+        const thread=chatThreadFromParticipantId(id,index);
+        if(thread)threads.push(thread);
+      }
+    });
+  }
+  return threads;
 }
 function chatScoreLabel(album){
   const direct=Number(album?.avg_rating||0);
@@ -4939,6 +5484,7 @@ function chatLibraryShareCard(library){
 }
 function chatMessageHtml(message){
   const body=message.type==="album"?chatSharedAlbumCard(message.album,message.note):
+    message.type==="track"?`<div class="chatShareBox trackShare"><small>Song shared</small><p>${escapeHtml(message.body||"")}</p></div>`:
     message.type==="rating"?`<div class="chatShareBox ratingShare"><small>Rating shared</small><p>${escapeHtml(message.body||"")}</p><strong>${escapeHtml(message.album?.title||"Album")}</strong><span><b>&#9733;</b> ${escapeHtml(message.score||"-")}</span></div>`:
     message.type==="review"?`<div class="chatShareBox reviewShare"><small>Review shared</small><p>&ldquo;${escapeHtml(message.body||"")}&rdquo;</p><em>${escapeHtml(message.album?.title||"Album")}</em></div>`:
     message.type==="library"?`<div>${message.body?`<p>${escapeHtml(message.body)}</p>`:""}${chatLibraryShareCard(message.library)}</div>`:
@@ -4962,7 +5508,7 @@ function chatTarget(){
 }
 function chatView(target=chatTarget()){
   const conversations=chatConversationData();
-  const active=conversations.find(item=>item.id===state.chatThread)||conversations[0];
+  const active=conversations.find(item=>item.id===state.chatThread)||extras.chatAdHocThreads?.[state.chatThread]||conversations[0];
   if(active&&state.chatThread!==active.id)state.chatThread=active.id;
   const activeIndex=Math.max(0,conversations.findIndex(item=>item.id===active.id));
   const activeId=escapeJsString(active.id);
@@ -5060,7 +5606,7 @@ chatView=function(target=chatTarget()){
   const inputPlaceholder=sendDisabled?"Choose a person to message...":"Message about an album...";
   const threadButtons=conversations.map((thread,index)=>`<button class="muzeChatThread ${thread.id===active.id?"active":""} ${thread.unread?"hasUnread":""}" onclick="setChatConversation('${escapeJsString(thread.id)}')">${chatAvatarMarkup(thread.profile||(!thread.group?thread.library:null)||thread.name,thread.online,index)}<span class="muzeChatThreadCopy"><strong>${escapeHtml(thread.name)}</strong><i>${escapeHtml(chatCompatibilityText(thread.match))}</i><small>${escapeHtml(thread.preview)}</small></span><span class="chatThreadMeta"><em>${escapeHtml(thread.time)}</em>${thread.unread?`<b>${thread.unread}</b>`:""}</span></button>`).join("");
   const messagesHtml=active.messages.length?active.messages.map(chatMessageHtml).join(""):"";
-  target.innerHTML=`<section class="muzeChatShell simpleMessengerChat"><aside class="muzeChatList"><div class="muzeChatListHead"><div><h2>Chat</h2><p>Share albums, compare libraries, discuss records.</p></div><button class="chatComposeButton ${state.chatUserSearchOpen?"active":""}" type="button" title="Start conversation" onclick="toggleChatUserSearch(event)">+</button></div>${chatUserSearchHtml()}${threadButtons}${chatSelfProfileCard()}</aside><section class="muzeChatPanel"><header class="muzeChatHeader"><div class="chatProfileIdentity">${chatAvatarMarkup(active.profile||(!active.group?active.library:null)||active.name,active.online,activeIndex)}<div><h3>${escapeHtml(active.name)}</h3><p><strong>${escapeHtml(chatCompatibilityText(active.match,true))}</strong><span>${escapeHtml(chatMatchLabel(active.match))}</span></p></div></div><button class="chatCloseButton" type="button" onclick="closeChatView()" aria-label="Close chat"><span aria-hidden="true"></span></button></header>${chatConnectionContext(active)}<div class="muzeChatMessages">${messagesHtml}</div><footer class="muzeChatComposer"><label><span class="chatInputWrap"><input id="chatMessageInput" placeholder="${escapeHtml(inputPlaceholder)}" onkeydown="if(event.key==='Enter')sendChatMessage('${activeId}')"><button class="chatEmojiButton" type="button" onclick="toggleChatEmojiPicker()" title="Open emoji picker" aria-label="Open emoji picker">&#128578;</button>${chatEmojiPickerHtml()}</span><button class="chatSendIconButton" type="button" onclick="sendChatMessage('${activeId}')" title="Send message" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 20.2 21 12 3.8 3.8l2.5 7.2L14 12l-7.7 1-2.5 7.2Z"></path></svg></button></label></footer></section></section>`;
+  target.innerHTML=`<section class="muzeChatShell simpleMessengerChat"><aside class="muzeChatList"><div class="muzeChatListHead"><div><h2>Chat</h2><p>Share albums, compare libraries, discuss records.</p></div><button class="chatComposeButton ${state.chatUserSearchOpen?"active":""}" type="button" title="Start conversation" onclick="toggleChatUserSearch(event)">+</button></div>${chatUserSearchHtml()}${threadButtons}${chatSelfProfileCard()}</aside><section class="muzeChatPanel"><header class="muzeChatHeader"><div class="chatProfileIdentity">${chatAvatarMarkup(active.profile||(!active.group?active.library:null)||active.name,active.online,activeIndex)}<div><h3>${escapeHtml(active.name)}${active.online?`<em class="chatHeaderPresence"><i></i>online</em>`:""}</h3><p><strong>${escapeHtml(chatCompatibilityText(active.match,true))}</strong><span>${escapeHtml(chatMatchLabel(active.match))}</span></p></div></div><button class="chatCloseButton" type="button" onclick="closeChatView()" aria-label="Close chat"><span aria-hidden="true"></span></button></header>${chatConnectionContext(active)}<div class="muzeChatMessages">${messagesHtml}</div><footer class="muzeChatComposer"><label><span class="chatInputWrap"><input id="chatMessageInput" placeholder="${escapeHtml(inputPlaceholder)}" onkeydown="if(event.key==='Enter')sendChatMessage('${activeId}')"><button class="chatEmojiButton" type="button" onclick="toggleChatEmojiPicker()" title="Open emoji picker" aria-label="Open emoji picker">&#128578;</button>${chatEmojiPickerHtml()}</span><button class="chatSendIconButton" type="button" onclick="sendChatMessage('${activeId}')" title="Send message" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 20.2 21 12 3.8 3.8l2.5 7.2L14 12l-7.7 1-2.5 7.2Z"></path></svg></button></label></footer></section></section>`;
   if(state.chatUserSearchOpen)requestAnimationFrame(()=>$("#chatUserSearchInput")?.focus());
   bindMobileChatInputViewport();
   if(active)markChatThreadRead(active);
@@ -5084,12 +5630,15 @@ window.selectFirstChatSearchResult=function(){
   if(first)window.startChatWithUser(chatThreadIdForProfile(first,0));
 }
 window.startChatWithUser=function(id){
+  const thread=chatConversationData().find(item=>item.id===id);
+  if(thread)extras.chatAdHocThreads[id]=thread;
   state.chatUserSearchOpen=false;
   state.chatUserSearchQuery="";
   window.setChatConversation(id);
 }
-window.setChatConversation=function(id){
+window.setChatConversation=async function(id){
   state.chatThread=id;
+  if(db&&loggedInUser())await loadChatMessages().catch(error=>console.warn("Unable to refresh chat messages",error));
   chatView();
   requestAnimationFrame(()=>{
     const content=$("#topbarChatPanel:not(.hidden) #topbarChatContent");
@@ -5125,19 +5674,32 @@ window.sendChatMessage=async function(threadId){
   const body=String(input?.value||"").trim();
   if(!body)return;
   const key=String(threadId||state.chatThread||"");
-  const active=chatConversationData().find(thread=>thread.id===key);
-  const recipientId=chatParticipantId(active);
+  let active=chatConversationData().find(thread=>thread.id===key)||extras.chatAdHocThreads?.[key]||null;
+  if(!active&&db){
+    await loadProfileDirectory().catch(error=>console.warn("Unable to refresh Muze users",error));
+    active=chatConversationData().find(thread=>thread.id===key)||extras.chatAdHocThreads?.[key]||null;
+  }
+  const recipientId=await resolveChatRecipientId(active);
   if(!recipientId){
-    alert("Choose a Muze user with an account to send a real message.");
+    const label=active?.name||active?.profile?.username||active?.library?.username||"that user";
+    alert(`I still can't find a Muze account for "${label}". Ask them to open Muze once and save their username in profile, then use + search and select them again.`);
     return;
   }
   if(!requireAuth("message",()=>window.sendChatMessage(threadId)))return;
+  const stableKey=chatStableThreadId(active)||key;
+  active.id=stableKey;
+  active.recipient_user_id=recipientId;
+  extras.chatAdHocThreads[stableKey]=active;
+  if(key&&key!==stableKey)extras.chatAdHocThreads[key]=active;
   if(input)input.disabled=true;
   if(db&&loggedInUser()){
     const row={sender_id:loggedInUser().id,recipient_id:recipientId,body,message_type:"text"};
     const {data,error}=await db.from("chat_messages").insert(row).select("id,sender_id,recipient_id,body,message_type,created_at,read_at").single();
     if(error){
+      console.warn("Chat message insert failed",error.message||error);
       if(chatSchemaUnavailable(error))alert("Real messaging needs the chat_messages SQL added in Supabase first.");
+      else if(/foreign key.*recipient|recipient_id.*fkey/i.test(error.message||""))alert("This chat is still linked to an old non-account id. Use + search, select the exact Muze username again, then send.");
+      else if(/row-level security|violates row-level security|permission denied/i.test(error.message||""))alert("Supabase blocked this message with chat row security. Log out and back in, then try again. If it still fails, rerun the chat_messages policies SQL.");
       else alert(error.message||"Message could not be sent.");
       if(input)input.disabled=false;
       return;
@@ -5152,7 +5714,7 @@ window.sendChatMessage=async function(threadId){
   if(input)input.value="";
   const picker=document.getElementById("chatEmojiPicker");
   if(picker)picker.hidden=true;
-  state.chatThread=key;
+  state.chatThread=stableKey;
   chatView();
 }
 window.toggleChatEmojiPicker=function(){
@@ -5356,15 +5918,18 @@ function albumReturnBody(album){
   if(text.includes("hip-hop")||text.includes("rap"))return "The voice leads, the rhythm holds, and the best lines stay with listeners long after the record ends.";
   return "The album carries a distinct atmosphere, giving listeners room to replay, debate, and make it personal.";
 }
-function renderListenerCards(comments){
+function renderListenerCards(comments,albumId=extras.currentAlbumId||""){
   const host=$("#listenerCardsList");
   if(!host)return;
   const visible=(comments||[]).slice(0,3);
-  host.innerHTML=visible.length?visible.map(c=>{
-    const name=escapeHtml(c.name||"Listener");
-    const avatar=name.slice(0,1).toUpperCase()||"L";
-    const likes=Number(c.likes||c.like_count||0);
-    return `<article class="listenerCard"><div class="listenerCardAvatar">${avatar}</div><div><strong>${name}</strong><span>${timeAgo(c.created_at)}</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><small>&#9825; ${likes}</small></article>`;
+  const ref=albumRef(albumId);
+  host.innerHTML=visible.length?visible.map((c,i)=>{
+    const rawName=c.name||"Listener";
+    const name=escapeHtml(rawName);
+    const commentId=String(c.id||c.local_id||`${ref}-${i}`);
+    const safeId=domSafeId(commentId);
+    const avatar=avatarMarkupForAuthor(c,c.name||"Listener","listenerCardAvatar");
+    return `<article class="listenerCard">${avatar}<div><strong>${name}</strong><span>${timeAgo(c.created_at)}</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><div class="listenerCardActions">${reactionLikeButton(albumId,c,"listenerLikeButton")}<button type="button" class="listenerReplyButton" onclick="openListenerCardReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(rawName)}')">Reply</button></div><div id="listenerReplyBox-${safeId}" class="listenerReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${name}..."></textarea><div><button type="button" onclick="submitListenerCardReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeListenerCardReply('${escapeJsString(commentId)}')">Cancel</button></div></div></article>`;
   }).join(""):`<div class="listenerCard empty">No listener reactions yet.</div>`;
 }function albumHeroPullQuotes(album){
   const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
@@ -5458,8 +6023,8 @@ window.openAlbum=function(id){
   const moodStart=moodScore<40?"#45d66d":moodScore<72?"#b6d94b":"#ffd51f";
   const moodEnd=moodScore<40?"#a8ef72":moodScore<72?"#ffd51f":"#ff9a1f";
   const moodGlow=moodScore<40?"69,214,109":moodScore<72?"255,213,31":"255,154,31";
-  const scoreStat=canEditOverview?`<button class="linerStatEdit" onclick="setAlbumScoreAdmin('${albumId}')"><span>Community score</span><strong>${albumScore}</strong><small>${escapeHtml(scoreMood)}</small><em>Edit</em></button>`:`<button class="linerStatEdit albumRateStat" onclick="openAlbumRating('${albumId}')" aria-label="Rate this album"><span>Community score</span><strong>${albumScore}</strong><small>${escapeHtml(scoreMood)}</small></button>`;
-  const countStat=canEditOverview?`<button class="linerStatEdit" onclick="setAlbumRatingsCountAdmin('${albumId}')"><span>Listeners</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small><em>Edit</em></button>`:`<div><span>Listeners</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small></div>`;
+  const scoreStat=canEditOverview?`<button class="linerStatEdit" onclick="setAlbumScoreAdmin('${albumId}')"><span>Rating</span><strong>${albumScore}</strong><small>${escapeHtml(scoreMood)}</small><em>Edit</em></button>`:`<button class="linerStatEdit albumRateStat" onclick="openAlbumRating('${albumId}')" aria-label="Rate this album"><span>Rating</span><strong>${albumScore}</strong><small>${escapeHtml(scoreMood)}</small></button>`;
+  const countStat=canEditOverview?`<button class="linerStatEdit" onclick="setAlbumRatingsCountAdmin('${albumId}')"><span>Rated by</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small><em>Edit</em></button>`:`<div><span>Rated by</span><strong>${total}</strong><small>${escapeHtml(consensusLine)}</small></div>`;
   const heroSavedStrip=`<div class="heroSavedStrip"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><span>${librarySavedCount>0?`Saved by <b>${librarySavedLabel}</b> listener${librarySavedCount===1?"":"s"}`:"Add it to your library"}</span></div>`;
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${escapeHtml(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood" style="--mood-score:${moodScore}%;--mood-start:${moodStart};--mood-end:${moodEnd};--mood-glow:${moodGlow}"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${albumVibeTags(a).slice(0,3).map(escapeHtml).join(" &middot; ")}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence"><h4><span>&#9733;</span>Sound & Influence</h4><p>${escapeHtml(structuredOverview.sound_summary||albumCommunityPull(a))}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div></div></aside>`;
   $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${escapeHtml(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="window.scrollAlbumSeeMore()">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${escapeHtml(returnHeadline)}</h3></div><p>${escapeHtml(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
@@ -5474,6 +6039,26 @@ window.openAlbum=function(id){
   requestAnimationFrame(()=>updateAlbumSeeMorePlacement());
   setTimeout(updateAlbumSeeMorePlacement,180);
   loadAlbumExtras(a);
+}
+function scrollToSharedTrack(trackKeyValue){
+  const key=String(trackKeyValue||"");
+  if(!key)return;
+  const target=document.querySelector(`#albumModal .linerTrackRow[data-track-key="${CSS.escape(key)}"]`);
+  if(!target)return;
+  document.querySelectorAll("#albumModal .linerTrackRow.sharedTrackTarget").forEach(row=>row.classList.remove("sharedTrackTarget"));
+  target.classList.add("sharedTrackTarget");
+  target.scrollIntoView({block:"center",behavior:"smooth"});
+}
+function handleMuzeDeepLink(){
+  const params=new URLSearchParams(location.search);
+  const albumId=params.get("album");
+  const track=params.get("track");
+  if(!albumId)return;
+  openAlbum(albumId);
+  if(track){
+    setTimeout(()=>scrollToSharedTrack(track),900);
+    setTimeout(()=>scrollToSharedTrack(track),1700);
+  }
 }
 window.deleteAlbum=async function(albumId){
   const album=state.albums.find(a=>String(a.id)===String(albumId));
@@ -5517,6 +6102,7 @@ async function loadData(){
     await loadCustomOverviews();
     applyCachedCovers();
     render();
+    if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
     hydrateMissingCovers();
     return;
   }
@@ -5538,6 +6124,7 @@ async function loadData(){
   await loadCustomOverviews();
   applyCachedCovers();
   render();
+  if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
   hydrateMissingCovers();
 }function openSpotifyAdd(target){
   extras.spotifyTarget=target||"musica";
@@ -5640,9 +6227,9 @@ window.addSpotifyAlbum=async function(a,button){
 };
 function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
 function closeTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");if(panel){panel.classList.remove("keyboardOpen");panel.classList.add("hidden")}if(button&&!document.body.classList.contains("chatView")){button.classList.remove("active");button.setAttribute("aria-expanded","false")}}
-async function openTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");const panelContent=$("#topbarChatContent");if(!panel||!panelContent)return;$("#notificationPanel")?.classList.add("hidden");panel.classList.remove("hidden");installMobileChatViewportSync();syncMobileChatViewport();if(button){button.classList.add("active");button.setAttribute("aria-expanded","true")}try{await Promise.all([loadLibraries(),loadChatMessages(),loadChatSelfStats()])}catch(error){console.warn("Unable to refresh chat people",error)}chatView(panelContent);closeNav()}
+async function openTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");const panelContent=$("#topbarChatContent");if(!panel||!panelContent)return;$("#notificationPanel")?.classList.add("hidden");panel.classList.remove("hidden");installMobileChatViewportSync();syncMobileChatViewport();if(button){button.classList.add("active");button.setAttribute("aria-expanded","true")}try{await Promise.all([loadLibraries(),loadChatMessages(),loadChatSelfStats(),loadUserPresence()])}catch(error){console.warn("Unable to refresh chat people",error)}chatView(panelContent);closeNav()}
 function toggleTopbarChat(){const panel=$("#topbarChatPanel");if(panel&&!panel.classList.contains("hidden"))closeTopbarChat();else openTopbarChat()}
-updateNavUsername();$("#topbarChatButton").onclick=e=>{e.stopPropagation();toggleTopbarChat()};$("#topbarChatPanel").onclick=e=>{if(e.target&&e.target.id==="topbarChatPanel")closeTopbarChat();else e.stopPropagation()};$("#notificationBell").onclick=async e=>{e.stopPropagation();closeTopbarChat();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadFollowerCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));const badge=$("#notificationBadge");if(badge){badge.textContent="0";badge.classList.add("hidden")}}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>{$("#notificationPanel")?.classList.add("hidden");closeTopbarChat()});$("#navSetUsername").onclick=openNavProfileMenu;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=handleAvatarPhotoSelected;const saveUsernameButton=$("#saveUsernameButton");if(saveUsernameButton){saveUsernameButton.onclick=handleSaveUsernameAction;saveUsernameButton.addEventListener("pointerup",handleSaveUsernameAction);saveUsernameButton.addEventListener("touchend",handleSaveUsernameAction,{passive:false})}$("#profileUsernameInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")handleSaveUsernameAction(e)});avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};const saveAvatarButton=$("#saveAvatarButton");if(saveAvatarButton){saveAvatarButton.onclick=handleSaveAvatarAction;saveAvatarButton.addEventListener("pointerup",handleSaveAvatarAction);saveAvatarButton.addEventListener("touchend",handleSaveAvatarAction,{passive:false})}$("#skipAvatarButton").onclick=hideAvatarSetup;
+updateNavUsername();$("#topbarChatButton").onclick=e=>{e.stopPropagation();toggleTopbarChat()};$("#topbarChatPanel").onclick=e=>{if(e.target&&e.target.id==="topbarChatPanel")closeTopbarChat();else e.stopPropagation()};$("#notificationBell").onclick=async e=>{e.stopPropagation();closeTopbarChat();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadNotificationCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));await markNotificationsRead();renderNotifications()}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>{$("#notificationPanel")?.classList.add("hidden");closeTopbarChat()});$("#navSetUsername").onclick=openNavProfileMenu;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=handleAvatarPhotoSelected;const saveUsernameButton=$("#saveUsernameButton");if(saveUsernameButton){saveUsernameButton.onclick=handleSaveUsernameAction;saveUsernameButton.addEventListener("pointerup",handleSaveUsernameAction);saveUsernameButton.addEventListener("touchend",handleSaveUsernameAction,{passive:false})}$("#profileUsernameInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")handleSaveUsernameAction(e)});avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};const saveAvatarButton=$("#saveAvatarButton");if(saveAvatarButton){saveAvatarButton.onclick=handleSaveAvatarAction;saveAvatarButton.addEventListener("pointerup",handleSaveAvatarAction);saveAvatarButton.addEventListener("touchend",handleSaveAvatarAction,{passive:false})}$("#skipAvatarButton").onclick=hideAvatarSetup;
 if($("#avatarCategoryToggle"))$("#avatarCategoryToggle").onclick=toggleAvatarCategoryMenu;
 document.querySelectorAll("#avatarCategoryMenu [data-avatar-category]").forEach(button=>button.onclick=()=>setAvatarCategory(button.dataset.avatarCategory||"face"));
 document.addEventListener("click",e=>{if(!e.target.closest(".avatarCategoryDropdown")){$("#avatarCategoryMenu")?.classList.add("hidden");$("#avatarCategoryToggle")?.setAttribute("aria-expanded","false")}});
@@ -5659,7 +6246,7 @@ async function navigateToView(view){
   }
   state.view=view;
   if(state.view==="libraries"||state.view==="chat"){
-    try{await Promise.all([loadLibraries(),loadChatMessages()])}
+    try{await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence()])}
     catch(error){console.warn("Unable to load libraries",error);extras.libraries=localLibraries();renderNotifications()}
   }
   document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===state.view));
@@ -5669,6 +6256,7 @@ async function navigateToView(view){
 function rememberSiteState(){if(!history.state||!history.state.musica)history.replaceState({musica:"home"},"");history.pushState({musica:"inside"},"")}
 rememberSiteState();
 window.addEventListener("resize",()=>requestAnimationFrame(updateAlbumSeeMorePlacement));
+$("#albumModal")?.addEventListener("scroll",()=>requestAnimationFrame(updateAlbumSeeMorePlacement),{passive:true});
 window.addEventListener("popstate",()=>{if(!$("#authModal").classList.contains("hidden")){closeAuthModal();history.pushState({musica:"inside"},"");return}if(!$("#albumModal").classList.contains("hidden")){closeAlbumPopup();history.pushState({musica:"inside"},"");return}if(!$("#addModal").classList.contains("hidden")){$("#addModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}goHome();history.pushState({musica:"inside"},"")});
 let navViewPointerAt=0;
 function handleNavViewAction(event){
@@ -5684,6 +6272,8 @@ function handleNavViewAction(event){
 }
 document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>{t.onclick=handleNavViewAction;t.addEventListener("pointerup",handleNavViewAction);t.addEventListener("touchend",handleNavViewAction,{passive:false})});
 $("#searchInput").oninput=e=>{state.search=e.target.value;render()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
+document.addEventListener("visibilitychange",()=>{if(document.hidden)updateOwnPresence(false);else startPresenceHeartbeat()});
+window.addEventListener("pagehide",()=>updateOwnPresence(false));
 initAuth();
 loadData();
 

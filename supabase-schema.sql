@@ -85,9 +85,21 @@ create table if not exists album_comments (
   id uuid primary key default gen_random_uuid(),
   album_ref text not null,
   device_id text not null,
+  user_id uuid references auth.users(id) on delete set null,
+  avatar_url text,
   name text not null default 'Listener',
   comment text not null,
   created_at timestamptz default now()
+);
+
+alter table album_comments add column if not exists user_id uuid references auth.users(id) on delete set null;
+alter table album_comments add column if not exists avatar_url text;
+
+create table if not exists album_comment_likes (
+  comment_id uuid references album_comments(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (comment_id, user_id)
 );
 
 create table if not exists track_ratings (
@@ -102,6 +114,7 @@ create table if not exists track_ratings (
 );
 
 alter table album_comments enable row level security;
+alter table album_comment_likes enable row level security;
 alter table track_ratings enable row level security;
 
 drop policy if exists "Anyone can read album comments" on album_comments;
@@ -113,6 +126,21 @@ create policy "Authenticated users can add album comments" on album_comments
 for insert
 to authenticated
 with check (true);
+
+drop policy if exists "Anyone can read album comment likes" on album_comment_likes;
+create policy "Anyone can read album comment likes" on album_comment_likes for select using (true);
+
+drop policy if exists "Authenticated users can like album comments" on album_comment_likes;
+create policy "Authenticated users can like album comments" on album_comment_likes
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Authenticated users can unlike album comments" on album_comment_likes;
+create policy "Authenticated users can unlike album comments" on album_comment_likes
+for delete
+to authenticated
+using (auth.uid() = user_id);
 
 drop policy if exists "Anyone can read track ratings" on track_ratings;
 create policy "Anyone can read track ratings" on track_ratings for select using (true);
@@ -201,6 +229,7 @@ drop policy if exists "Anyone can read track ratings" on track_ratings;
 create table if not exists user_libraries (
   id uuid primary key default gen_random_uuid(),
   device_id text not null unique,
+  user_id uuid references auth.users(id) on delete set null,
   username text not null,
   title text not null,
   items jsonb not null default '[]'::jsonb,
@@ -208,6 +237,29 @@ create table if not exists user_libraries (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table user_libraries add column if not exists user_id uuid references auth.users(id) on delete set null;
+create index if not exists user_libraries_user_id_idx on user_libraries (user_id);
+
+create or replace function public.set_user_library_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.user_id is null then
+    new.user_id := auth.uid();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists user_libraries_set_owner on public.user_libraries;
+create trigger user_libraries_set_owner
+before insert or update on public.user_libraries
+for each row
+execute function public.set_user_library_owner();
 
 create table if not exists library_follows (
   id uuid primary key default gen_random_uuid(),
@@ -261,6 +313,7 @@ create or replace view library_feed as
 select
   l.id,
   l.device_id,
+  l.user_id,
   l.username,
   l.title,
   l.items,
@@ -269,7 +322,7 @@ select
   count(f.id)::int as followers_count
 from user_libraries l
 left join library_follows f on f.library_id = l.id
-group by l.id;
+group by l.id, l.device_id, l.user_id, l.username, l.title, l.items, l.album_count, l.updated_at;
 
 -- Admin-editable album overviews
 create table if not exists album_overviews (
@@ -374,6 +427,18 @@ alter table user_profiles add column if not exists skipped_avatar_setup boolean 
 alter table user_profiles add column if not exists created_at timestamptz default now();
 alter table user_profiles add column if not exists updated_at timestamptz default now();
 
+do $$
+begin
+  execute '
+    update user_libraries l
+    set user_id = p.user_id
+    from user_profiles p
+    where l.user_id is null
+      and lower(trim(l.username)) = lower(trim(p.username))
+      and coalesce(trim(p.username), '''') <> ''''
+  ';
+end $$;
+
 alter table user_profiles enable row level security;
 
 drop policy if exists "Users can read their own profile" on user_profiles;
@@ -391,6 +456,130 @@ with check (auth.uid() = user_id);
 drop policy if exists "Users can update their own profile" on user_profiles;
 create policy "Users can update their own profile"
 on user_profiles for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+-- Public profile directory for chat/account discovery.
+-- This intentionally omits email addresses; direct messages use user_id.
+create or replace view public_user_profiles as
+select
+  user_id,
+  username,
+  avatar_url,
+  avatar_config,
+  avatar_svg,
+  avatar_type,
+  created_at
+from user_profiles
+where coalesce(username, '') <> '';
+
+grant select on public_user_profiles to anon, authenticated;
+
+-- Account-to-account chat messages.
+-- Senders and recipients can read their shared messages. Only recipients can
+-- mark incoming messages as read.
+create table if not exists chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  body text not null check (char_length(trim(body)) > 0),
+  message_type text not null default 'text',
+  created_at timestamptz not null default now(),
+  read_at timestamptz
+);
+
+create index if not exists chat_messages_sender_created_idx on chat_messages (sender_id, created_at desc);
+create index if not exists chat_messages_recipient_created_idx on chat_messages (recipient_id, created_at desc);
+create index if not exists chat_messages_pair_created_idx on chat_messages (sender_id, recipient_id, created_at);
+
+alter table chat_messages enable row level security;
+
+drop policy if exists "Users can read their own chat messages" on chat_messages;
+create policy "Users can read their own chat messages"
+on chat_messages for select
+to authenticated
+using (auth.uid() = sender_id or auth.uid() = recipient_id);
+
+drop policy if exists "Users can send chat messages" on chat_messages;
+create policy "Users can send chat messages"
+on chat_messages for insert
+to authenticated
+with check (auth.uid() = sender_id and sender_id <> recipient_id);
+
+drop policy if exists "Recipients can mark chat messages read" on chat_messages;
+create policy "Recipients can mark chat messages read"
+on chat_messages for update
+to authenticated
+using (auth.uid() = recipient_id)
+with check (auth.uid() = recipient_id);
+
+-- Bell notifications for account activity such as comment likes.
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  actor_id uuid references auth.users(id) on delete set null,
+  notification_type text not null,
+  entity_type text,
+  entity_id uuid,
+  album_ref text,
+  album_title text,
+  body text not null,
+  created_at timestamptz not null default now(),
+  read_at timestamptz
+);
+
+create unique index if not exists notifications_unique_activity_idx
+on notifications (recipient_id, actor_id, notification_type, entity_id);
+
+create index if not exists notifications_recipient_created_idx
+on notifications (recipient_id, created_at desc);
+
+alter table notifications enable row level security;
+
+drop policy if exists "Users can read their own notifications" on notifications;
+create policy "Users can read their own notifications"
+on notifications for select
+to authenticated
+using (auth.uid() = recipient_id);
+
+drop policy if exists "Users can create notifications for their actions" on notifications;
+create policy "Users can create notifications for their actions"
+on notifications for insert
+to authenticated
+with check (auth.uid() = actor_id and recipient_id <> auth.uid());
+
+drop policy if exists "Users can mark their own notifications read" on notifications;
+create policy "Users can mark their own notifications read"
+on notifications for update
+to authenticated
+using (auth.uid() = recipient_id)
+with check (auth.uid() = recipient_id);
+
+-- Lightweight online presence for chat.
+-- The app shows online only when last_seen_at is recent.
+create table if not exists user_presence (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  last_seen_at timestamptz not null default now(),
+  is_online boolean not null default true
+);
+
+alter table user_presence enable row level security;
+
+drop policy if exists "Anyone can read user presence" on user_presence;
+create policy "Anyone can read user presence"
+on user_presence for select
+using (true);
+
+drop policy if exists "Users can insert their own presence" on user_presence;
+create policy "Users can insert their own presence"
+on user_presence for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own presence" on user_presence;
+create policy "Users can update their own presence"
+on user_presence for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
