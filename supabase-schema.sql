@@ -214,15 +214,40 @@ select
 from track_ratings
 group by album_ref, track_key;
 
+create or replace view public_track_ratings as
+select
+  album_ref,
+  track_key,
+  track_name,
+  coalesce(nullif(username, ''), 'Listener') as username,
+  rating,
+  created_at
+from track_ratings;
+
 
 -- Store usernames with ratings
 alter table ratings add column if not exists username text;
 alter table track_ratings add column if not exists username text;
+alter table ratings add column if not exists user_id uuid references auth.users(id) on delete set null;
+alter table track_ratings add column if not exists user_id uuid references auth.users(id) on delete set null;
+create index if not exists ratings_user_id_idx on ratings(user_id);
+create index if not exists track_ratings_user_id_idx on track_ratings(user_id);
 
 
 -- Public cannot read raw rating identities; aggregated score views stay public.
 drop policy if exists "Anyone can read ratings" on ratings;
 drop policy if exists "Anyone can read track ratings" on track_ratings;
+drop policy if exists "Authenticated users can read own ratings" on ratings;
+create policy "Authenticated users can read own ratings" on ratings
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Authenticated users can read own track ratings" on track_ratings;
+create policy "Authenticated users can read own track ratings" on track_ratings
+for select
+to authenticated
+using (auth.uid() = user_id);
 
 
 -- Public followable user libraries
@@ -362,10 +387,16 @@ create table if not exists album_comment_replies (
   album_ref text not null,
   comment_id uuid not null,
   device_id text not null,
+  user_id uuid references auth.users(id) on delete set null,
+  avatar_url text,
   name text not null default 'Listener',
   reply text not null,
   created_at timestamptz default now()
 );
+
+alter table album_comment_replies add column if not exists user_id uuid references auth.users(id) on delete set null;
+alter table album_comment_replies add column if not exists avatar_url text;
+create index if not exists album_comment_replies_user_id_idx on album_comment_replies(user_id);
 
 alter table album_comment_replies enable row level security;
 

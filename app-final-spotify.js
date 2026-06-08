@@ -30,7 +30,10 @@ function validSupabaseConfig(){
 const configured=validSupabaseConfig();
 const db=configured&&window.supabase&&typeof window.supabase.createClient==="function"?window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim()):null;
 const MUSICA_CLIENT_DATA_VERSION="mobile-live-score-reset-2026-05-18-6";
-function isLocalRuntime(){return location.protocol==="file:"||["localhost","127.0.0.1",""].includes(location.hostname)}
+function isLocalRuntime(){
+  const host=String(location.hostname||"");
+  return location.protocol==="file:"||["localhost","127.0.0.1",""].includes(host)||/^192\.168\./.test(host)||/^10\./.test(host)||/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)||host.endsWith(".local");
+}
 function resetStaleClientData(){
   try{
     const previous=localStorage.getItem("musicaClientDataVersion");
@@ -272,15 +275,15 @@ function profileMemberSinceText(){
 }
 function profileStatsMarkup(stats){
   const items=[
-    ["Albums added",stats?.albumsAdded],
-    ["Albums rated",stats?.albumsRated],
-    ["Songs rated",stats?.songsRated],
-    ["Songs shared",stats?.songsShared],
-    ["Comments left",stats?.commentsLeft]
+    ["albumsAdded","Albums added",stats?.albumsAdded],
+    ["albumsRated","Albums rated",stats?.albumsRated],
+    ["songsRated","Songs rated",stats?.songsRated],
+    ["songsShared","Songs shared",stats?.songsShared],
+    ["commentsLeft","Comments left",stats?.commentsLeft]
   ];
-  return items.map(([label,value])=>{
+  return items.map(([key,label,value])=>{
     const count=Number(value||0);
-    return `<span><strong>${count?count:"-"}</strong><small>${escapeHtml(label)}</small></span>`;
+    return `<button type="button" class="profileStatCard" onclick="openProfileActivity('${key}')"><strong>${count?count:"-"}</strong><small>${escapeHtml(label)}</small></button>`;
   }).join("");
 }
 function renderAccountProfileStats(){
@@ -289,6 +292,95 @@ function renderAccountProfileStats(){
     const grid=$(selector);
     if(grid)grid.innerHTML=markup;
   });
+}
+function profileActivityTitle(kind){
+  return ({albumsAdded:"Albums added",albumsRated:"Albums rated",songsRated:"Songs rated",songsShared:"Songs shared",commentsLeft:"Comments left"})[kind]||"Profile activity";
+}
+function profileActivityDate(value){
+  const date=value?new Date(value):null;
+  return date&&!Number.isNaN(date.getTime())?date.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"";
+}
+function profileActivityAlbum(ref){
+  const id=String(ref||"");
+  return state.albums.find(album=>String(album.id)===id)||{};
+}
+function profileActivityRowsHtml(kind,rows=[]){
+  if(!rows.length)return `<div class="profileActivityEmpty">Nothing to show yet.</div>`;
+  return rows.slice(0,60).map(row=>{
+    const title=escapeHtml(row.title||"Untitled");
+    const meta=escapeHtml([row.meta,row.date].filter(Boolean).join(" - "));
+    const value=row.value?`<strong>${escapeHtml(row.value)}</strong>`:"";
+    const action=row.albumId?` onclick="openAlbum('${escapeJsString(row.albumId)}')"`:"";
+    const coverUrl=String(row.cover_url||"").trim();
+    const cover=coverUrl?`<span class="profileActivityCover"><img src="${escapeHtml(coverUrl)}" alt="${title} cover" onerror="this.parentElement.classList.add('fallback');this.remove()"></span>`:`<span class="profileActivityCover fallback">${escapeHtml(coverText({title:row.title||"Album"}))}</span>`;
+    return `<button type="button" class="profileActivityRow"${action}>${cover}<span class="profileActivityCopy"><b>${title}</b>${meta?`<small>${meta}</small>`:""}</span>${value}</button>`;
+  }).join("");
+}
+async function loadProfileActivity(kind){
+  const identity=profileStatsIdentity();
+  const user=loggedInUser();
+  if(kind==="albumsAdded"){
+    return myLibraryItems().map(item=>({title:item.title||"Album",meta:item.artist||"",albumId:item.id,value:item.rating&&item.rating!=="-"?String(item.rating):"",cover_url:item.cover_url||profileActivityAlbum(item.id).cover_url||""}));
+  }
+  if(kind==="albumsRated"){
+    const localRows=Object.entries(state.ratingMap||{}).map(([albumId])=>{const album=profileActivityAlbum(albumId);return {title:album.title||albumId,meta:album.artist||"",albumId,value:album.id?displayScore(album):"",cover_url:album.cover_url||""}});
+    if(!db||!user)return localRows;
+    const rows=await fetchStatRows("ratings","id,album_id,rating,created_at,device_id,username,user_id",identity,{usernameColumn:"username"});
+    return rows.map(row=>{const album=profileActivityAlbum(row.album_id);return {title:album.title||row.album_id||"Album",meta:album.artist||"",albumId:row.album_id,value:album.id?displayScore(album):"",date:profileActivityDate(row.created_at),cover_url:album.cover_url||""}}).concat(localRows);
+  }
+  if(kind==="songsRated"){
+    const localRows=Object.keys(localTrackRatings()||{}).map(storageKey=>{const [ref,track]=storageKey.split("::");const album=profileActivityAlbum(ref);return {title:track||"Song",meta:[album.title,album.artist].filter(Boolean).join(" - "),albumId:ref,value:"",cover_url:album.cover_url||""}});
+    const serverActivity=await loadProfileActivityFromFunction("songsRated").catch(error=>{
+      console.warn("Unable to load song rating activity",error.message||error);
+      return null;
+    });
+    if(serverActivity?.length){
+      const rows=serverActivity.map(row=>{const album=profileActivityAlbum(row.album_ref);return {title:row.track_name||row.track_key||"Song",meta:[album.title,album.artist].filter(Boolean).join(" - "),albumId:row.album_ref,value:"",date:profileActivityDate(row.created_at),cover_url:album.cover_url||""}});
+      return rows.concat(localRows);
+    }
+    if(!db||!user)return localRows;
+    const rows=await fetchStatRows("track_ratings","id,album_ref,track_key,track_name,rating,created_at,device_id,username,user_id",identity,{usernameColumn:"username"});
+    return rows.map(row=>{const album=profileActivityAlbum(row.album_ref);return {title:row.track_name||row.track_key||"Song",meta:[album.title,album.artist].filter(Boolean).join(" - "),albumId:row.album_ref,value:"",date:profileActivityDate(row.created_at),cover_url:album.cover_url||""}}).concat(localRows);
+  }
+  if(kind==="commentsLeft"){
+    const localAlbumRows=Object.entries(localComments()||{}).flatMap(([ref,comments])=>(comments||[]).map(comment=>{const album=profileActivityAlbum(ref);return {title:album.title||"Album comment",meta:String(comment.comment||"").slice(0,90),albumId:ref,date:profileActivityDate(comment.created_at),cover_url:album.cover_url||""}}));
+    const localSongRows=Object.entries(localTrackComments()||{}).flatMap(([storageKey,comments])=>{const [ref,track]=storageKey.split("::");const album=profileActivityAlbum(ref);return (comments||[]).map(comment=>({title:track||"Song comment",meta:String(comment.comment||"").slice(0,90),albumId:ref,date:profileActivityDate(comment.created_at),cover_url:album.cover_url||""}))});
+    if(!db||!user)return [...localAlbumRows,...localSongRows];
+    const [albumRows,trackRows,replyRows]=await Promise.all([
+      fetchStatRows("album_comments","id,album_ref,comment,created_at,device_id,name,user_id",identity,{usernameColumn:"name"}),
+      fetchStatRows("track_comments","id,album_ref,track_key,track_name,comment,created_at,device_id,name,user_id",identity,{usernameColumn:"name"}),
+      fetchStatRows("album_comment_replies","id,album_ref,reply,created_at,device_id,name,user_id",identity,{usernameColumn:"name"})
+    ]);
+    return [
+      ...albumRows.map(row=>{const album=profileActivityAlbum(row.album_ref);return {title:album.title||"Album comment",meta:String(row.comment||"").slice(0,90),albumId:row.album_ref,date:profileActivityDate(row.created_at),cover_url:album.cover_url||""}}),
+      ...trackRows.map(row=>{const album=profileActivityAlbum(row.album_ref);return {title:row.track_name||row.track_key||"Song comment",meta:[album.title,String(row.comment||"").slice(0,70)].filter(Boolean).join(" - "),albumId:row.album_ref,date:profileActivityDate(row.created_at),cover_url:album.cover_url||""}}),
+      ...replyRows.map(row=>{const album=profileActivityAlbum(row.album_ref);return {title:album.title||"Reply",meta:String(row.reply||"").slice(0,90),albumId:row.album_ref,date:profileActivityDate(row.created_at),cover_url:album.cover_url||""}}),
+      ...localAlbumRows,
+      ...localSongRows
+    ];
+  }
+  if(kind==="songsShared"){
+    const localRows=Object.values(chatLocalMessages()||{}).flat().filter(message=>message?.side==="me"&&["album","library","rating","review","track"].includes(message?.type)).map(message=>({title:message.album?.title||message.library?.title||message.body||"Shared item",meta:message.type||"share",albumId:message.album?.id||"",date:message.time||"",cover_url:message.album?.cover_url||""}));
+    const remoteRows=(extras.chatMessages||[]).filter(message=>String(message.sender_id||"")===String(user?.id||"")&&String(message.message_type||"text")!=="text").map(message=>({title:String(message.body||"Shared item").slice(0,96),meta:message.message_type||"share",date:profileActivityDate(message.created_at)}));
+    return [...remoteRows,...localRows];
+  }
+  return [];
+}
+window.openProfileActivity=async function(kind){
+  const panel=$("#profileActivityPanel");
+  if(!panel)return;
+  panel.classList.remove("hidden");
+  panel.innerHTML=`<div class="profileActivityHead"><strong>${escapeHtml(profileActivityTitle(kind))}</strong><button type="button" onclick="closeProfileActivity()">Close</button></div><div class="profileActivityEmpty">Loading...</div>`;
+  try{
+    const rows=await loadProfileActivity(kind);
+    panel.innerHTML=`<div class="profileActivityHead"><strong>${escapeHtml(profileActivityTitle(kind))}</strong><button type="button" onclick="closeProfileActivity()">Close</button></div><div class="profileActivityList">${profileActivityRowsHtml(kind,rows)}</div>`;
+  }catch(error){
+    console.warn("Unable to load profile activity",error.message||error);
+    panel.innerHTML=`<div class="profileActivityHead"><strong>${escapeHtml(profileActivityTitle(kind))}</strong><button type="button" onclick="closeProfileActivity()">Close</button></div><div class="profileActivityEmpty">Could not load this activity yet.</div>`;
+  }
+}
+window.closeProfileActivity=function(){
+  $("#profileActivityPanel")?.classList.add("hidden");
 }
 function syncAccountProfileCopy(){
   const hasAvatar=avatarHasValue();
@@ -1097,7 +1189,9 @@ const albumGenreOverrides={
   "2pac::all eyez on me":"Hip-Hop",
   "2pac::me against the world":"Hip-Hop",
   "deftones::white pony":"Alternative Metal",
-  "the offspring::smash":"Punk Rock"
+  "the offspring::smash":"Punk Rock",
+  "angus and julia stone::down the way":"Folk",
+  "angus & julia stone::down the way":"Folk"
 };
 const artistGenreOverrides={
   "the beatles":"Rock",
@@ -1465,7 +1559,6 @@ async function loadCustomOverviews(){
     data=fallback.data;
     error=fallback.error;
   }
-  localStorage.removeItem("musicaCustomOverviews");
   if(!error&&data){
     extras.overviews={...protectedLiveScores,...Object.fromEntries(data.map(row=>[row.album_key,row]))};
     try{
@@ -1480,10 +1573,15 @@ async function loadCustomOverviews(){
         genreOptional.data.forEach(row=>{extras.overviews[row.album_key]={...(extras.overviews[row.album_key]||{}),...row}});
       }
     }catch(genreOptionalError){}
+    if(isLocalRuntime()){
+      extras.overviews={...extras.overviews,...localOverviews};
+    }else{
+      localStorage.removeItem("musicaCustomOverviews");
+    }
     return extras.overviews;
   }
   console.warn("Could not load album_overviews from Supabase; using protected public score overrides only.",error);
-  extras.overviews=protectedLiveScores;
+  extras.overviews=isLocalRuntime()?{...protectedLiveScores,...localOverviews}:protectedLiveScores;
   return extras.overviews;
 }function albumBaseOverview(a){
   const key=overviewKey(a);
@@ -1526,7 +1624,7 @@ function researchPlaceholderOverview(a,row={}){
   if(row.__generationError){
     return {intro_summary:`Muze could not finish the overview for ${title}. Check the console or Netlify function logs for the API error.`,sound_summary:"The custom overview did not save, so Muze is holding back generic filler here.",impact_summary:"Regenerate the AI overview after fixing the logged error.",legacy_summary:"This section will update once a finished Muze overview is saved.",quote_headline:"Waiting for the full Muze story."};
   }
-  return {intro_summary:`Writing a Muze overview for ${title} by ${artist}.`,sound_summary:"Shaping the sound section around the album itself.",impact_summary:"Finding the album-specific angle before showing the final copy.",legacy_summary:"This overview will refresh once the Muze summary is saved.",quote_headline:"Writing the record into focus."};
+  return {intro_summary:`${title} by ${artist}.`,sound_summary:"Shaping the sound section around the album itself.",impact_summary:"Finding the album-specific angle before showing the final copy.",legacy_summary:"This overview will refresh once the Muze summary is saved.",quote_headline:"Writing the record into focus."};
 }
 function normalizeOverviewList(value){
   if(Array.isArray(value))return value.map(item=>typeof item==="string"?item:(item?.name||item?.title||item?.url||"")).map(item=>String(item||"").trim()).filter(Boolean);
@@ -1544,6 +1642,11 @@ function wikipediaSourceUrl(sources){
   return found||"";
 }
 function overviewFieldOrPlaceholder(value,fallback){return genericOverviewText(value)?fallback:String(value||fallback||"")}
+function albumSimpleTitleByArtist(a){
+  const title=String(a?.title||"This album").trim();
+  const artist=String(a?.artist||"the artist").trim();
+  return `${title} by ${artist}.`;
+}
 function albumStructuredOverview(a){
   const row=albumOverviewRow(a);
   const needsResearch=albumNeedsResearch(a,row);
@@ -1565,12 +1668,14 @@ function albumStructuredOverview(a){
   }
   const base=albumBaseOverview(a);
   const sentences=overviewSentences(base||"");
-  const intro=row.intro_summary||sentences[0]||`${a?.title||"This album"} carries the sound and story of ${a?.artist||"its artist"}.`;
+  const simpleIntro=albumSimpleTitleByArtist(a);
+  const shouldUseSimpleIntro=row.fallback_generated===true||(!String(row.source_summary||"").trim()&&String(row.generation_model||"").trim());
+  const intro=shouldUseSimpleIntro?simpleIntro:(row.intro_summary||sentences[0]||simpleIntro);
   const placeholder=researchPlaceholderOverview(a,row);
   return {
     row,
     isGenerating:Boolean(row.__generating),
-    intro_summary:overviewFieldOrPlaceholder(row.intro_summary||intro,placeholder.intro_summary),
+    intro_summary:shouldUseSimpleIntro?simpleIntro:overviewFieldOrPlaceholder(row.intro_summary||intro,placeholder.intro_summary),
     sound_summary:overviewFieldOrPlaceholder(row.sound_summary||sentences[1]||intro,placeholder.sound_summary),
     impact_summary:overviewFieldOrPlaceholder(row.impact_summary||sentences[2]||sentences[0]||intro,placeholder.impact_summary),
     legacy_summary:overviewFieldOrPlaceholder(row.legacy_summary||sentences.slice(3,5).join(" ")||sentences[sentences.length-1]||intro,placeholder.legacy_summary),
@@ -1697,9 +1802,8 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const impact=overviewFieldOrPlaceholder(structured.impact_summary||fallbackSentences[2]||fallbackSentences[0]||intro,placeholder.impact_summary);
   const legacy=overviewFieldOrPlaceholder(structured.legacy_summary||fallbackSentences.slice(3,5).join(" ")||fallbackSentences[fallbackSentences.length-1]||intro,placeholder.legacy_summary);
   const quote=overviewFieldOrPlaceholder(structured.quote_headline||albumEditorialThesis(a),placeholder.quote_headline);
-  const titleWords=String(a.title||"This album").split(" ");
-  const lastWord=titleWords.length>1?titleWords.pop():"matters";
-  const heading=`${escapeHtml(titleWords.join(" ")||a.title||"This album")} <span>${escapeHtml(lastWord)}</span>`;
+  const heading=escapeHtml(a.title||"This album");
+  const metadata=[a.artist,String(a.year||"").trim()].filter(Boolean).map(value=>escapeHtml(value)).join(" &bull; ");
   const sourceUrl=wikipediaSourceUrl(structured.sources_used)||String(a.wikipedia_url||a.source_url||"").trim();
   const displaySource=structured.isGenerating?"generating":(structured.row?.fallback_generated?"fallback":(structured.row?.source_summary?"supabase researched cache":(structured.row?.__generationError?"generation error":"local placeholder")));
   console.info("[Muze overview] displayed content source",{title:a.title,artist:a.artist,source:displaySource,fallback_generated:structured.row?.fallback_generated,has_source_summary:Boolean(structured.row?.source_summary),generation_model:structured.row?.generation_model||"",contains_generic:[intro,sound,impact,legacy,quote].some(genericOverviewText)});
@@ -1707,7 +1811,7 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const overviewFocus=escapeHtml(structured.row?.overview_focus||"50% 50%");
   const edit=canEditOverview?`<div class="overviewAdminControls"><button class="overviewEditBtn" onclick="editAlbumOverview('${albumId}')">Edit overview</button><button onclick="startOverviewImageDrag('${albumId}')">Move overview background</button><button onclick="regenerateAlbumOverviewAdmin('${albumId}')">Regenerate AI Overview</button><button onclick="deleteAlbumOverview('${albumId}')">Clear custom overview</button><button onclick="clearAlbumReactionsAdmin('${albumId}')">Clear reactions</button><button onclick="clearAlbumTrackActivityAdmin('${albumId}')">Clear song ratings/comments</button><button onclick="setAlbumScoreAdmin('${albumId}')">Set Muze score</button><button onclick="setAlbumRatingsCountAdmin('${albumId}')">Set ratings count</button><button onclick="setAlbumMoodScoreAdmin('${albumId}')">Set mood bar</button><button onclick="setAlbumGenreAdmin('${albumId}')">Set genre</button><button onclick="clearAlbumRatingsAdmin('${albumId}')">Clear album ratings</button><button class="danger" onclick="deleteAlbumAdmin('${albumId}')">Delete album</button></div>`:"";
   const testRegenerate=!canEditOverview&&isLocalRuntime()?`<div class="overviewAdminControls"><button onclick="regenerateAlbumOverviewAdmin('${albumId}')">Regenerate AI Overview</button></div>`:"";
-  return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" data-album-id="${albumId}" style="--overview-cover:url('${coverUrl}');--overview-position:${overviewFocus}"><div class="overviewCopy"><p class="eyebrow">Album overview</p><h3>${heading}</h3><p class="overviewIntro">${escapeHtml(intro)}</p>${sourceLink}<div class="overviewPoints"><div><span class="overviewIcon soundIcon" aria-hidden="true"></span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p></div></div><div><span class="overviewIcon impactIcon" aria-hidden="true"></span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p></div></div><div><span class="overviewIcon legacyIcon" aria-hidden="true"></span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p></div></div></div><div class="overviewScoreStrip"><span>Muze Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}${testRegenerate}</div><div class="overviewMood"><blockquote>${escapeHtml(quote)}</blockquote><div><p>Defining moments</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div><div class="overviewCommunityNote"><span></span><p>Join listeners who connect with this album every day.</p></div></div></section>`;
+  return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" data-album-id="${albumId}" style="--overview-cover:url('${coverUrl}');--overview-position:${overviewFocus}"><div class="overviewCopy"><p class="overviewMeta">${metadata}</p><h3>${heading}</h3><p class="overviewIntro">${escapeHtml(intro)}</p>${sourceLink}<div class="overviewPoints"><div><span class="overviewIcon soundIcon" aria-hidden="true"></span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p></div></div><div><span class="overviewIcon impactIcon" aria-hidden="true"></span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p></div></div><div><span class="overviewIcon legacyIcon" aria-hidden="true"></span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p></div></div></div><div class="overviewScoreStrip"><span>Muze Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}${testRegenerate}</div><div class="overviewMood"><blockquote>${escapeHtml(quote)}</blockquote><div><p>Defining moments</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div><div class="overviewCommunityNote"><span></span><p>Join listeners who connect with this album every day.</p></div></div></section>`;
 }function renderAlbumOverviewMoments(albumId,tracks){
   const host=$("#overviewMomentChips");
   if(!host)return;
@@ -2319,7 +2423,7 @@ function isSameAlbum(a,b){return normalizeAlbumName(a.title)===normalizeAlbumNam
 function existingAlbumMatch(album){return state.albums.find(a=>isSameAlbum(a,album))}
 function canDeleteAlbum(a){return !!a}
 
-function currentUsername(){return localStorage.getItem("musicaUsername")||""}
+function currentUsername(){return (savedProfileUsername()||localStorage.getItem("musicaUsername")||"").trim()}
 function authMetadataName(user=loggedInUser()){
   const meta=user?.user_metadata||{};
   return String(meta.name||meta.full_name||meta.user_name||meta.preferred_username||meta.display_name||"").trim();
@@ -2392,14 +2496,26 @@ function renderTrackRatingDetails(albumId,trackKeyValue){
   const host=$("#trackRatingDetails");
   if(!host)return;
   const rows=extras.trackRatingDetails[`${albumRef(albumId)}::${trackKeyValue}`]||[];
-  const score=(extras.songScores[albumRef(albumId)]||{})[trackKeyValue];host.innerHTML=`<div class="emptyMini">${displaySongCount(score)}</div>`;
+  const score=(extras.songScores[albumRef(albumId)]||{})[trackKeyValue];
+  const countLine=`<div class="emptyMini">${displaySongCount(score)}</div>`;
+  const list=rows.length?`<div class="ratingDetailList">${rows.map(row=>{
+    const name=String(row.username||row.name||"Listener").trim()||"Listener";
+    const rating=Number(row.rating||0);
+    const date=row.created_at?new Date(row.created_at):null;
+    const dateLabel=date&&!Number.isNaN(date.getTime())?`<small>${escapeHtml(date.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</small>`:"";
+    return `<div class="ratingDetail"><strong>${escapeHtml(name)}${dateLabel}</strong><span>${rating?escapeHtml(rating.toFixed(0)):"-"}</span></div>`;
+  }).join("")}</div>`:"";
+  host.innerHTML=countLine+list;
 }
 async function loadTrackRatingDetails(albumId,trackKeyValue){
   const ref=albumRef(albumId);
   const key=`${ref}::${trackKeyValue}`;
   if(db){
-    const data=[], error=null;
-    if(!error){extras.trackRatingDetails[key]=data||[];return extras.trackRatingDetails[key]}
+    let result=await db.from("public_track_ratings").select("username,rating,created_at").eq("album_ref",ref).eq("track_key",trackKeyValue).order("created_at",{ascending:false}).limit(50);
+    if(result.error&&/relation|schema cache|does not exist|public_track_ratings/i.test(result.error.message||"")){
+      result=await db.from("track_ratings").select("username,rating,created_at").eq("album_ref",ref).eq("track_key",trackKeyValue).order("created_at",{ascending:false}).limit(50);
+    }
+    if(!result.error){extras.trackRatingDetails[key]=result.data||[];return extras.trackRatingDetails[key]}
   }
   const my=localTrackRating(albumId,trackKeyValue);
   extras.trackRatingDetails[key]=my?[{username:currentUsername()||"You",rating:my}]:[];
@@ -2419,6 +2535,20 @@ function localTrackRatings(){return JSON.parse(localStorage.getItem("musicaTrack
 function localTrackComments(){return JSON.parse(localStorage.getItem("musicaTrackComments")||"{}")}
 function saveLocalTrackComments(comments){localStorage.setItem("musicaTrackComments",JSON.stringify(comments))}
 function saveLocalTrackRatings(ratings){localStorage.setItem("musicaTrackRatings",JSON.stringify(ratings))}
+function profileSongRatingIndex(){try{return JSON.parse(localStorage.getItem("muzeProfileSongRatings")||"{}")||{}}catch(error){return {}}}
+function saveProfileSongRatingIndex(index){localStorage.setItem("muzeProfileSongRatings",JSON.stringify(index||{}))}
+function profileSongRatingBuckets(identity=profileStatsIdentity()){
+  return [identity.userId&&`user:${identity.userId}`,identity.username&&`name:${identity.username.toLowerCase()}`,identity.deviceId&&`device:${identity.deviceId}`].filter(Boolean);
+}
+function rememberProfileSongRating(albumId,key,identity=profileStatsIdentity()){
+  const ratingKey=`${albumRef(albumId)}::${key}`;
+  const index=profileSongRatingIndex();
+  profileSongRatingBuckets(identity).forEach(bucket=>{
+    index[bucket]=index[bucket]||{};
+    index[bucket][ratingKey]=true;
+  });
+  saveProfileSongRatingIndex(index);
+}
 function previewPayload(track){return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||""}))}
 function setPreviewingButton(button){
   document.querySelectorAll(".isPreviewing").forEach(x=>{x.classList.remove("isPreviewing");x.removeAttribute("aria-label");if(x.dataset.playLabel)x.textContent=x.dataset.playLabel});
@@ -2434,7 +2564,7 @@ function releasePreviewAudio(){
   try{audio.src="";audio.load()}catch(e){}
 }
 function startPreviewAudio(audio,token){
-  const attempt=()=>audio.play();
+  const attempt=()=>{try{audio.currentTime=0}catch(e){}return audio.play()};
   attempt().catch(()=>{
     if(extras.previewToken!==token)return;
     setTimeout(()=>{
@@ -2609,7 +2739,11 @@ async function loadComments(albumId){
       extras.comments[ref]=dedupeAndSortReactions([...(data||[]).map(albumReactionRow),...trackRows,...localTrackCommentReactions(ref)]);
       console.log("[Muze] Listener Reactions query result",{album_ref:ref,album_comments:(data||[]).length,song_comments:trackRows.length,track_error:trackError?.message||null});
       console.log("[Muze] number of reactions loaded",extras.comments[ref].length);
-      const {data:replyRows,error:replyError}=await db.from("album_comment_replies").select("id,comment_id,name,reply,created_at").eq("album_ref",ref).order("created_at",{ascending:true}).limit(200);
+      let replyResult=await db.from("album_comment_replies").select("id,comment_id,user_id,avatar_url,name,reply,created_at").eq("album_ref",ref).order("created_at",{ascending:true}).limit(200);
+      if(replyResult.error&&/column|schema cache|avatar_url|user_id/i.test(replyResult.error.message||"")){
+        replyResult=await db.from("album_comment_replies").select("id,comment_id,name,reply,created_at").eq("album_ref",ref).order("created_at",{ascending:true}).limit(200);
+      }
+      const replyRows=replyResult.data, replyError=replyResult.error;
       extras.commentReplies[ref]={};
       if(!replyError)(replyRows||[]).forEach(row=>{const key=String(row.comment_id);extras.commentReplies[ref][key]=extras.commentReplies[ref][key]||[];extras.commentReplies[ref][key].push(row)});
       mergeLocalCommentReplies(ref);
@@ -2877,7 +3011,7 @@ async function findItunesTrackPreview(trackName,artistName){
   }catch(e){return null}
 }
 async function enrichFallbackTrackPreviews(album,tracks){
-  if(!tracks.length||tracks.some(track=>track.preview_url))return tracks;
+  if(!tracks.length)return tracks;
   const previews=await Promise.all(tracks.map(track=>findItunesTrackPreview(track.name,album.artist)));
   return tracks.map((track,i)=>previews[i]?{...track,...previews[i]}:track);
 }
@@ -2966,16 +3100,17 @@ async function fetchAlbumTracks(album){
   const ref=albumRef(album.id);
   if(Array.isArray(extras.tracks[ref])&&extras.tracks[ref].length)return extras.tracks[ref];
   let tracks=[];
-  try{tracks=await requestSpotifyTracks(album,"v18")}catch(e){}
+  try{tracks=await requestSpotifyTracks(album,"v20-start-previews")}catch(e){}
   if(!tracks.length){
     const hadSpotifyId=!!album.spotify_id;
     album=await resolveSpotifyAlbum(album,true);
-    try{tracks=await requestSpotifyTracks(album,"v19")}catch(e){}
+    try{tracks=await requestSpotifyTracks(album,"v21-start-previews")}catch(e){}
     if(tracks.length&&!hadSpotifyId)saveResolvedSpotifyId(album);
   }
   if(!tracks.length&&(location.protocol==="file:"||location.hostname===""||location.hostname==="localhost"||location.hostname==="127.0.0.1")){
     tracks=await fetchTracksFromItunes(album).catch(()=>[]);
   }
+  tracks=await enrichFallbackTrackPreviews(album,tracks);
   extras.tracks[ref]=tracks;
   return tracks;
 }
@@ -3132,10 +3267,11 @@ async function loadTrackRatings(albumId){
   const ref=albumRef(albumId);
   if(db){
     const {data,error}=await db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref).eq("device_id",state.deviceId);
-    if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;if(r.track_name)mapped[String(r.track_name).toLowerCase()]=r.rating});extras.trackRatings[ref]=mapped;return extras.trackRatings[ref]}
+    if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;rememberProfileSongRating(albumId,r.track_key);if(r.track_name)mapped[String(r.track_name).toLowerCase()]=r.rating});extras.trackRatings[ref]=mapped;return extras.trackRatings[ref]}
   }
   const local=localTrackRatings();
   extras.trackRatings[ref]=Object.fromEntries(Object.entries(local).filter(([k])=>k.startsWith(ref+"::")).map(([k,v])=>[k.slice(ref.length+2),v]));
+  Object.keys(extras.trackRatings[ref]||{}).forEach(key=>rememberProfileSongRating(albumId,key));
   return extras.trackRatings[ref];
 }
 function trackCommentCountsForAlbum(albumId){
@@ -3559,7 +3695,8 @@ async function postReactionReply(albumId,commentId,reply,textarea=null){
   if(!reply)return;
   const ref=albumRef(albumId);
   const name=(currentUsername()||$("#commentName")?.value||"Listener").trim()||"Listener";
-  const optimisticReply={id:localId("reply"),comment_id:commentId,name,reply,created_at:new Date().toISOString()};
+  const profile=commentProfilePayload();
+  const optimisticReply={id:localId("reply"),comment_id:commentId,name,reply,created_at:new Date().toISOString(),...profile};
   const all=localCommentReplies();
   all[ref]=all[ref]||{};
   all[ref][commentId]=all[ref][commentId]||[];
@@ -3567,8 +3704,11 @@ async function postReactionReply(albumId,commentId,reply,textarea=null){
   if(!existsLocal)all[ref][commentId].push(optimisticReply);
   saveLocalCommentReplies(all);
   if(db){
-    const {error}=await db.from("album_comment_replies").insert({album_ref:ref,comment_id:commentId,device_id:state.deviceId,name,reply});
-    if(error)console.warn("Saved reply locally because Supabase rejected it:",error.message);
+    let result=await db.from("album_comment_replies").insert({album_ref:ref,comment_id:commentId,device_id:state.deviceId,name,reply,user_id:profile.user_id,avatar_url:profile.avatar_url||null});
+    if(result.error&&/column|schema cache|avatar_url|user_id/i.test(result.error.message||"")){
+      result=await db.from("album_comment_replies").insert({album_ref:ref,comment_id:commentId,device_id:state.deviceId,name,reply});
+    }
+    if(result.error)console.warn("Saved reply locally because Supabase rejected it:",result.error.message);
   }
   if(textarea)textarea.value="";
   await loadComments(albumId);
@@ -3609,7 +3749,7 @@ window.toggleAllReactions=function(){
   const expanded=host.classList.toggle("showAllReactions");
   button.classList.toggle("expanded",expanded);
 }
-function canUseLocalAdminFallback(action){return ["set_album_score","set_rating_count","set_mood_score","set_album_genre","set_loved_track","set_hero_focus","set_overview_focus","set_moment_focus","set_hero_image","set_moment_image","add_library_album"].includes(action)}
+function canUseLocalAdminFallback(action){return ["save","delete_overview","set_album_score","set_rating_count","set_mood_score","set_album_genre","set_loved_track","set_hero_focus","set_overview_focus","set_moment_focus","set_hero_image","set_moment_image","add_library_album"].includes(action)}
 function localAdminFallbackResponse(payload,reason){
   if(!isLocalRuntime()||!canUseLocalAdminFallback(payload?.action))return null;
   adminDebug("request local fallback",{action:payload.action,reason});
@@ -3668,7 +3808,7 @@ window.saveAlbumOverview=async function(albumId){
   const data=await adminOverviewRequest(payload);
   if(!data)return;
   extras.overviews[payload.album_key]={...(extras.overviews[payload.album_key]||{}),...(data.row||{}),album_key:payload.album_key,title:payload.title,artist:payload.artist,overview,intro_summary,sound_summary,impact_summary,legacy_summary,quote_headline,defining_tracks,fallback_generated:false,manual_override:true};
-  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
   openAlbumOverviewPopup();
 }
 window.regenerateAlbumOverviewAdmin=async function(albumId){
@@ -3692,7 +3832,7 @@ window.deleteAlbumOverview=async function(albumId){
   const data=await adminOverviewRequest(adminAlbumPayload(album,"delete_overview"));
   if(!data)return;
   delete extras.overviews[overviewKey(album)];
-  if(!db)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
   openAlbumOverviewPopup();
 }
 window.deleteAlbumCommentAdmin=async function(albumId,commentId){
@@ -3834,9 +3974,31 @@ window.setAlbumMoodScoreAdmin=async function(albumId){
   const key=overviewKey(album);
   const previous=extras.overviews[key]||{};
   const current=Number.isFinite(Number(previous.mood_score))?Number(previous.mood_score):62;
-  const answer=(prompt(`Set Vibe & Mood intensity for "${album.title}" (0 mellow, 100 intense):`,String(Math.round(current)))||"").trim();
-  if(answer==="")return;
-  const value=Number(answer);
+  let popup=$("#albumMoodSliderPopup");
+  if(!popup){
+    popup=document.createElement("div");
+    popup.id="albumMoodSliderPopup";
+    popup.className="albumMoodSliderPopup hidden";
+    document.body.appendChild(popup);
+  }
+  const rounded=Math.round(Math.max(0,Math.min(100,current)));
+  popup.innerHTML=`<div class="albumMoodSliderBackdrop" onclick="closeAlbumMoodSlider()"></div><div class="albumMoodSliderPanel"><button class="albumMoodSliderClose" onclick="closeAlbumMoodSlider()" aria-label="Close"><span aria-hidden="true"></span></button><p class="eyebrow">Admin overview</p><h3>Vibe & Mood</h3><strong>${escapeHtml(album.title)}</strong><div class="albumMoodSliderValue"><span id="albumMoodSliderValue">${rounded}%</span></div><input id="albumMoodSliderInput" type="range" min="0" max="100" step="1" value="${rounded}" oninput="updateAlbumMoodSliderValue(this.value)"><div class="albumMoodSliderScale"><span>Mellow</span><span>Intense</span></div><div class="albumMoodSliderActions"><button onclick="saveAlbumMoodScoreAdmin('${escapeJsString(albumId)}')">Save mood</button><button type="button" onclick="closeAlbumMoodSlider()">Cancel</button></div></div>`;
+  popup.classList.remove("hidden");
+}
+window.updateAlbumMoodSliderValue=function(value){
+  const label=$("#albumMoodSliderValue");
+  if(label)label.textContent=`${Math.round(Number(value)||0)}%`;
+}
+window.closeAlbumMoodSlider=function(){
+  $("#albumMoodSliderPopup")?.classList.add("hidden");
+}
+window.saveAlbumMoodScoreAdmin=async function(albumId){
+  if(!isAdminUnlocked()){alert("Please unlock admin mode first.");return}
+  const album=state.albums.find(x=>String(x.id)===String(albumId));
+  if(!album)return;
+  const key=overviewKey(album);
+  const previous=extras.overviews[key]||{};
+  const value=Number($("#albumMoodSliderInput")?.value);
   if(!Number.isFinite(value)||value<0||value>100){alert("Please enter a mood value from 0 to 100.");return}
   const rounded=Math.round(value);
   const payload={...adminAlbumPayload(album,"set_mood_score"),overview:albumBaseOverview(album),mood_score:rounded};
@@ -3859,11 +4021,12 @@ window.setAlbumMoodScoreAdmin=async function(albumId){
     setAdminInlineStatus("Mood bar save returned an invalid value. Make sure the mood_score column exists in album_overviews.","error");
     return;
   }
-  extras.overviews[key]={...previous,album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,mood_score:savedMood};
+  extras.overviews[key]={...previous,...(data.row||{}),album_key:key,title:album.title,artist:album.artist||"",overview:data.row?.overview ?? previous.overview ?? payload.overview,mood_score:savedMood};
   if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
   if(!data.localOnly)await loadCustomOverviews();
-  extras.overviews[key]={...(extras.overviews[key]||{}),album_key:key,title:album.title,artist:album.artist||"",overview:payload.overview,mood_score:savedMood};
+  extras.overviews[key]={...(extras.overviews[key]||{}),album_key:key,title:album.title,artist:album.artist||"",overview:extras.overviews[key]?.overview ?? previous.overview ?? payload.overview,mood_score:savedMood};
   setAdminInlineStatus(`Mood bar saved at ${Math.round(savedMood)}%.`,"success");
+  closeAlbumMoodSlider();
   openAlbum(albumId);
   openAlbumOverviewPopup();
 }
@@ -4138,12 +4301,17 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
   const ref=albumRef(albumId);
   const previousValue=(extras.trackRatings[ref]||{})[trackKeyValue]||localTrackRating(albumId,trackKeyValue)||0;
   setLocalTrackRating(albumId,trackKeyValue,value);
+  rememberProfileSongRating(albumId,trackKeyValue);
   applyOptimisticSongScore(albumId,trackKeyValue,trackName,value,previousValue);
   renderTrackList(albumId);
   const sync=async()=>{
     if(db){
-      const {error}=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,rating:value},{onConflict:"album_ref,track_key,device_id"});
-      if(error)console.warn("Song rating saved locally but Supabase sync failed",error.message||error);
+      const userId=loggedInUser()?.id||null;
+      let result=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,user_id:userId,rating:value},{onConflict:"album_ref,track_key,device_id"});
+      if(result.error&&/column|schema cache|user_id/i.test(result.error.message||"")){
+        result=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,rating:value},{onConflict:"album_ref,track_key,device_id"});
+      }
+      if(result.error)console.warn("Song rating saved locally but Supabase sync failed",result.error.message||result.error);
     }
     await Promise.all([loadTrackRatings(albumId),loadSongScores(albumId),loadTrackRatingDetails(albumId,trackKeyValue)]);
     const scoreAfter=(extras.songScores[ref]||{})[trackKeyValue]||(trackName?(extras.songScores[ref]||{})[String(trackName).toLowerCase()]:null);
@@ -4748,8 +4916,13 @@ function openLibraryDetails(library){
   const key=escapeJsString(library.id||"");
   const adminAddAction=isAdminUnlocked()&&!isMine&&library.id?'<button class="libraryDetailAddBtn adminLibraryAddBtn" onclick="event.stopPropagation();adminAddAlbumToLibrary(\''+key+'\')">+ Add album</button>':'';
   const addAction=isMine?'<button class="libraryDetailAddBtn" onclick="event.stopPropagation();openLibrarySpotifyAdd()">+ Add album</button>':adminAddAction;
-  $("#albumModalContent").innerHTML='<div class="sectionTitle libraryDetailTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div><div class="libraryDetailActions">'+addAction+'</div></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
+  const baseStats={albumsAdded:Number(library.album_count||items.length||0),albumsRated:0,songsRated:0,songsShared:0,commentsLeft:0};
+  $("#albumModalContent").innerHTML='<div class="sectionTitle libraryDetailTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div><div class="libraryDetailActions">'+addAction+'</div></div><div id="libraryProfileStatsGrid" class="profileStatsGrid libraryProfileStatsGrid">'+profileStatsMarkup(baseStats)+'</div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
   $("#albumModal").classList.remove("hidden");
+  loadPublicProfileStats(library).then(stats=>{
+    const grid=$("#libraryProfileStatsGrid");
+    if(grid&&stats)grid.innerHTML=profileStatsMarkup({...baseStats,...stats,albumsAdded:Math.max(Number(stats.albumsAdded||0),baseStats.albumsAdded)});
+  }).catch(error=>console.warn("Unable to load public profile stats",error.message||error));
 }function openLibraryDetailsById(key){
   const library=visibleLibraries().find(l=>String(l.id)===String(key)||String(l.device_id)===String(key));
   openLibraryDetails(library);
@@ -5290,6 +5463,15 @@ function chatStableThreadId(thread){
 function chatProfileForUserId(userId){
   const id=String(userId||"").trim();
   if(!id)return null;
+  const user=loggedInUser();
+  if(user&&String(user.id)===id){
+    return {
+      ...(state.userProfile||{}),
+      user_id:id,
+      username:savedProfileUsername()||currentUsername()||authMetadataName(user)||authEmailPrefix(user)||"Your profile",
+      name:savedProfileUsername()||currentUsername()||authMetadataName(user)||authEmailPrefix(user)||"Your profile"
+    };
+  }
   return (extras.profileDirectory||[]).find(profile=>String(profile.user_id||"")===id)||null;
 }
 function chatThreadFromParticipantId(userId,index=0){
@@ -5359,7 +5541,7 @@ function chatConversationData(){
       const sender=String(message.sender_id||"");
       const recipient=String(message.recipient_id||"");
       return sender===String(user.id)?recipient:recipient===String(user.id)?sender:"";
-    }).filter(Boolean))];
+    }).filter(id=>id&&id!==String(user.id)))];
     ids.forEach((id,index)=>{
       if(!threads.some(thread=>chatParticipantId(thread)===id||thread.id==="person-"+id)){
         const thread=chatThreadFromParticipantId(id,index);
@@ -5539,7 +5721,10 @@ function selfLibraryAlbumCount(){
 }
 function fallbackSelfStats(){
   const albumCount=selfLibraryAlbumCount();
+  const identity=profileStatsIdentity();
+  const indexedRatings=profileSongRatingBuckets(identity).flatMap(bucket=>Object.keys(profileSongRatingIndex()[bucket]||{}));
   const songRatings=new Set([
+    ...indexedRatings,
     ...Object.keys(localTrackRatings()||{}),
     ...Object.entries(extras.trackRatings||{}).flatMap(([ref,ratings])=>Object.keys(ratings||{}).map(key=>`${ref}::${key}`))
   ]).size;
@@ -5547,34 +5732,146 @@ function fallbackSelfStats(){
   const songsShared=localChatSharedCount()+(extras.chatMessages||[]).filter(message=>String(message.sender_id||"")===String(loggedInUser()?.id||"")&&["album","library","rating","review"].includes(message.message_type)).length;
   return {albumsAdded:albumCount,albumsRated:Object.keys(state.ratingMap||{}).length,songsRated:songRatings,songsShared,commentsLeft};
 }
+function profileStatsIdentity(){
+  const user=loggedInUser();
+  const username=(savedProfileUsername()||currentUsername()||authMetadataName(user)||authEmailPrefix(user)||"").trim();
+  return {userId:String(user?.id||""),deviceId:String(state.deviceId||""),username};
+}
+async function fetchStatRows(table,select,identity,{usernameColumn="username",includeUserId=true}={}){
+  if(!db)return [];
+  const batches=[];
+  const fallbackSelect=String(select||"").split(",").map(part=>part.trim()).filter(part=>part&&part!=="user_id"&&part!=="avatar_url").join(",");
+  const schemaError=/column|schema cache|does not exist|user_id|username|name|avatar_url/i;
+  const addQuery=async queryFactory=>{
+    let {data,error}=await queryFactory(select);
+    if(error&&schemaError.test(error.message||"")&&fallbackSelect&&fallbackSelect!==select){
+      ({data,error}=await queryFactory(fallbackSelect));
+    }
+    if(error){
+      if(schemaError.test(error.message||""))return [];
+      console.warn(`[Muze profile stats] ${table} query failed`,error.message||error);
+      return [];
+    }
+    return data||[];
+  };
+  if(identity.deviceId)batches.push(addQuery(columns=>db.from(table).select(columns).eq("device_id",identity.deviceId)));
+  if(identity.username)batches.push(addQuery(columns=>db.from(table).select(columns).ilike(usernameColumn,identity.username)));
+  if(includeUserId&&identity.userId)batches.push(addQuery(columns=>db.from(table).select(columns).eq("user_id",identity.userId)));
+  return (await Promise.all(batches)).flat();
+}
+function uniqueCount(rows,keyFn){
+  const keys=new Set();
+  (rows||[]).forEach((row,index)=>{
+    const key=String(keyFn(row,index)||"").trim();
+    if(key)keys.add(key);
+  });
+  return keys.size;
+}
+async function repairOwnRatingIdentity(identity=profileStatsIdentity()){
+  if(!db||!identity.deviceId)return;
+  const patch={};
+  if(identity.username)patch.username=identity.username;
+  if(identity.userId)patch.user_id=identity.userId;
+  if(!Object.keys(patch).length)return;
+  const updateTable=async table=>{
+    let result=await db.from(table).update(patch).eq("device_id",identity.deviceId);
+    if(result.error&&/column|schema cache|user_id/i.test(result.error.message||"")&&patch.user_id){
+      const legacyPatch={...patch};
+      delete legacyPatch.user_id;
+      result=await db.from(table).update(legacyPatch).eq("device_id",identity.deviceId);
+    }
+    if(result.error&&!/row-level security|permission denied/i.test(result.error.message||"")){
+      console.warn(`[Muze profile stats] Unable to repair ${table} identity`,result.error.message||result.error);
+    }
+  };
+  await Promise.all([updateTable("ratings"),updateTable("track_ratings")]);
+}
+async function loadProfileStatsFromFunction(identity){
+  const token=state.authSession?.access_token;
+  if(!token||typeof fetch!=="function")return null;
+  const response=await fetch("/.netlify/functions/profile-stats",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+    body:JSON.stringify({device_id:identity.deviceId,username:identity.username})
+  });
+  if(!response.ok)return null;
+  const data=await response.json().catch(()=>null);
+  return data?.stats||null;
+}
+async function loadPublicProfileStats(library={}){
+  const identity=profileStatsIdentity();
+  const token=state.authSession?.access_token;
+  if(!token||typeof fetch!=="function")return null;
+  const response=await fetch("/.netlify/functions/profile-stats",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+    body:JSON.stringify({
+      device_id:identity.deviceId,
+      username:identity.username,
+      target_user_id:String(library.user_id||""),
+      target_device_id:String(library.device_id||""),
+      target_username:String(library.username||"")
+    })
+  });
+  if(!response.ok)return null;
+  const data=await response.json().catch(()=>null);
+  return data?.stats||null;
+}
+async function loadProfileActivityFromFunction(kind){
+  const identity=profileStatsIdentity();
+  const token=state.authSession?.access_token;
+  if(!token||typeof fetch!=="function")return null;
+  const response=await fetch("/.netlify/functions/profile-stats",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+    body:JSON.stringify({device_id:identity.deviceId,username:identity.username,activity:kind})
+  });
+  if(!response.ok)return null;
+  const data=await response.json().catch(()=>null);
+  return Array.isArray(data?.activity)?data.activity:null;
+}
 async function loadChatSelfStats(){
   const fallback=fallbackSelfStats();
   extras.selfStats=fallback;
   const user=loggedInUser();
   if(!db||!user)return fallback;
+  const identity=profileStatsIdentity();
+  await repairOwnRatingIdentity(identity).catch(error=>console.warn("Unable to repair rating identity",error.message||error));
+  const serverStatsPromise=loadProfileStatsFromFunction(identity).catch(error=>{
+    console.warn("Unable to load private profile stats",error.message||error);
+    return null;
+  });
   const countRows=async query=>{
     const result=await query;
     return result.error?null:Number(result.count||0);
   };
-  const [albumsRated,songsRated,albumComments,trackComments,songsShared]=await Promise.all([
-    countRows(db.from("ratings").select("album_id",{count:"exact",head:true}).eq("device_id",state.deviceId)),
-    countRows(db.from("track_ratings").select("track_key",{count:"exact",head:true}).eq("device_id",state.deviceId)),
-    countRows(db.from("album_comments").select("id",{count:"exact",head:true}).eq("device_id",state.deviceId)),
-    countRows(db.from("track_comments").select("id",{count:"exact",head:true}).eq("device_id",state.deviceId)),
+  const [serverStats,libraryRows,albumRatingRows,trackRatingRows,albumCommentRows,trackCommentRows,albumReplyRows,songsShared]=await Promise.all([
+    serverStatsPromise,
+    fetchStatRows("user_libraries","id,device_id,username,user_id,album_count,items",identity,{usernameColumn:"username"}),
+    fetchStatRows("ratings","id,album_id,device_id,username,user_id",identity,{usernameColumn:"username"}),
+    fetchStatRows("track_ratings","id,album_ref,track_key,device_id,username,user_id",identity,{usernameColumn:"username"}),
+    fetchStatRows("album_comments","id,device_id,name,user_id",identity,{usernameColumn:"name"}),
+    fetchStatRows("track_comments","id,device_id,name,user_id",identity,{usernameColumn:"name"}),
+    fetchStatRows("album_comment_replies","id,device_id,name,user_id",identity,{usernameColumn:"name"}),
     countRows(db.from("chat_messages").select("id",{count:"exact",head:true}).eq("sender_id",user.id).neq("message_type","text"))
   ]);
+  const libraryAlbumCount=Math.max(0,...libraryRows.map(row=>Math.max(Number(row?.album_count||0),Array.isArray(row?.items)?row.items.length:0)));
+  const albumsRated=uniqueCount(albumRatingRows,row=>row.album_id||row.id);
+  const songsRated=uniqueCount(trackRatingRows,row=>`${row.album_ref||""}::${row.track_key||row.id||""}`);
+  const commentsLeft=uniqueCount(albumCommentRows,row=>row.id)+uniqueCount(trackCommentRows,row=>row.id)+uniqueCount(albumReplyRows,row=>row.id);
   extras.selfStats={
     ...fallback,
-    albumsRated:albumsRated??fallback.albumsRated,
-    songsRated:songsRated??fallback.songsRated,
-    songsShared:songsShared??fallback.songsShared,
-    commentsLeft:(albumComments??0)+(trackComments??0)||fallback.commentsLeft
+    albumsAdded:Math.max(Number(serverStats?.albumsAdded||0),libraryAlbumCount,fallback.albumsAdded),
+    albumsRated:Math.max(Number(serverStats?.albumsRated||0),albumsRated,fallback.albumsRated),
+    songsRated:Math.max(Number(serverStats?.songsRated||0),songsRated,fallback.songsRated),
+    songsShared:Math.max(Number(serverStats?.songsShared||0),songsShared??0,fallback.songsShared),
+    commentsLeft:Math.max(Number(serverStats?.commentsLeft||0),commentsLeft,fallback.commentsLeft)
   };
   return extras.selfStats;
 }
 function chatSelfProfileCard(){
   const user=loggedInUser();
-  const username=(currentUsername()||state.userProfile?.username||authMetadataName(user)||authEmailPrefix(user)||"Your profile").trim();
+  const username=(savedProfileUsername()||currentUsername()||authMetadataName(user)||authEmailPrefix(user)||"Your profile").trim();
   const stats=extras.selfStats||fallbackSelfStats();
   const detail=`${Number(stats.albumsAdded||0)} album${Number(stats.albumsAdded||0)===1?"":"s"} in your library`;
   return `<button class="chatSelfProfileCard" type="button" onclick="openChatSelfProfile(event)" title="Edit your profile"><span class="chatSelfAvatar">${currentAvatarMarkup()}</span><span class="chatSelfCopy"><small>Your Muze profile</small><strong>${escapeHtml(username)}</strong><em>${escapeHtml(detail)}</em></span></button>`;
@@ -6091,7 +6388,28 @@ window.deleteAlbum=async function(albumId){
 refreshNotifications();
 }
 
-window.rateAlbum=async function(albumId,value){if(!requireAuth("rate",()=>window.rateAlbum(albumId,value)))return;const username=ratingName();if(db&&!String(albumId).startsWith("seed-")){let {error}=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,rating:value},{onConflict:"album_id,device_id"});if(error){alert(error.message);return}localStorage.removeItem("musicaLocalRatings");await loadData();openAlbum(albumId)}else{let r=isLocalRuntime()?localRatings():{};r[albumId]=value;if(isLocalRuntime())saveLocalRatings(r);state.ratingMap=r;render();openAlbum(albumId)}}
+window.rateAlbum=async function(albumId,value){
+  if(!requireAuth("rate",()=>window.rateAlbum(albumId,value)))return;
+  const username=ratingName();
+  if(db&&!String(albumId).startsWith("seed-")){
+    const userId=loggedInUser()?.id||null;
+    let result=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,user_id:userId,rating:value},{onConflict:"album_id,device_id"});
+    if(result.error&&/column|schema cache|user_id/i.test(result.error.message||"")){
+      result=await db.from("ratings").upsert({album_id:albumId,device_id:state.deviceId,username,rating:value},{onConflict:"album_id,device_id"});
+    }
+    if(result.error){alert(result.error.message);return}
+    localStorage.removeItem("musicaLocalRatings");
+    await loadData();
+    openAlbum(albumId);
+  }else{
+    let r=isLocalRuntime()?localRatings():{};
+    r[albumId]=value;
+    if(isLocalRuntime())saveLocalRatings(r);
+    state.ratingMap=r;
+    render();
+    openAlbum(albumId);
+  }
+}
 async function loadData(){
   if(!db){
     $("#setupWarning").classList.remove("hidden");

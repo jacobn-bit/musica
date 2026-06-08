@@ -516,12 +516,30 @@
 .avatarEditorUsernameDisplay span{color:rgba(238,232,220,.54);font-size:10.5px;font-weight:760;letter-spacing:.04em}
 .avatarEditorUsernameDisplay span.hidden{display:none!important}
 .profileStatsGrid{display:grid;grid-template-columns:repeat(5,minmax(84px,1fr));gap:10px;width:min(620px,100%);margin:16px auto 0}
-.profileStatsGrid span{display:grid;justify-items:center;align-content:center;min-height:72px;padding:13px 10px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),rgba(9,11,18,.60);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 18px 42px rgba(0,0,0,.22);text-align:center}
+.profileStatsGrid span,.profileStatsGrid button{display:grid;justify-items:center;align-content:center;min-height:72px;padding:13px 10px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),rgba(9,11,18,.60);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 18px 42px rgba(0,0,0,.22);text-align:center}
+.profileStatsGrid button{width:100%;color:inherit;cursor:pointer}
+.profileStatsGrid button:hover{border-color:rgba(242,201,76,.34);transform:translateY(-1px)}
 .profileStatsGrid strong{display:block;color:#fff8db;font-size:25px;line-height:1;font-weight:900;letter-spacing:0;text-shadow:0 0 18px rgba(242,201,76,.16)}
 .profileStatsGrid small{display:block;margin-top:7px;color:rgba(238,232,220,.62);font-size:10px;line-height:1.1;font-weight:850;text-transform:uppercase;letter-spacing:.055em}
 .authPanel.accountProfileMode:not(.avatarEditorMode) .profileStatsGrid{width:min(520px,100%);margin:18px auto 28px}
 .authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid{margin-top:-14px;margin-bottom:4px}
-.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid span{min-height:78px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.018)),rgba(11,12,18,.72);border-color:rgba(242,201,76,.13)}
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid span,.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid button{min-height:78px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.018)),rgba(11,12,18,.72);border-color:rgba(242,201,76,.13)}
+.profileActivityPanel{width:min(620px,100%);margin:10px auto 8px;border:1px solid rgba(242,201,76,.14);border-radius:18px;background:rgba(4,6,11,.62);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 18px 44px rgba(0,0,0,.24);overflow:hidden}
+.profileActivityPanel.hidden{display:none!important}
+.profileActivityHead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.profileActivityHead strong{color:#fff5cf;font-size:13px;font-weight:900}
+.profileActivityHead button{border:1px solid rgba(242,201,76,.22);border-radius:999px;background:transparent;color:#f4d76f;padding:6px 10px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;cursor:pointer}
+.profileActivityList{display:grid;max-height:220px;overflow:auto}
+.profileActivityRow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:9px 14px;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:inherit;text-align:left;cursor:pointer}
+.profileActivityRow:hover{background:rgba(242,201,76,.06)}
+.profileActivityCover{display:grid;place-items:center;width:38px;height:38px;min-width:38px;border-radius:7px;overflow:hidden;background:linear-gradient(145deg,rgba(242,201,76,.18),rgba(255,255,255,.04));border:1px solid rgba(242,201,76,.14);color:#ffe175;font-size:10px;font-weight:950;letter-spacing:.02em}
+.profileActivityCover img{width:100%;height:100%;object-fit:cover;display:block}
+.profileActivityCover.fallback{padding:0 3px;text-align:center}
+.profileActivityCopy{display:grid;gap:4px;min-width:0;flex:1}
+.profileActivityRow b{color:#f8f0d8;font-size:13px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profileActivityRow small{color:rgba(238,232,220,.56);font-size:11px;line-height:1.25}
+.profileActivityRow>strong{color:#ffe175;font-size:14px;font-weight:950}
+.profileActivityEmpty{padding:16px 14px;color:rgba(238,232,220,.58);font-size:12px;font-weight:750;text-align:center}
 .avatarChoiceTabs{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:3px;border:1px solid rgba(242,201,76,.20);border-radius:999px;background:rgba(0,0,0,.22)}
 .avatarChoiceTabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:rgba(232,226,216,.62);font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.045em;cursor:pointer}
 .avatarChoiceTabs button.active{background:linear-gradient(90deg,#ffec82,#f2c94c,#c99508);color:#111;box-shadow:0 0 18px rgba(242,201,76,.16)}
@@ -5312,21 +5330,20 @@ body.light .authPanel .adminOverviewUnlock{
   position:relative!important;
   z-index:2!important;
   display:grid!important;
-  grid-template-columns:minmax(0,.95fr) minmax(320px,.9fr)!important;
-  gap:34px!important;
+  grid-template-columns:minmax(0,1.05fr) minmax(320px,.8fr)!important;
+  gap:42px!important;
   margin:10px 0 24px!important;
-  padding:34px 38px!important;
+  padding:58px 62px 46px!important;
   min-height:520px!important;
   overflow:hidden!important;
-  border:1px solid rgba(255,255,255,.12)!important;
+  border:1px solid rgba(255,255,255,.10)!important;
   border-radius:24px!important;
   background:
-    radial-gradient(circle at 63% 44%,rgba(242,201,76,.18),transparent 25%),
-    linear-gradient(90deg,rgba(8,9,12,.96) 0%,rgba(8,9,12,.78) 46%,rgba(8,9,12,.92) 100%),
+    linear-gradient(90deg,rgba(5,5,5,.92) 0%,rgba(8,8,8,.72) 48%,rgba(3,3,3,.86) 100%),
     var(--overview-cover)!important;
   background-size:cover!important;
   background-position:var(--overview-position,center)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 22px 80px rgba(0,0,0,.38)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 28px 90px rgba(0,0,0,.50)!important;
 }
 .linerOverview.albumOverviewSleeve:before{
   content:"";
@@ -5336,10 +5353,11 @@ body.light .authPanel .adminOverviewUnlock{
   pointer-events:none;
 }
 .albumOverviewSleeve .overviewCopy,.albumOverviewSleeve .overviewMood{position:relative;z-index:1;}
-.albumOverviewSleeve .eyebrow{margin:0 0 20px!important;color:#ffd51f!important;font-size:13px!important;font-weight:950!important;letter-spacing:.34em!important;text-transform:uppercase!important;}
-.albumOverviewSleeve h3{max-width:610px!important;margin:0 0 22px!important;color:#f7f7f4!important;font-size:54px!important;line-height:1.05!important;letter-spacing:-.045em!important;text-shadow:0 4px 20px rgba(0,0,0,.45)!important;}
-.albumOverviewSleeve h3 span{color:#ffd03b!important;font-style:italic!important;font-weight:700!important;}
-.albumOverviewSleeve .overviewIntro{max-width:640px!important;margin:0 0 26px!important;color:rgba(255,255,255,.82)!important;font-size:18px!important;line-height:1.65!important;}
+.albumOverviewSleeve .overviewCopy{align-self:center!important;}
+.albumOverviewSleeve .overviewMeta{margin:0 0 14px!important;color:rgba(255,213,31,.86)!important;font-size:12px!important;font-weight:800!important;letter-spacing:.20em!important;text-transform:uppercase!important;}
+.albumOverviewSleeve h3{max-width:720px!important;margin:0 0 14px!important;color:#fffaf0!important;font-family:Georgia,"Times New Roman",serif!important;font-size:64px!important;line-height:.98!important;font-weight:500!important;letter-spacing:0!important;text-shadow:0 0 28px rgba(255,203,62,.30),0 6px 30px rgba(0,0,0,.72)!important;}
+.albumOverviewSleeve h3 span{color:inherit!important;font-style:normal!important;font-weight:inherit!important;}
+.albumOverviewSleeve .overviewIntro{max-width:700px!important;margin:0 0 34px!important;color:rgba(255,255,255,.84)!important;font-family:Georgia,"Times New Roman",serif!important;font-size:20px!important;line-height:1.58!important;}
 .overviewPoints{display:grid!important;gap:22px!important;margin:24px 0 28px!important;}
 .overviewPoints>div{display:grid!important;grid-template-columns:72px minmax(0,1fr)!important;gap:18px!important;align-items:start!important;}
 .overviewIcon{width:56px!important;height:56px!important;border-radius:50%!important;display:grid!important;place-items:center!important;background:rgba(242,201,76,.12)!important;color:#ffd51f!important;font-size:26px!important;box-shadow:0 0 24px rgba(242,201,76,.08)!important;}
@@ -5363,6 +5381,7 @@ body.light .authPanel .adminOverviewUnlock{
 @media(max-width:900px){
   .linerOverview.albumOverviewSleeve{grid-template-columns:1fr!important;padding:26px 20px!important;min-height:auto!important;}
   .albumOverviewSleeve h3{font-size:36px!important;}
+  .albumOverviewSleeve .overviewIntro{font-size:17px!important;}
   .overviewMood{padding-top:0!important;}
   .overviewMood blockquote{font-size:22px!important;}
   .overviewPoints>div{grid-template-columns:48px minmax(0,1fr)!important;}
@@ -13440,7 +13459,7 @@ body.chatView .simpleMessengerChat{
     grid-template-columns:repeat(2,minmax(0,1fr));
     width:100%;
   }
-  .profileStatsGrid span{
+  .profileStatsGrid span,.profileStatsGrid button{
     min-height:68px;
   }
   .authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid{
@@ -13473,7 +13492,7 @@ body.chatView .simpleMessengerChat{
   margin-top:14px!important;
   margin-bottom:18px!important;
 }
-.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid span{
+.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid span,.authPanel.accountProfileMode.avatarEditorMode .avatarEditorStatsGrid button{
   min-height:58px!important;
   padding:9px 8px!important;
   border-radius:13px!important;
@@ -14284,6 +14303,20 @@ body.chatView .simpleMessengerChat{
   #albumModal .linerAlbumPage{
     padding-top:14px!important;
   }
+  #albumModal .linerCover{
+    width:90%!important;
+    max-width:calc(90vw - 29px)!important;
+    justify-self:center!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  #albumModal .linerCover .cover,
+  #albumModal .linerCoverFlip,
+  #albumModal .linerCoverFlipCard,
+  #albumModal .linerCoverFlipCard .linerCoverFace{
+    width:100%!important;
+    max-width:100%!important;
+  }
   #albumModal #closeAlbumModal.close.cleanClose{
     position:fixed!important;
     top:16px!important;
@@ -14350,4 +14383,165 @@ body.chatView .simpleMessengerChat{
   background:#050608!important;
   transform:translate(-50%,-50%)!important;
   box-shadow:0 0 0 2px rgba(255,213,31,.45)!important;
+}
+
+@media(min-width:1051px){
+  #albumModal .albumTrackSections{
+    margin-top:24px!important;
+  }
+  #albumModal .albumSeeMorePill{
+    display:inline-flex!important;
+    z-index:12050!important;
+  }
+  #albumModal .linerHeroSide .heroSideCard.love{
+    display:none!important;
+  }
+  #albumModal .linerHeroSide .heroSideCard.influence{
+    order:1!important;
+  }
+  #albumModal .linerHeroSide .heroSideCard.mood{
+    order:2!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack{
+    min-height:180px!important;
+    padding:22px 300px 20px 44px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featurePlay{
+    width:42px!important;
+    height:42px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackCopy h4{
+    margin:6px 0 8px!important;
+    font-size:26px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave{
+    height:16px!important;
+    margin:0 0 8px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackCopy p{
+    margin-bottom:4px!important;
+    line-height:1.35!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackScore{
+    top:78px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .momentWhy{
+    top:24px!important;
+    padding:16px 20px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .momentWhy strong{
+    margin-bottom:8px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .momentWhy span{
+    margin-top:8px!important;
+  }
+}
+
+.albumMoodSliderPopup.hidden{display:none!important}
+.albumMoodSliderPopup{
+  position:fixed;
+  inset:0;
+  z-index:12000;
+  display:grid;
+  place-items:center;
+  padding:22px;
+}
+.albumMoodSliderBackdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.68);
+  backdrop-filter:blur(10px);
+}
+.albumMoodSliderPanel{
+  position:relative;
+  width:min(460px,calc(100vw - 34px));
+  border:1px solid rgba(255,213,31,.28);
+  border-radius:22px;
+  background:linear-gradient(145deg,#151720,#07080c);
+  box-shadow:0 30px 90px rgba(0,0,0,.70),0 0 0 1px rgba(255,255,255,.06) inset;
+  padding:28px;
+  color:#fff;
+}
+.albumMoodSliderClose{
+  position:absolute;
+  top:16px;
+  right:16px;
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.06);
+}
+.albumMoodSliderClose span:before,
+.albumMoodSliderClose span:after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:15px;
+  height:2px;
+  border-radius:999px;
+  background:#fff;
+}
+.albumMoodSliderClose span:before{transform:translate(-50%,-50%) rotate(45deg)}
+.albumMoodSliderClose span:after{transform:translate(-50%,-50%) rotate(-45deg)}
+.albumMoodSliderPanel .eyebrow{
+  margin:0 0 8px;
+  color:#ffd51f;
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+}
+.albumMoodSliderPanel h3{
+  margin:0;
+  font-size:30px;
+  line-height:1;
+}
+.albumMoodSliderPanel>strong{
+  display:block;
+  margin-top:9px;
+  color:rgba(255,255,255,.64);
+  font-size:14px;
+}
+.albumMoodSliderValue{
+  margin:24px 0 10px;
+  color:#ffd51f;
+  font-size:34px;
+  font-weight:950;
+}
+#albumMoodSliderInput{
+  width:100%;
+  accent-color:#ffd51f;
+}
+.albumMoodSliderScale,
+.albumMoodSliderActions{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+.albumMoodSliderScale{
+  margin-top:8px;
+  color:rgba(255,255,255,.54);
+  font-size:12px;
+  font-weight:850;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.albumMoodSliderActions{
+  margin-top:24px;
+}
+.albumMoodSliderActions button{
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:999px;
+  padding:12px 18px;
+  background:rgba(255,255,255,.07);
+  color:#fff;
+  font-weight:950;
+}
+.albumMoodSliderActions button:first-child{
+  background:#ffd51f;
+  color:#111;
+  border-color:#ffd51f;
 }
