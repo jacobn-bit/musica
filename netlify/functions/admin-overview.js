@@ -113,6 +113,12 @@ exports.handler = async function(event) {
       if (album_id) fields.album_id = album_id;
       return fields;
     };
+    const overviewPatchPayload = fields => {
+      const overview = String(body.overview || "").trim();
+      const patch = { album_key, title, artist, ...fields, updated_at: new Date().toISOString() };
+      if (overview) patch.overview = overview;
+      return patch;
+    };
 
     if (action === "save") {
       const overview = String(body.overview || "").trim();
@@ -141,7 +147,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, hero_focus, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ hero_focus }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
@@ -154,7 +160,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, overview_focus, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ overview_focus }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
@@ -167,7 +173,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, moment_focus, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ moment_focus }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
@@ -180,7 +186,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, admin_score, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ admin_score }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
@@ -195,7 +201,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, manual_genre, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ manual_genre }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
@@ -207,7 +213,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, mood_score, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ mood_score }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
@@ -220,7 +226,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, admin_ratings_count, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ admin_ratings_count }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
@@ -233,7 +239,7 @@ exports.handler = async function(event) {
       const rows = await api("album_overviews", {
         method: "POST",
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, loved_track_key, loved_track_name, updated_at: new Date().toISOString() })
+        body: JSON.stringify(overviewPatchPayload({ loved_track_key, loved_track_name }))
       });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
