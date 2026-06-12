@@ -5329,9 +5329,7 @@ body.light .authPanel .adminOverviewUnlock{
 .linerOverview.albumOverviewSleeve{
   position:relative!important;
   z-index:2!important;
-  display:grid!important;
-  grid-template-columns:minmax(0,1.05fr) minmax(320px,.8fr)!important;
-  gap:42px!important;
+  display:block!important;
   margin:10px 0 24px!important;
   padding:58px 62px 46px!important;
   min-height:520px!important;
@@ -5339,10 +5337,10 @@ body.light .authPanel .adminOverviewUnlock{
   border:1px solid rgba(255,255,255,.10)!important;
   border-radius:24px!important;
   background:
-    linear-gradient(90deg,rgba(5,5,5,.92) 0%,rgba(8,8,8,.72) 48%,rgba(3,3,3,.86) 100%),
+    linear-gradient(90deg,rgba(5,5,5,.976) 0%,rgba(8,8,8,.88) 48%,rgba(3,3,3,.945) 100%),
     var(--overview-cover)!important;
   background-size:cover!important;
-  background-position:var(--overview-position,center)!important;
+  background-position:var(--overview-position,50% 28%)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 28px 90px rgba(0,0,0,.50)!important;
 }
 .linerOverview.albumOverviewSleeve:before{
@@ -5352,13 +5350,32 @@ body.light .authPanel .adminOverviewUnlock{
   background:linear-gradient(90deg,rgba(0,0,0,.34),rgba(0,0,0,.10) 52%,rgba(0,0,0,.42)),radial-gradient(circle at 70% 18%,rgba(255,255,255,.09),transparent 18%);
   pointer-events:none;
 }
+.albumOverviewSleeve .overviewFeatureTop{position:relative!important;z-index:1!important;display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(320px,.8fr)!important;gap:42px!important;align-items:center!important;margin-bottom:6px!important;}
+.albumOverviewSleeve .overviewFeatureCopy{min-width:0!important;}
+.albumOverviewSleeve .overviewFeatureArt{position:relative!important;justify-self:center!important;width:min(100%,303px)!important;min-height:120px!important;margin-left:0!important;border:1px solid rgba(242,201,76,.22)!important;border-radius:20px!important;overflow:hidden!important;background:rgba(0,0,0,.36)!important;box-shadow:0 22px 60px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.06)!important;}
+.albumOverviewSleeve .overviewFeatureArt img{display:block!important;width:100%!important;height:100%!important;min-height:120px!important;object-fit:cover!important;filter:saturate(1.02) brightness(.58)!important;}
+.albumOverviewSleeve .overviewFeatureArt blockquote{position:absolute!important;left:4%!important;right:0!important;bottom:8px!important;width:auto!important;margin:0!important;padding:14px 24px 16px!important;border:1px solid rgba(242,201,76,.28)!important;border-right:0!important;border-radius:16px 0 0 16px!important;background:linear-gradient(145deg,rgba(0,0,0,.60),rgba(0,0,0,.30))!important;color:#ffd03b!important;font-family:Georgia,"Times New Roman",serif!important;font-size:18px!important;line-height:1.18!important;font-style:italic!important;box-shadow:0 18px 42px rgba(0,0,0,.40)!important;}
+.albumOverviewSleeve .overviewFeatureArt blockquote:before{content:"\201C";position:absolute;top:-35px;left:24px;color:#ffd51f;font-size:72px;font-style:normal;line-height:1;text-shadow:0 0 20px rgba(242,201,76,.30);}
+.albumOverviewSleeve .overviewFeatureTags{display:flex!important;flex-wrap:wrap!important;gap:10px!important;margin:0 0 26px!important;}
+.albumOverviewSleeve .overviewFeatureTags button{display:inline-flex!important;align-items:center!important;min-height:38px!important;padding:9px 15px!important;border:1px solid rgba(242,201,76,.28)!important;border-radius:999px!important;background:rgba(0,0,0,.28)!important;color:rgba(255,255,255,.86)!important;font-size:13px!important;font-weight:900!important;cursor:pointer!important;}
+.albumOverviewSleeve .overviewFeatureTags button:first-child{color:#ffd51f!important;}
+.albumOverviewSleeve .overviewFeatureTags button:hover{border-color:rgba(242,201,76,.58)!important;background:rgba(242,201,76,.10)!important;}
+.albumOverviewSleeve .overviewBodyGrid{position:relative!important;z-index:1!important;display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(320px,.8fr)!important;gap:42px!important;}
 .albumOverviewSleeve .overviewCopy,.albumOverviewSleeve .overviewMood{position:relative;z-index:1;}
 .albumOverviewSleeve .overviewCopy{align-self:center!important;}
 .albumOverviewSleeve .overviewMeta{margin:0 0 14px!important;color:rgba(255,213,31,.86)!important;font-size:12px!important;font-weight:800!important;letter-spacing:.20em!important;text-transform:uppercase!important;}
-.albumOverviewSleeve h3{max-width:720px!important;margin:0 0 14px!important;color:#fffaf0!important;font-family:Georgia,"Times New Roman",serif!important;font-size:64px!important;line-height:.98!important;font-weight:500!important;letter-spacing:0!important;text-shadow:0 0 28px rgba(255,203,62,.30),0 6px 30px rgba(0,0,0,.72)!important;}
+.albumOverviewSleeve .overviewTitleRow{display:block!important;margin:0 0 14px!important;}
+.albumOverviewSleeve .overviewMobileTitleArt{display:none!important;}
+.albumOverviewSleeve h3{max-width:720px!important;margin:0 0 14px!important;color:#fffaf0!important;font-family:Georgia,"Times New Roman",serif!important;font-size:64px!important;line-height:.98!important;font-weight:500!important;letter-spacing:0!important;text-shadow:0 6px 30px rgba(0,0,0,.72)!important;}
+.albumOverviewSleeve .overviewTitleRow h3{margin:0!important;}
+.albumOverviewSleeve h3.overviewTitleLong{font-size:50px!important;line-height:1.02!important;max-width:760px!important;}
 .albumOverviewSleeve h3 span{color:inherit!important;font-style:normal!important;font-weight:inherit!important;}
+.albumOverviewSleeve .overviewMiniAlbumCard{display:inline-block!important;vertical-align:.02em!important;margin-left:14px!important;width:52px!important;height:52px!important;border-radius:7px!important;overflow:hidden!important;border:2px solid rgba(255,213,31,.82)!important;background:rgba(0,0,0,.32)!important;box-shadow:0 10px 24px rgba(0,0,0,.40),0 0 0 1px rgba(0,0,0,.58),0 0 12px rgba(242,201,76,.16)!important;transform:none!important;}
+.albumOverviewSleeve .overviewMiniAlbumCard img{display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;}
 .albumOverviewSleeve .overviewIntro{max-width:700px!important;margin:0 0 34px!important;color:rgba(255,255,255,.84)!important;font-family:Georgia,"Times New Roman",serif!important;font-size:20px!important;line-height:1.58!important;}
-.overviewPoints{display:grid!important;gap:22px!important;margin:24px 0 28px!important;}
+.albumOverviewSleeve .overviewIntro.overviewIntroLong{font-size:17px!important;line-height:1.46!important;max-width:760px!important;}
+.overviewReadMore{display:none!important;}
+.overviewPoints{display:grid!important;gap:22px!important;margin:8px 0 28px!important;}
 .overviewPoints>div{display:grid!important;grid-template-columns:72px minmax(0,1fr)!important;gap:18px!important;align-items:start!important;}
 .overviewIcon{width:56px!important;height:56px!important;border-radius:50%!important;display:grid!important;place-items:center!important;background:rgba(242,201,76,.12)!important;color:#ffd51f!important;font-size:26px!important;box-shadow:0 0 24px rgba(242,201,76,.08)!important;}
 .overviewPoints strong{display:block!important;margin-bottom:8px!important;color:#ffd51f!important;text-transform:uppercase!important;font-size:13px!important;letter-spacing:.18em!important;}
@@ -5369,27 +5386,27 @@ body.light .authPanel .adminOverviewUnlock{
 .overviewScoreStrip em{color:rgba(255,255,255,.62)!important;font-style:normal!important;}
 .overviewScoreStrip small{margin-left:auto!important;color:rgba(255,255,255,.62)!important;font-size:13px!important;}
 .albumOverviewSleeve .overviewEditBtn{margin-top:18px!important;}
-.overviewMood{align-self:center!important;padding-top:58px!important;}
+.overviewMood{align-self:start!important;padding-top:24px!important;}
 .overviewMood blockquote{position:relative!important;margin:0 0 34px!important;padding:28px 34px!important;border:1px solid rgba(242,201,76,.35)!important;border-radius:18px!important;background:linear-gradient(145deg,rgba(0,0,0,.44),rgba(0,0,0,.24))!important;color:#ffd03b!important;font-size:32px!important;line-height:1.5!important;font-style:italic!important;box-shadow:0 0 34px rgba(242,201,76,.16)!important;}
 .overviewMood blockquote:before{content:"ï¿½";position:absolute;top:-45px;left:18px;color:#ffd51f;font-size:84px;font-style:normal;line-height:1;text-shadow:0 0 20px rgba(242,201,76,.4);}
 .overviewMood p{margin:0 0 12px!important;color:#ffd51f!important;font-size:12px!important;font-weight:950!important;letter-spacing:.18em!important;text-transform:uppercase!important;}
 .overviewMomentChips{display:flex!important;flex-wrap:wrap!important;gap:10px!important;margin-bottom:28px!important;}
-.overviewMomentChips span{display:inline-flex!important;border-radius:999px!important;padding:9px 14px!important;background:rgba(255,255,255,.075)!important;color:rgba(255,255,255,.86)!important;font-size:14px!important;}
+.overviewMomentChips span,.overviewMomentChips button{display:inline-flex!important;border:0!important;border-radius:999px!important;padding:9px 14px!important;background:rgba(255,255,255,.075)!important;color:rgba(255,255,255,.86)!important;font-family:inherit!important;font-size:14px!important;font-weight:inherit!important;line-height:inherit!important;cursor:pointer!important;}
+.overviewMomentChips span{cursor:default!important;}
+.overviewMomentChips button:hover,.overviewMomentChips button:focus-visible{background:rgba(255,255,255,.18)!important;color:rgba(255,255,255,.94)!important;box-shadow:0 0 18px rgba(255,255,255,.14)!important;outline:0!important;}
+.overviewMomentChips button.isPreviewing{background:rgba(255,255,255,.18)!important;color:rgba(255,255,255,.94)!important;box-shadow:0 0 18px rgba(255,255,255,.14)!important;}
+.overviewMomentChips button{transition:none!important;}
 .overviewCommunityNote{display:flex!important;gap:16px!important;align-items:center!important;margin-top:20px!important;}
+.overviewCommunityNote{position:relative!important;}
+.overviewCommunityNote button{display:flex!important;gap:16px!important;align-items:center!important;border:0!important;background:transparent!important;color:inherit!important;padding:0!important;text-align:left!important;cursor:pointer!important;font:inherit!important;}
 .overviewCommunityNote span{width:82px!important;height:34px!important;border-radius:999px!important;background:linear-gradient(90deg,#6c4a24,#b9b0a4,#2f7f83)!important;box-shadow:0 0 0 3px rgba(255,255,255,.07)!important;}
 .overviewCommunityNote p{margin:0!important;max-width:420px!important;color:rgba(255,255,255,.72)!important;font-size:16px!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;line-height:1.5!important;}
-@media(max-width:900px){
-  .linerOverview.albumOverviewSleeve{grid-template-columns:1fr!important;padding:26px 20px!important;min-height:auto!important;}
-  .albumOverviewSleeve h3{font-size:36px!important;}
-  .albumOverviewSleeve .overviewIntro{font-size:17px!important;}
-  .overviewMood{padding-top:0!important;}
-  .overviewMood blockquote{font-size:22px!important;}
-  .overviewPoints>div{grid-template-columns:48px minmax(0,1fr)!important;}
-  .overviewIcon{width:42px!important;height:42px!important;font-size:20px!important;}
-  .overviewScoreStrip{flex-wrap:wrap!important;gap:10px!important;}
-  .overviewScoreStrip small{margin-left:0!important;width:100%!important;}
-}
-
+.overviewLibraryUsersPanel{position:absolute!important;left:0!important;bottom:calc(100% + 10px)!important;z-index:4!important;display:grid!important;gap:6px!important;min-width:240px!important;max-width:min(320px,86vw)!important;max-height:210px!important;overflow:auto!important;padding:10px!important;border:1px solid rgba(242,201,76,.22)!important;border-radius:14px!important;background:rgba(5,5,6,.94)!important;box-shadow:0 18px 46px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.05)!important;backdrop-filter:blur(10px)!important;}
+.overviewLibraryUsersPanel.hidden{display:none!important;}
+.overviewLibraryUser{display:grid!important;gap:2px!important;padding:8px 10px!important;border-radius:10px!important;background:rgba(255,255,255,.045)!important;}
+.overviewLibraryUser b{color:#fff5d6!important;font-size:13px!important;font-weight:900!important;}
+.overviewLibraryUser small{color:rgba(255,255,255,.58)!important;font-size:11px!important;}
+.overviewLibraryUser.empty{color:rgba(255,255,255,.60)!important;font-size:12px!important;font-weight:800!important;}
 /* Standalone overview popup */
 .albumOverviewPopup.hidden{display:none!important;}
 .albumOverviewPopup{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;}
@@ -5398,7 +5415,80 @@ body.light .authPanel .adminOverviewUnlock{
 .albumOverviewPopupPanel .albumOverviewSleeve{margin:0!important;}
 .albumOverviewClose{position:absolute;top:18px;right:18px;z-index:5;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.42);color:#fff;font-size:30px;line-height:1;cursor:pointer;}
 .albumOverviewClose:hover{border-color:rgba(242,201,76,.45);color:#ffd51f;}
-@media(max-width:650px){.albumOverviewPopup{padding:10px}.albumOverviewPopupPanel{width:100%;max-height:94vh}.albumOverviewClose{top:12px;right:12px;width:38px;height:38px;font-size:26px}}
+@media(max-width:900px){
+  .albumOverviewPopup{align-items:start!important;padding:0!important;}
+  .albumOverviewPopupPanel{width:100vw!important;height:100vh!important;max-height:100vh!important;overflow:auto!important;overflow-x:hidden!important;border-radius:0!important;}
+  .albumOverviewPopupPanel .albumOverviewSleeve{
+    width:100%!important;
+    min-width:0!important;
+    min-height:100vh!important;
+    margin:0!important;
+    padding:42px 20px 34px!important;
+    border:0!important;
+    border-radius:0!important;
+    zoom:1!important;
+    background:
+      linear-gradient(180deg,rgba(0,0,0,.94) 0%,rgba(0,0,0,.89) 34%,rgba(0,0,0,.95) 100%),
+      var(--overview-cover)!important;
+    background-size:cover!important;
+    background-position:var(--overview-position,50% 20%)!important;
+  }
+  .linerOverview.albumOverviewSleeve:before{
+    background:linear-gradient(180deg,rgba(0,0,0,.34),rgba(0,0,0,.58) 45%,rgba(0,0,0,.80)),radial-gradient(circle at 50% 0%,rgba(242,201,76,.07),transparent 34%)!important;
+  }
+  .albumOverviewClose{position:fixed!important;top:18px!important;right:18px!important;width:40px!important;height:40px!important;border-color:rgba(255,255,255,.13)!important;border-radius:50%!important;background:rgba(0,0,0,.50)!important;color:rgba(255,255,255,.88)!important;font-size:24px!important;backdrop-filter:blur(10px)!important;}
+  .albumOverviewSleeve .overviewFeatureTop{display:grid!important;grid-template-columns:1fr!important;gap:24px!important;align-items:start!important;margin-bottom:18px!important;}
+  .albumOverviewSleeve .overviewFeatureCopy{display:grid!important;gap:0!important;}
+  .albumOverviewSleeve .overviewMeta{margin:0 0 14px!important;font-size:12px!important;letter-spacing:.22em!important;}
+  .albumOverviewSleeve .overviewTitleRow{display:block!important;margin:0 0 16px!important;}
+  .albumOverviewSleeve h3{max-width:100%!important;margin:0!important;font-size:42px!important;line-height:1.02!important;text-shadow:0 8px 28px rgba(0,0,0,.80)!important;}
+  .albumOverviewSleeve h3.overviewTitleLong{font-size:34px!important;line-height:1.06!important;max-width:100%!important;}
+  .albumOverviewSleeve .overviewMiniAlbumCard{width:40px!important;height:40px!important;margin-left:9px!important;border-radius:7px!important;}
+  .albumOverviewSleeve .overviewMobileTitleArt{display:none!important;}
+  .albumOverviewSleeve .overviewFeatureTags{gap:9px!important;margin:0 0 20px!important;}
+  .albumOverviewSleeve .overviewFeatureTags button{min-height:36px!important;padding:8px 13px!important;font-size:12px!important;background:rgba(0,0,0,.34)!important;}
+  .albumOverviewSleeve .overviewIntro{max-width:none!important;margin:0!important;font-size:18px!important;line-height:1.48!important;color:rgba(255,255,255,.84)!important;display:-webkit-box!important;-webkit-line-clamp:3!important;-webkit-box-orient:vertical!important;overflow:hidden!important;}
+  .albumOverviewSleeve .overviewIntro.overviewIntroLong{font-size:16px!important;line-height:1.45!important;-webkit-line-clamp:4!important;}
+  .albumOverviewSleeve.overviewIntroExpanded .overviewIntro{display:block!important;-webkit-line-clamp:unset!important;overflow:visible!important;}
+  .overviewReadMore{display:inline-flex!important;justify-self:start!important;align-items:center!important;margin:10px 0 0!important;padding:0!important;border:0!important;background:transparent!important;color:#ffd51f!important;font-size:12px!important;font-weight:950!important;letter-spacing:.08em!important;text-transform:uppercase!important;cursor:pointer!important;}
+  .albumOverviewSleeve .overviewFeatureArt{display:block!important;justify-self:stretch!important;width:100%!important;min-height:0!important;margin:8px 0 0!important;padding:10px!important;border-radius:22px!important;border-color:rgba(242,201,76,.22)!important;background:rgba(0,0,0,.34)!important;}
+  .albumOverviewSleeve .overviewFeatureArt img{height:auto!important;min-height:0!important;aspect-ratio:1.18/1!important;object-fit:cover!important;filter:saturate(1.02) brightness(.68)!important;}
+  .albumOverviewSleeve .overviewFeatureArt blockquote{left:20px!important;right:20px!important;bottom:30px!important;width:auto!important;max-height:none!important;padding:15px 20px 16px!important;border:1px solid rgba(242,201,76,.30)!important;border-radius:16px!important;background:linear-gradient(145deg,rgba(0,0,0,.74),rgba(0,0,0,.42))!important;font-size:18px!important;line-height:1.25!important;display:block!important;overflow:hidden!important;cursor:default!important;}
+  .albumOverviewSleeve .overviewFeatureArt blockquote.quoteCanExpand{cursor:pointer!important;}
+  .albumOverviewSleeve .overviewFeatureArt blockquote.quotePopoverOpen{opacity:0!important;pointer-events:none!important;}
+  .albumOverviewSleeve .overviewQuoteText{display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;transform:none!important;}
+  .albumOverviewSleeve .quotePopoverOpen .overviewQuoteText{opacity:0!important;}
+  .albumOverviewSleeve .overviewQuotePopover{position:absolute!important;left:20px!important;right:20px!important;bottom:8px!important;z-index:3!important;padding:10px 14px!important;border:1px solid rgba(242,201,76,.26)!important;border-radius:14px!important;background:linear-gradient(145deg,rgba(0,0,0,.82),rgba(0,0,0,.58))!important;color:#ffd51f!important;font-family:Georgia,"Times New Roman",serif!important;font-size:15px!important;line-height:1.28!important;font-style:italic!important;box-shadow:0 12px 28px rgba(0,0,0,.36)!important;}
+  .albumOverviewSleeve .overviewQuotePopover.hidden{display:none!important;}
+  .albumOverviewSleeve .overviewFeatureArt blockquote:before{top:-31px!important;left:18px!important;font-size:62px!important;}
+  .albumOverviewSleeve .overviewBodyGrid{display:grid!important;grid-template-columns:1fr!important;gap:28px!important;}
+  .albumOverviewSleeve .overviewMood{order:1!important;padding-top:0!important;}
+  .albumOverviewSleeve .overviewCopy{order:2!important;align-self:start!important;}
+  .overviewMood>div:first-child{padding:19px 18px 20px!important;border:1px solid rgba(242,201,76,.18)!important;border-radius:18px!important;background:rgba(255,255,255,.05)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.055)!important;}
+  .overviewMood p{margin:0 0 16px!important;font-size:11px!important;letter-spacing:.20em!important;}
+  .overviewMomentChips{gap:11px!important;margin:0!important;}
+  .overviewMomentChips span,.overviewMomentChips button{display:inline-flex!important;min-height:34px!important;align-items:center!important;padding:8px 13px!important;border:0!important;border-radius:999px!important;font:inherit!important;font-size:11.4px!important;font-weight:850!important;background:rgba(255,255,255,.105)!important;color:rgba(255,255,255,.86)!important;cursor:pointer!important;}
+  .overviewMomentChips span{cursor:default!important;}
+  .overviewMomentChips button:hover,.overviewMomentChips button:focus-visible{background:rgba(255,255,255,.18)!important;color:rgba(255,255,255,.94)!important;box-shadow:0 0 18px rgba(255,255,255,.14)!important;outline:0!important;}
+  .overviewMomentChips button.isPreviewing{background:rgba(255,255,255,.18)!important;color:rgba(255,255,255,.94)!important;box-shadow:0 0 18px rgba(255,255,255,.14)!important;}
+  .overviewMomentChips button{transition:none!important;}
+  .overviewPoints{gap:18px!important;margin:0 0 24px!important;}
+  .overviewPoints>div{grid-template-columns:42px minmax(0,1fr)!important;gap:14px!important;padding:17px!important;border:1px solid rgba(242,201,76,.14)!important;border-radius:18px!important;background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.055)!important;}
+  .overviewPoints>.overviewPointCanExpand{cursor:pointer!important;}
+  .overviewIcon{width:38px!important;height:38px!important;font-size:18px!important;background:rgba(242,201,76,.15)!important;}
+  .overviewPoints strong{margin-bottom:7px!important;font-size:11px!important;letter-spacing:.18em!important;}
+  .overviewPoints p{font-size:14px!important;line-height:1.45!important;display:-webkit-box!important;-webkit-line-clamp:4!important;-webkit-box-orient:vertical!important;overflow:hidden!important;}
+  .overviewPoints>.overviewPointExpanded p{display:block!important;-webkit-line-clamp:unset!important;overflow:visible!important;}
+  .overviewScoreStrip{width:100%!important;margin-top:20px!important;padding:16px!important;border-radius:16px!important;gap:10px!important;flex-wrap:wrap!important;background:rgba(0,0,0,.34)!important;}
+  .overviewScoreStrip span{font-size:13px!important;}
+  .overviewScoreStrip strong{font-size:28px!important;}
+  .overviewScoreStrip small{width:100%!important;margin-left:0!important;font-size:11px!important;}
+  .overviewCommunityNote{margin-top:16px!important;gap:13px!important;}
+  .overviewCommunityNote button{gap:13px!important;}
+  .overviewCommunityNote span{width:59px!important;height:27px!important;}
+  .overviewCommunityNote p{font-size:12.6px!important;line-height:1.38!important;}
+  .overviewLibraryUsersPanel{left:0!important;right:auto!important;max-width:calc(100vw - 40px)!important;}
+}
 
 /* Admin management controls */
 .overviewAdminControls{display:flex!important;flex-wrap:wrap!important;gap:10px!important;margin-top:18px!important;}
@@ -7389,6 +7479,26 @@ body.light .authPanel .adminOverviewUnlock{
 }
 .albumOverviewClose::before{transform:translate(-50%,-50%) rotate(45deg)!important;}
 .albumOverviewClose::after{transform:translate(-50%,-50%) rotate(-45deg)!important;}
+@media(max-width:900px){
+  .albumOverviewPopupPanel{
+    padding-top:0!important;
+    scroll-padding-top:0!important;
+  }
+  .albumOverviewPopupPanel .albumOverviewSleeve{
+    padding-top:max(18px,env(safe-area-inset-top))!important;
+  }
+  .albumOverviewClose{
+    position:fixed!important;
+    top:max(14px,calc(env(safe-area-inset-top) + 10px))!important;
+    right:max(14px,calc(env(safe-area-inset-right) + 14px))!important;
+    z-index:20!important;
+    width:42px!important;
+    height:42px!important;
+    border:1px solid rgba(255,255,255,.20)!important;
+    background:rgba(0,0,0,.58)!important;
+    box-shadow:0 12px 32px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.08)!important;
+  }
+}
 .overviewSourceLink{display:inline-flex;margin:-3px 0 18px;color:rgba(255,213,31,.78);font-size:12px;font-weight:750;text-decoration:none;letter-spacing:.02em}
 .overviewSourceLink:hover{color:#ffe36f;text-decoration:underline}
 .reactionsPanel .linerPanelTitle .listenerIcon{
@@ -8059,6 +8169,7 @@ body.light .authPanel .adminOverviewUnlock{
 }
 .listenerCard strong{display:block!important;color:#fff!important;font-size:13px!important;font-weight:800!important;}
 .listenerCard span{display:block!important;color:rgba(255,255,255,.48)!important;font-size:11px!important;margin-top:2px!important;}
+.listenerCard .listenerSongLabel{grid-column:1/-1!important;display:inline-flex!important;justify-self:start!important;margin:6px 0 2px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:rgba(255,255,255,.60)!important;font-size:10px!important;font-weight:500!important;letter-spacing:.02em!important;box-shadow:none!important;}
 .listenerCard p{grid-column:1/-1!important;margin:4px 0 0!important;color:rgba(255,255,255,.86)!important;font-size:15px!important;line-height:1.35!important;font-weight:450!important;}
 .listenerCard small{grid-column:1/-1!important;color:rgba(255,255,255,.60)!important;font-size:12px!important;margin-top:8px!important;}
 .listenerCardActions{
@@ -11285,7 +11396,7 @@ body{
   }
   .albumTrackSections .linerFeaturedTrack .featureWave{
     height:12px!important;
-    margin:0!important;
+    margin:0 0 3px!important;
     gap:2px!important;
   }
   .albumTrackSections .linerFeaturedTrack .featureWave i{
@@ -14403,7 +14514,7 @@ body.chatView .simpleMessengerChat{
     order:2!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack{
-    min-height:180px!important;
+    min-height:300px!important;
     padding:22px 300px 20px 44px!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack .featurePlay{
@@ -14436,6 +14547,7 @@ body.chatView .simpleMessengerChat{
     margin-top:8px!important;
   }
 }
+
 
 .albumMoodSliderPopup.hidden{display:none!important}
 .albumMoodSliderPopup{
@@ -14544,4 +14656,29 @@ body.chatView .simpleMessengerChat{
   background:#ffd51f;
   color:#111;
   border-color:#ffd51f;
+}
+
+/* Keep desktop album modal line breaks consistent with the 17-inch reference. */
+@media(min-width:1051px) and (max-width:1600px){
+  #albumModal:not(.hidden){
+    justify-content:flex-start!important;
+    align-items:center!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  #albumModal .modalPanel{
+    flex:0 0 1420px!important;
+    width:1420px!important;
+    min-width:1420px!important;
+    max-width:none!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  #albumModalContent,
+  #albumModal .linerAlbumPage{
+    width:100%!important;
+    max-width:none!important;
+  }
 }

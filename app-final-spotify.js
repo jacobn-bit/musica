@@ -49,6 +49,7 @@ resetStaleClientData();
 const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",chatThread:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
+let homeSearchRenderTimer=0;
 const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
 const MUZE_AVATAR_ICONS=Array.from({length:22},(_,i)=>i+12).filter(n=>![14,27].includes(n)).map(n=>`assets/avatar-icons/avatar-icon-${String(n).padStart(2,"0")}.png`);
 const PROFILE_AVATAR_OVERRIDES={
@@ -1792,6 +1793,21 @@ function albumEditorialThesis(a){
   return "A defining mood piece with its own atmosphere, gravity, and afterlife.";
 }
 function overviewSentences(text){return String(text||"").replace(/\s+/g," ").split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean)}
+function overviewFilterPill(label,type){
+  const clean=String(label||"").trim();
+  if(!clean)return "";
+  return `<button type="button" onclick="openAlbumOverviewFilter('${type}','${escapeJsString(clean)}')">${escapeHtml(clean)}</button>`;
+}
+function titleVisualWeight(text){
+  return String(text||"").split("").reduce((sum,char)=>{
+    if(/\s/.test(char))return sum+.32;
+    if(/[MW@#%&]/.test(char))return sum+.95;
+    if(/[A-Z0-9]/.test(char))return sum+.72;
+    if(/[il.,'!:;]/.test(char))return sum+.26;
+    if(/[mw]/.test(char))return sum+.78;
+    return sum+.52;
+  },0);
+}
 function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,canEditOverview}){
   const structured=albumStructuredOverview(a);
   if(!customOverview&&!canEditOverview)customOverview=cleanAlbumSummary(a)||`${a.title} by ${a.artist||"the artist"}.`;
@@ -1803,22 +1819,37 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const legacy=overviewFieldOrPlaceholder(structured.legacy_summary||fallbackSentences.slice(3,5).join(" ")||fallbackSentences[fallbackSentences.length-1]||intro,placeholder.legacy_summary);
   const quote=overviewFieldOrPlaceholder(structured.quote_headline||albumEditorialThesis(a),placeholder.quote_headline);
   const heading=escapeHtml(a.title||"This album");
+  const headingText=String(a.title||"");
+  const headingWords=headingText.split(/\s+/).filter(Boolean).length;
+  const headingClass=headingText.length>34||headingWords>=7?' class="overviewTitleLong"':"";
+  const headingVisualWeight=titleVisualWeight(headingText);
+  const hasParenthetical=/[()]/.test(headingText);
+  const mobileArtClass=hasParenthetical?" overviewMobileTitleArtParenthetical":headingText.length>20||headingWords>=4||headingVisualWeight>7.2?" overviewMobileTitleArtLong":headingWords>=2?" overviewMobileTitleArtMediumMulti":headingText.length>9||headingVisualWeight>4.05?" overviewMobileTitleArtMedium":"";
   const metadata=[a.artist,String(a.year||"").trim()].filter(Boolean).map(value=>escapeHtml(value)).join(" &bull; ");
+  const introClass=String(intro||"").length>240?' overviewIntroLong':"";
+  const overviewTagLabels=[];
+  const addOverviewTag=value=>{const clean=String(value||"").trim();if(clean&&!overviewTagLabels.some(label=>label.toLowerCase()===clean.toLowerCase()))overviewTagLabels.push(clean)};
+  addOverviewTag(albumGenreLabel(a));
+  addOverviewTag(a.artist);
+  addOverviewTag(a.year);
+  const overviewTags=overviewTagLabels.slice(0,4).map(tag=>overviewFilterPill(tag,String(tag)===String(a.year)?"year":tag===a.artist?"artist":"genre")).join("");
   const sourceUrl=wikipediaSourceUrl(structured.sources_used)||String(a.wikipedia_url||a.source_url||"").trim();
   const displaySource=structured.isGenerating?"generating":(structured.row?.fallback_generated?"fallback":(structured.row?.source_summary?"supabase researched cache":(structured.row?.__generationError?"generation error":"local placeholder")));
   console.info("[Muze overview] displayed content source",{title:a.title,artist:a.artist,source:displaySource,fallback_generated:structured.row?.fallback_generated,has_source_summary:Boolean(structured.row?.source_summary),generation_model:structured.row?.generation_model||"",contains_generic:[intro,sound,impact,legacy,quote].some(genericOverviewText)});
   const sourceLink=overviewGenerationError(structured.row)?`<span class="overviewSourceLink">Overview generation failed</span>`:(structured.isGenerating?`<span class="overviewSourceLink">Generating Muze overview...</span>`:"");
-  const overviewFocus=escapeHtml(structured.row?.overview_focus||"50% 50%");
+  const overviewFocus=escapeHtml(structured.row?.overview_focus||"50% 28%");
   const edit=canEditOverview?`<div class="overviewAdminControls"><button class="overviewEditBtn" onclick="editAlbumOverview('${albumId}')">Edit overview</button><button onclick="startOverviewImageDrag('${albumId}')">Move overview background</button><button onclick="regenerateAlbumOverviewAdmin('${albumId}')">Regenerate AI Overview</button><button onclick="deleteAlbumOverview('${albumId}')">Clear custom overview</button><button onclick="clearAlbumReactionsAdmin('${albumId}')">Clear reactions</button><button onclick="clearAlbumTrackActivityAdmin('${albumId}')">Clear song ratings/comments</button><button onclick="setAlbumScoreAdmin('${albumId}')">Set Muze score</button><button onclick="setAlbumRatingsCountAdmin('${albumId}')">Set ratings count</button><button onclick="setAlbumMoodScoreAdmin('${albumId}')">Set mood bar</button><button onclick="setAlbumGenreAdmin('${albumId}')">Set genre</button><button onclick="clearAlbumRatingsAdmin('${albumId}')">Clear album ratings</button><button class="danger" onclick="deleteAlbumAdmin('${albumId}')">Delete album</button></div>`:"";
   const testRegenerate=!canEditOverview&&isLocalRuntime()?`<div class="overviewAdminControls"><button onclick="regenerateAlbumOverviewAdmin('${albumId}')">Regenerate AI Overview</button></div>`:"";
-  return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" data-album-id="${albumId}" style="--overview-cover:url('${coverUrl}');--overview-position:${overviewFocus}"><div class="overviewCopy"><p class="overviewMeta">${metadata}</p><h3>${heading}</h3><p class="overviewIntro">${escapeHtml(intro)}</p>${sourceLink}<div class="overviewPoints"><div><span class="overviewIcon soundIcon" aria-hidden="true"></span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p></div></div><div><span class="overviewIcon impactIcon" aria-hidden="true"></span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p></div></div><div><span class="overviewIcon legacyIcon" aria-hidden="true"></span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p></div></div></div><div class="overviewScoreStrip"><span>Muze Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}${testRegenerate}</div><div class="overviewMood"><blockquote>${escapeHtml(quote)}</blockquote><div><p>Defining moments</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div><div class="overviewCommunityNote"><span></span><p>Join listeners who connect with this album every day.</p></div></div></section>`;
+  const libraryUsers=albumLibrarySaveUsers(a);
+  const libraryUserRows=libraryUsers.length?libraryUsers.map(user=>`<div class="overviewLibraryUser"><b>${escapeHtml(user.username)}</b><small>${escapeHtml(user.title||"Muze library")}</small></div>`).join(""):`<div class="overviewLibraryUser empty">No public library saves yet.</div>`;
+  return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" data-album-id="${albumId}" style="--overview-cover:url('${coverUrl}');--overview-position:${overviewFocus}"><div class="overviewFeatureTop"><div class="overviewFeatureCopy"><p class="overviewMeta">${metadata}</p><div class="overviewTitleRow"><h3${headingClass}>${heading}</h3><span class="overviewMobileTitleArt${mobileArtClass}" aria-hidden="true"><img src="${coverUrl}" alt=""></span></div><div class="overviewFeatureTags">${overviewTags}</div><p class="overviewIntro${introClass}">${escapeHtml(intro)}</p><button type="button" class="overviewReadMore" aria-expanded="false" onclick="toggleOverviewIntro(event,this)">Read More &#8594;</button>${sourceLink}</div><div class="overviewFeatureArt"><img src="${coverUrl}" alt=""><blockquote aria-expanded="false" onclick="toggleOverviewQuote(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewQuote(event,this)"><span class="overviewQuoteText">${escapeHtml(quote)}</span></blockquote><div class="overviewQuotePopover hidden">${escapeHtml(quote)}</div></div></div><div class="overviewBodyGrid"><div class="overviewCopy"><div class="overviewPoints"><div class="overviewPoint" aria-expanded="false" onclick="toggleOverviewPoint(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewPoint(event,this)"><span class="overviewIcon soundIcon" aria-hidden="true"></span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p></div></div><div class="overviewPoint" aria-expanded="false" onclick="toggleOverviewPoint(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewPoint(event,this)"><span class="overviewIcon impactIcon" aria-hidden="true"></span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p></div></div><div class="overviewPoint" aria-expanded="false" onclick="toggleOverviewPoint(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewPoint(event,this)"><span class="overviewIcon legacyIcon" aria-hidden="true"></span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p></div></div></div><div class="overviewScoreStrip"><span>Muze Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}${testRegenerate}</div><div class="overviewMood"><div><p>Defining moments</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div><div class="overviewCommunityNote"><button type="button" onclick="toggleAlbumLibraryUsers(event,this)" aria-expanded="false"><span aria-hidden="true"></span><p>Join listeners who connect with this album every day.</p></button><div class="overviewLibraryUsersPanel hidden">${libraryUserRows}</div></div></div></div></section>`;
 }function renderAlbumOverviewMoments(albumId,tracks){
   const host=$("#overviewMomentChips");
   if(!host)return;
   const album=state.albums.find(x=>albumRef(x.id)===albumRef(albumId));
   const savedNames=album?albumStructuredOverview(album).defining_tracks:[];
   const names=savedNames.length?savedNames:(tracks||[]).slice(0,5).map(track=>track.name).filter(Boolean);
-  host.innerHTML=names.length?names.map(name=>`<span>${escapeHtml(name)}</span>`).join(""):`<span>No defining tracks yet</span>`;
+  host.innerHTML=names.length?names.map(name=>`<button type="button" class="overviewMomentChip" data-track-name="${escapeHtml(name)}" onclick="playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(name)}',this)">${escapeHtml(name)}</button>`).join(""):`<span>No defining tracks yet</span>`;
 }
 function localAlbums(){return JSON.parse(localStorage.getItem("musicaLocalAlbums")||"[]")}
 function saveLocalAlbums(a){localStorage.setItem("musicaLocalAlbums",JSON.stringify(a))}
@@ -2550,9 +2581,27 @@ function rememberProfileSongRating(albumId,key,identity=profileStatsIdentity()){
   saveProfileSongRatingIndex(index);
 }
 function previewPayload(track){return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||""}))}
+function normalizedTrackName(value){return String(value||"").toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[^a-z0-9]+/g," ").trim()}
+function mostLovedTrackWhyLine(track){
+  const name=String(track?.name||"").trim();
+  if(!name)return "Signature album moment";
+  return `Signature ${name} moment`;
+}
+function mostLovedTrackEditorialLine(track){
+  const name=String(track?.name||"").trim();
+  return name?`${name} is the moment listeners return to most.`:"The track listeners return to most.";
+}
+function mostLovedTrackWhyLines(track){
+  const name=String(track?.name||"").trim();
+  return [
+    "Most replayed track on the album",
+    "Frequently cited as the defining moment",
+    name?`${name} anchors the album experience`:"A defining moment in the album experience"
+  ];
+}
 function setPreviewingButton(button){
   document.querySelectorAll(".isPreviewing").forEach(x=>{x.classList.remove("isPreviewing");x.removeAttribute("aria-label");if(x.dataset.playLabel)x.textContent=x.dataset.playLabel});
-  if(button){button.dataset.playLabel=button.dataset.playLabel||button.textContent;button.classList.add("isPreviewing");button.setAttribute("aria-label","Pause sample");button.textContent=""}
+  if(button){button.dataset.playLabel=button.dataset.playLabel||button.textContent;button.classList.add("isPreviewing");button.setAttribute("aria-label","Pause sample");if(!button.classList.contains("overviewMomentChip"))button.textContent=""}
   document.body.classList.toggle("samplePlaying",!!button);
 }
 function releasePreviewAudio(){
@@ -2594,6 +2643,21 @@ window.playTrackPreview=function(payload,button){
   audio.addEventListener("ended",()=>{if(extras.previewToken===token)setPreviewingButton(null)},{once:true});
   audio.addEventListener("error",()=>{if(extras.previewToken===token)setPreviewingButton(null)},{once:true});
   startPreviewAudio(audio,token);
+}
+window.playOverviewMomentPreview=async function(albumId,trackName,button){
+  const album=state.albums.find(x=>albumRef(x.id)===albumRef(albumId));
+  if(!album)return;
+  setPreviewingButton(button);
+  await new Promise(resolve=>requestAnimationFrame(resolve));
+  const ref=albumRef(album.id);
+  const tracks=(extras.tracks[ref]&&extras.tracks[ref].length)?extras.tracks[ref]:await fetchAlbumTracks(album);
+  const wanted=normalizedTrackName(trackName);
+  const track=(tracks||[]).find(item=>normalizedTrackName(item.name)===wanted)||(tracks||[]).find(item=>{
+    const candidate=normalizedTrackName(item.name);
+    return candidate&&wanted&&(candidate.includes(wanted)||wanted.includes(candidate));
+  });
+  if(!track||!track.preview_url){setPreviewingButton(null);alert("Spotify does not provide a 30 second sample for this track.");return}
+  playTrackPreview(previewPayload(track),button);
 }
 function stopTrackPreview(){releasePreviewAudio();extras.previewKey=null;extras.previewToken=null;setPreviewingButton(null)}function trackKey(track){return String(track.name||track.spotify_id||track.id||"").toLowerCase()}
 function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(albumId)}::${key}`]||null}
@@ -3343,7 +3407,8 @@ function renderTrackList(albumId){
     const shareButton=trackShareButtonHtml(albumId,key,track.name);
     return `<div class="linerTrackRow" data-track-key="${escapeHtml(key)}"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${shareButton}<button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button><span class="trackVibePill">${escapeHtml(trackVibe)}</span>${lovedRowAdmin}</div>`;
   }).join("");
-  const featuredHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>&ldquo;The production on this is untouchable. Every bar hits.&rdquo;</p><em>- community review</em>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K</span></div><div class="momentWhy"><strong>Why it hits</strong><span>Most replayed track</span><span>Feel-good classic</span><span>appears in 136 playlists</span></div><div class="featureCover">${coverHtml}</div></section>`;
+  const whyLines=mostLovedTrackWhyLines(first);
+  const featuredHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>Most loved track</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>${escapeHtml(mostLovedTrackEditorialLine(first))}</p><em>- Muze editorial note</em>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong><span>2.1K</span></div><div class="momentWhy"><strong>Why it hits</strong>${whyLines.map(line=>`<span>${escapeHtml(line)}</span>`).join("")}</div><div class="featureCover">${coverHtml}</div></section>`;
   const tableHtml=`<section class="linerTrackTable"><div class="trackTableHead"><span>#</span><span>Title</span><span>Share</span><span>Community score</span><span>Comment</span></div>${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
   host.innerHTML=featuredHtml+tableHtml;
 }
@@ -3640,6 +3705,59 @@ window.scrollAlbumSeeMore=function(event){
   }
   target.scrollIntoView({behavior:"smooth",block:"start"});
 }
+function fitAlbumOverviewPopup(){
+  const popup=$("#albumOverviewPopup");
+  if(!popup||popup.classList.contains("hidden"))return;
+  const panel=popup.querySelector(".albumOverviewPopupPanel");
+  if(!panel)return;
+  if(window.innerWidth>900){
+    popup.style.removeProperty("--overview-mobile-scale");
+    return;
+  }
+  const desktopWidth=760;
+  const available=Math.max(280,panel.clientWidth||window.innerWidth-24);
+  const scale=Math.min(1,available/desktopWidth);
+  popup.style.setProperty("--overview-mobile-scale",scale.toFixed(4));
+}
+if(!window.__albumOverviewFitBound){
+  window.__albumOverviewFitBound=true;
+  window.addEventListener("resize",fitAlbumOverviewPopup);
+  window.addEventListener("resize",()=>requestAnimationFrame(syncOverviewExpandableText));
+}
+function syncOverviewExpandableText(){
+  document.querySelectorAll(".albumOverviewSleeve .overviewFeatureArt blockquote").forEach(quoteBox=>{
+    const text=quoteBox.querySelector(".overviewQuoteText");
+    const popover=quoteBox.parentElement?.querySelector?.(".overviewQuotePopover");
+    if(!text||!popover)return;
+    const clipped=text.scrollHeight>text.clientHeight+1||text.scrollWidth>text.clientWidth+1;
+    quoteBox.classList.toggle("quoteCanExpand",clipped);
+    quoteBox.classList.remove("quotePopoverOpen");
+    popover.classList.add("hidden");
+    quoteBox.setAttribute("aria-expanded","false");
+    if(clipped){
+      quoteBox.setAttribute("role","button");
+      quoteBox.setAttribute("tabindex","0");
+    }else{
+      quoteBox.removeAttribute("role");
+      quoteBox.removeAttribute("tabindex");
+    }
+  });
+  document.querySelectorAll(".albumOverviewSleeve .overviewPoint").forEach(point=>{
+    const text=point.querySelector("p");
+    if(!text)return;
+    point.classList.remove("overviewPointExpanded");
+    const clipped=text.scrollHeight>text.clientHeight+1;
+    point.classList.toggle("overviewPointCanExpand",clipped);
+    point.setAttribute("aria-expanded","false");
+    if(clipped){
+      point.setAttribute("role","button");
+      point.setAttribute("tabindex","0");
+    }else{
+      point.removeAttribute("role");
+      point.removeAttribute("tabindex");
+    }
+  });
+}
 window.openAlbumOverviewPopup=function(){
   const album=state.albums.find(x=>albumRef(x.id)===albumRef(extras.currentAlbumId));
   if(!album)return;
@@ -3658,6 +3776,9 @@ window.openAlbumOverviewPopup=function(){
   }
   popup.innerHTML=`<div class="albumOverviewBackdrop" onclick="closeAlbumOverviewPopup()"></div><div class="albumOverviewPopupPanel"><button class="albumOverviewClose" onclick="closeAlbumOverviewPopup()">&times;</button>${albumOverviewHtml(album,{albumId,coverUrl,albumScore,total,customOverview,canEditOverview})}</div>`;
   popup.classList.remove("hidden");
+  fitAlbumOverviewPopup();
+  requestAnimationFrame(fitAlbumOverviewPopup);
+  requestAnimationFrame(syncOverviewExpandableText);
   renderAlbumOverviewMoments(album.id,extras.tracks[albumRef(album.id)]||[]);
   ensureAiAlbumOverview(album,extras.tracks[albumRef(album.id)]||[]);
 }
@@ -4522,6 +4643,63 @@ function albumLibrarySaveCount(album){
     total+=countSource({items:myLibraryItems()},String(state.deviceId));
   }
   return total;
+}
+function albumLibrarySaveUsers(album){
+  const seen=new Set();
+  const rows=[];
+  const addLibrary=(library,key)=>{
+    if(!library||seen.has(key))return;
+    const items=Array.isArray(library.items)?library.items:[];
+    if(!hasMatchingAlbum(items,album))return;
+    seen.add(key);
+    const username=String(library.username||library.name||"Listener").trim()||"Listener";
+    rows.push({username,title:library.title||`${username}'s Library`,id:library.id||"",device_id:library.device_id||""});
+  };
+  extras.libraries.forEach((library,index)=>addLibrary(library,String(library.device_id||library.id||library.username||index)));
+  if(myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))){
+    const username=profileLibraryUsername()||currentUsername()||"You";
+    addLibrary({items:myLibraryItems(),username,title:`${username}'s Library`,device_id:state.deviceId},String(state.deviceId));
+  }
+  return rows.sort((a,b)=>a.username.localeCompare(b.username));
+}
+window.toggleAlbumLibraryUsers=function(event,button){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const note=button?.closest?.(".overviewCommunityNote");
+  const panel=note?.querySelector?.(".overviewLibraryUsersPanel");
+  if(!panel)return;
+  const willOpen=panel.classList.contains("hidden");
+  document.querySelectorAll(".overviewLibraryUsersPanel").forEach(item=>item.classList.add("hidden"));
+  document.querySelectorAll(".overviewCommunityNote button[aria-expanded]").forEach(item=>item.setAttribute("aria-expanded","false"));
+  panel.classList.toggle("hidden",!willOpen);
+  button.setAttribute("aria-expanded",willOpen?"true":"false");
+}
+window.toggleOverviewIntro=function(event,button){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const section=button?.closest?.(".albumOverviewSleeve");
+  if(!section)return;
+  const expanded=section.classList.toggle("overviewIntroExpanded");
+  button.textContent=expanded?"Show Less":"Read More \u2192";
+  button.setAttribute("aria-expanded",expanded?"true":"false");
+}
+window.toggleOverviewQuote=function(event,quoteBox){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  if(!quoteBox?.classList?.contains("quoteCanExpand"))return;
+  const popover=quoteBox?.parentElement?.querySelector?.(".overviewQuotePopover");
+  if(!popover)return;
+  const willOpen=popover.classList.contains("hidden");
+  popover.classList.toggle("hidden",!willOpen);
+  quoteBox.classList.toggle("quotePopoverOpen",willOpen);
+  quoteBox.setAttribute("aria-expanded",willOpen?"true":"false");
+}
+window.toggleOverviewPoint=function(event,point){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  if(!point?.classList?.contains("overviewPointCanExpand"))return;
+  const expanded=point.classList.toggle("overviewPointExpanded");
+  point.setAttribute("aria-expanded",expanded?"true":"false");
 }
 function profileLibraryUsername(){return (currentUsername()||state.userProfile?.username||savedProfileUsername()||"").trim()}
 function libraryRecordWeight(library){
@@ -6077,17 +6255,52 @@ window.scrollChatEmojiSection=function(label){
   });
 }
 window.setLibrarySearch=function(value){state.librarySearch=value;librariesView()}
+function scrollToHomepageAlbums(){
+  requestAnimationFrame(()=>{
+    const target=document.querySelector(".tabs")||document.querySelector("#content .sectionTitle")||content;
+    if(!target)return;
+    const top=target.getBoundingClientRect().top+window.scrollY-22;
+    window.scrollTo({top:Math.max(0,top),behavior:"smooth"});
+  });
+}
 window.findMoreLibraryAlbums=function(){
   state.view="rankings";
   state.search="";
   state.genre="All";
   state.sort="score";
-  document.querySelectorAll(".tab").forEach(button=>button.classList.toggle("active",button.dataset.view==="rankings"));
+  document.querySelectorAll(".tab,.navItem[data-view]").forEach(button=>button.classList.toggle("active",button.dataset.view==="rankings"));
+  render();
+  closeNav();
+  scrollToHomepageAlbums();
+}
+window.openAlbumOverviewFilter=function(type,value){
+  const clean=String(value||"").trim();
+  if(!clean)return;
+  state.view="rankings";
+  state.sort="score";
+  if(type==="genre"){
+    state.genre=clean;
+    state.search="";
+  }else{
+    state.genre="All";
+    state.search=clean;
+  }
+  const searchInput=$("#searchInput");
+  const genreFilter=$("#genreFilter");
+  if(searchInput)searchInput.value=state.search;
+  if(genreFilter)genreFilter.value=state.genre;
+  $("#albumModal")?.classList.add("hidden");
+  $("#albumOverviewPopup")?.classList.add("hidden");
+  document.querySelectorAll(".tab,.navItem[data-view]").forEach(button=>button.classList.toggle("active",button.dataset.view==="rankings"));
   render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function genres(){return["All",...new Set([...state.albums.map(albumGenreLabel).filter(Boolean),"Classical","Soundtracks","International"])]}
-function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();const label=albumGenreLabel(x);return(state.genre==="All"||label===state.genre)&&(`${x.title} ${x.artist} ${genreSearchText(x)}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
+function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();const label=albumGenreLabel(x);return(state.genre==="All"||label===state.genre)&&(`${x.title} ${x.artist} ${x.year||""} ${genreSearchText(x)}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
+function scheduleHomeSearchRender(){
+  clearTimeout(homeSearchRenderTimer);
+  homeSearchRenderTimer=setTimeout(()=>{homeSearchRenderTimer=0;render()},120);
+}
 function card(a){const genreLabel=albumGenreLabel(a);return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button><div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(genreLabel)}</span></div></article>`}
 function row(a,i){const genreLabel=albumGenreLabel(a);return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(genreLabel)} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
 function render(){let arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;const heroCard=$("#heroCard");if(heroCard){if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}}$("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("");
@@ -6226,7 +6439,9 @@ function renderListenerCards(comments,albumId=extras.currentAlbumId||""){
     const commentId=String(c.id||c.local_id||`${ref}-${i}`);
     const safeId=domSafeId(commentId);
     const avatar=avatarMarkupForAuthor(c,c.name||"Listener","listenerCardAvatar");
-    return `<article class="listenerCard">${avatar}<div><strong>${name}</strong><span>${timeAgo(c.created_at)}</span></div><p>${escapeHtml(c.comment||c.text||"")}</p><div class="listenerCardActions">${reactionLikeButton(albumId,c,"listenerLikeButton")}<button type="button" class="listenerReplyButton" onclick="openListenerCardReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(rawName)}')">Reply</button></div><div id="listenerReplyBox-${safeId}" class="listenerReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${name}..."></textarea><div><button type="button" onclick="submitListenerCardReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeListenerCardReply('${escapeJsString(commentId)}')">Cancel</button></div></div></article>`;
+    const songLabel=c.reaction_type==="song_comment"?(c.track_name||c.track_key||"Song"):"";
+    const songMeta=songLabel?`<small class="listenerSongLabel">${escapeHtml(songLabel)}</small>`:"";
+    return `<article class="listenerCard">${avatar}<div><strong>${name}</strong><span>${timeAgo(c.created_at)}</span></div>${songMeta}<p>${escapeHtml(c.comment||c.text||"")}</p><div class="listenerCardActions">${reactionLikeButton(albumId,c,"listenerLikeButton")}<button type="button" class="listenerReplyButton" onclick="openListenerCardReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}','${escapeJsString(rawName)}')">Reply</button></div><div id="listenerReplyBox-${safeId}" class="listenerReplyBox hidden"><textarea maxlength="300" placeholder="Reply to ${name}..."></textarea><div><button type="button" onclick="submitListenerCardReply('${escapeJsString(albumId)}','${escapeJsString(commentId)}')">Reply</button><button type="button" onclick="closeListenerCardReply('${escapeJsString(commentId)}')">Cancel</button></div></div></article>`;
   }).join(""):`<div class="listenerCard empty">No listener reactions yet.</div>`;
 }function albumHeroPullQuotes(album){
   const text=`${album.title||""} ${album.artist||""} ${albumGenreLabel(album)}`.toLowerCase();
@@ -6589,7 +6804,7 @@ function handleNavViewAction(event){
   navigateToView(view);
 }
 document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>{t.onclick=handleNavViewAction;t.addEventListener("pointerup",handleNavViewAction);t.addEventListener("touchend",handleNavViewAction,{passive:false})});
-$("#searchInput").oninput=e=>{state.search=e.target.value;render()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
+$("#searchInput").oninput=e=>{state.search=e.target.value;scheduleHomeSearchRender()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
 document.addEventListener("visibilitychange",()=>{if(document.hidden)updateOwnPresence(false);else startPresenceHeartbeat()});
 window.addEventListener("pagehide",()=>updateOwnPresence(false));
 initAuth();
