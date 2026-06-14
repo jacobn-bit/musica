@@ -187,7 +187,15 @@ create table if not exists track_comments (
 alter table track_comments add column if not exists user_id uuid references auth.users(id) on delete set null;
 alter table track_comments add column if not exists avatar_url text;
 
+create table if not exists track_comment_likes (
+  comment_id uuid references track_comments(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (comment_id, user_id)
+);
+
 alter table track_comments enable row level security;
+alter table track_comment_likes enable row level security;
 
 drop policy if exists "Anyone can read track comments" on track_comments;
 create policy "Anyone can read track comments" on track_comments for select using (true);
@@ -198,6 +206,21 @@ create policy "Authenticated users can add track comments" on track_comments
 for insert
 to authenticated
 with check (true);
+
+drop policy if exists "Anyone can read track comment likes" on track_comment_likes;
+create policy "Anyone can read track comment likes" on track_comment_likes for select using (true);
+
+drop policy if exists "Authenticated users can like track comments" on track_comment_likes;
+create policy "Authenticated users can like track comments" on track_comment_likes
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Authenticated users can unlike track comments" on track_comment_likes;
+create policy "Authenticated users can unlike track comments" on track_comment_likes
+for delete
+to authenticated
+using (auth.uid() = user_id);
 
 drop policy if exists "Anyone can delete track comments" on track_comments;
 
