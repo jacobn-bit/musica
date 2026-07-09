@@ -7059,7 +7059,6 @@ body.light .authPanel .adminOverviewUnlock{
     grid-column:1/-1!important;
   }
 }
-
 /* Reference-tight Listener Reactions spacing and filter controls */
 .reactionsPanel .reactionAtmosphere{
   min-height:172px!important;
@@ -9010,10 +9009,146 @@ body.light .authPanel .adminOverviewUnlock{
 .backCoverZoomStage{position:absolute!important;inset:0!important;overflow:hidden!important;cursor:zoom-in!important;touch-action:none!important;user-select:none!important;background:linear-gradient(145deg,rgba(255,255,255,.025),rgba(0,0,0,.12))!important;}
 .backCoverZoomStage.isZoomed{cursor:grab!important;}
 .backCoverZoomStage.dragging{cursor:grabbing!important;}
-.backCoverZoomStage img{position:absolute!important;left:50%!important;top:50%!important;display:block!important;width:auto!important;max-width:100%!important;height:auto!important;max-height:100%!important;image-rendering:-webkit-optimize-contrast!important;user-select:none!important;-webkit-user-drag:none!important;transform:translate(-50%,-50%) translate3d(var(--back-cover-zoom-x,0px),var(--back-cover-zoom-y,0px),0) scale(var(--back-cover-zoom-scale,1))!important;transform-origin:center center!important;transition:transform .18s ease,filter .24s ease!important;filter:saturate(1.05) contrast(1.08) brightness(1.015)!important;}
-.backCoverZoomStage.isZoomed img{filter:saturate(1.06) contrast(1.12) brightness(1.02)!important;}
+.backCoverZoomStage img{position:absolute!important;left:50%!important;top:50%!important;display:block!important;width:auto!important;max-width:100%!important;height:auto!important;max-height:100%!important;image-rendering:-webkit-optimize-contrast!important;user-select:none!important;-webkit-user-drag:none!important;transform:translate(-50%,-50%) translate3d(var(--back-cover-zoom-x,0px),var(--back-cover-zoom-y,0px),0) scale(var(--back-cover-zoom-scale,1))!important;transform-origin:center center!important;transition:transform .18s ease,filter .24s ease!important;filter:saturate(1.12) contrast(1.14) brightness(1.03)!important;}
+.backCoverZoomStage.isZoomed img{filter:saturate(1.18) contrast(1.22) brightness(1.04)!important;}
 .backCoverZoomStage.dragging img,.backCoverZoomStage.pinching img{transition:filter .24s ease!important;}
+.backCoverZoomStage img{
+  filter:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='backCoverSharpenSoft'%3E%3CfeConvolveMatrix order='3' kernelMatrix='0 -.5 0 -.5 3 -.5 0 -.5 0' preserveAlpha='true'/%3E%3C/filter%3E%3C/svg%3E#backCoverSharpenSoft") saturate(1.14) contrast(1.17) brightness(1.035)!important;
+}
+.backCoverZoomStage.isZoomed img{
+  filter:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='backCoverSharpenSoft'%3E%3CfeConvolveMatrix order='3' kernelMatrix='0 -.5 0 -.5 3 -.5 0 -.5 0' preserveAlpha='true'/%3E%3C/filter%3E%3C/svg%3E#backCoverSharpenSoft") saturate(1.20) contrast(1.25) brightness(1.045)!important;
+}
 .backCoverZoomClose{position:absolute!important;right:18px!important;top:16px!important;z-index:2!important;width:42px!important;height:42px!important;border-radius:50%!important;border:1px solid rgba(255,255,255,.18)!important;background:rgba(0,0,0,.62)!important;color:#fff!important;font-size:26px!important;line-height:1!important;display:grid!important;place-items:center!important;}
+
+/* Full Muze album review */
+.muzeAlbumReview{
+  margin:22px 0!important;
+  padding:22px!important;
+  border-radius:18px!important;
+  border:1px solid rgba(255,213,31,.18)!important;
+  background:radial-gradient(circle at 12% 0%,rgba(255,213,31,.13),transparent 30%),linear-gradient(145deg,rgba(255,255,255,.055),rgba(0,0,0,.28))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 22px 70px rgba(0,0,0,.26)!important;
+  display:grid!important;
+  gap:14px!important;
+}
+.muzeReviewHead span,
+.muzeReviewSection span,
+.muzeReviewMetric span,
+.muzeReviewIntensity span{
+  color:#ffd51f!important;
+  font-size:11px!important;
+  font-weight:950!important;
+  letter-spacing:.11em!important;
+  text-transform:uppercase!important;
+}
+.muzeReviewHead h3{
+  margin:6px 0 0!important;
+  color:#fff!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:30px!important;
+  line-height:1.05!important;
+  font-weight:500!important;
+}
+.muzeReviewSection{
+  padding:16px!important;
+  border-radius:14px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  background:rgba(0,0,0,.24)!important;
+}
+.muzeReviewSection p{
+  margin:8px 0 0!important;
+  color:rgba(255,255,255,.78)!important;
+  font-size:14px!important;
+  line-height:1.55!important;
+}
+.muzeReviewSection.lead p,
+.muzeReviewSection.verdict p{
+  color:rgba(255,255,255,.86)!important;
+  font-size:15px!important;
+}
+.muzeReviewPills{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:8px!important;
+  margin-top:10px!important;
+}
+.muzeReviewPills b{
+  border:1px solid rgba(255,213,31,.20)!important;
+  border-radius:999px!important;
+  padding:7px 10px!important;
+  background:rgba(255,213,31,.08)!important;
+  color:rgba(255,255,255,.84)!important;
+  font-size:12px!important;
+}
+.muzeReviewMetrics{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+}
+.muzeReviewMetric,
+.muzeReviewIntensity{
+  padding:16px!important;
+  border-radius:14px!important;
+  border:1px solid rgba(255,213,31,.16)!important;
+  background:rgba(0,0,0,.30)!important;
+}
+.muzeReviewMetric strong{
+  display:block!important;
+  margin-top:6px!important;
+  color:#ffd51f!important;
+  font-size:34px!important;
+  line-height:1!important;
+}
+.muzeReviewIntensity div{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+.muzeReviewIntensity strong{
+  color:#ffd51f!important;
+  font-size:24px!important;
+}
+.muzeReviewIntensity i{
+  display:block!important;
+  height:8px!important;
+  margin:10px 0!important;
+  border-radius:999px!important;
+  background:linear-gradient(90deg,rgba(125,168,255,.32),rgba(255,213,31,.18),rgba(255,83,83,.32))!important;
+  overflow:hidden!important;
+}
+.muzeReviewIntensity i b{
+  display:block!important;
+  width:var(--w)!important;
+  height:100%!important;
+  border-radius:inherit!important;
+  background:linear-gradient(90deg,#8eb6ff,#ffd51f,#ff6b6b)!important;
+}
+.muzeReviewIntensity p{
+  margin:0!important;
+  color:rgba(255,255,255,.72)!important;
+  font-size:13px!important;
+  line-height:1.45!important;
+}
+.reviewEditorBlock{
+  margin-top:18px!important;
+  padding-top:18px!important;
+  border-top:1px solid rgba(255,213,31,.18)!important;
+}
+.overviewEditorInput{
+  width:100%!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:12px!important;
+  background:rgba(0,0,0,.28)!important;
+  color:#fff!important;
+  padding:11px 12px!important;
+  font:inherit!important;
+}
+@media(max-width:760px){
+  .muzeReviewMetrics{grid-template-columns:1fr!important}
+  .muzeAlbumReview{padding:16px!important}
+  .muzeReviewHead h3{font-size:24px!important}
+}
 .backCoverZoomHint{position:absolute!important;left:18px!important;bottom:16px!important;z-index:2!important;padding:8px 12px!important;border-radius:999px!important;border:1px solid rgba(212,175,55,.20)!important;background:rgba(0,0,0,.62)!important;color:rgba(255,255,255,.82)!important;font-size:12px!important;font-weight:800!important;letter-spacing:.03em!important;box-shadow:0 14px 34px rgba(0,0,0,.32)!important;}
 @media(max-width:1050px){.backCoverZoomHotspot{display:none!important;}.backCoverZoomPanel{width:100vw!important;height:100vh!important;border-radius:0!important;border-left:0!important;border-right:0!important;}.backCoverZoomViewer{padding:0!important;}}
 
@@ -11912,7 +12047,7 @@ body:has(#albumModal:not(.hidden)){
 }
 .linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover img{
   transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(var(--back-cover-inline-scale,1.5))!important;
-  filter:saturate(1.04) contrast(1.03)!important;
+  filter:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='backCoverSharpenSoft'%3E%3CfeConvolveMatrix order='3' kernelMatrix='0 -.5 0 -.5 3 -.5 0 -.5 0' preserveAlpha='true'/%3E%3C/filter%3E%3C/svg%3E#backCoverSharpenSoft") saturate(1.16) contrast(1.21) brightness(1.04)!important;
 }
 .linerCoverFlip.backCoverInlineZoomed .linerCoverBack .cover{
   cursor:grab!important;
@@ -12334,10 +12469,10 @@ body:has(#albumModal:not(.hidden)){
   transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(var(--back-cover-inline-scale,1.5))!important;
 }
 .linerCoverFlip.highway61BackCrop .linerCoverBack .cover img{
-  object-fit:cover!important;
-  object-position:left center!important;
-  transform:scale(1.36)!important;
-  transform-origin:left center!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(1)!important;
+  transform-origin:center center!important;
 }
 .linerCoverFlip.highway61BackCrop.backCoverInlineZoomed .linerCoverBack .cover img{
   transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(var(--back-cover-inline-scale,1.5))!important;
@@ -12351,8 +12486,8 @@ body:has(#albumModal:not(.hidden)){
     transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(var(--back-cover-inline-scale,1.5))!important;
   }
   .linerCoverFlip.highway61BackCrop .linerCoverBack .cover img{
-    object-position:left center!important;
-    transform:scale(1.38)!important;
+    object-position:center center!important;
+    transform:translate3d(var(--back-cover-pan-x,0px),var(--back-cover-pan-y,0px),0) scale(1)!important;
   }
   .linerCoverFlip.offTheWallBackCrop .linerCoverBack .cover img{
     object-position:center center!important;
@@ -14697,8 +14832,8 @@ body.chatView .simpleMessengerChat{
     order:2!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack{
-    min-height:300px!important;
-    padding:22px 300px 20px 44px!important;
+    min-height:80px!important;
+    padding:6px 300px 5px 44px!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack .featurePlay{
     width:42px!important;
@@ -14717,17 +14852,181 @@ body.chatView .simpleMessengerChat{
     line-height:1.35!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackScore{
-    top:78px!important;
+    top:21px!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack .momentWhy{
-    top:24px!important;
-    padding:16px 20px!important;
+    top:7px!important;
+    padding:5px 20px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .singleArtMoment{
+    display:grid!important;
+    place-items:center!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .singleArtMoment img{
+    width:70px!important;
+    height:70px!important;
+    border-radius:8px!important;
+    object-fit:cover!important;
+    box-shadow:0 10px 24px rgba(0,0,0,.34)!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack .momentWhy strong{
     margin-bottom:8px!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack .momentWhy span{
     margin-top:8px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack{
+    min-height:56px!important;
+    height:auto!important;
+    grid-template-columns:54px minmax(0,1fr) 64px 96px!important;
+    gap:12px!important;
+    align-items:center!important;
+    padding:10px 16px!important;
+    border-radius:14px!important;
+    border-color:rgba(255,213,31,.24)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 18px 52px rgba(0,0,0,.30),0 0 28px rgba(255,213,31,.055)!important;
+    background:rgba(4,5,6,.72)!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack:before{
+    background:
+      linear-gradient(90deg,rgba(0,0,0,.95) 0%,rgba(0,0,0,.76) 42%,rgba(0,0,0,.84) 100%),
+      var(--moment-cover),
+      var(--album-cover)!important;
+    background-size:cover!important;
+    background-position:var(--moment-focus,50% 38%)!important;
+    opacity:.78!important;
+    filter:blur(12px) saturate(.82) brightness(.72) contrast(1.08)!important;
+    transform:scale(1.08)!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack:after{
+    background:linear-gradient(90deg,rgba(3,4,5,.70),rgba(3,4,5,.22) 48%,rgba(3,4,5,.64)),radial-gradient(circle at 18% 50%,rgba(255,213,31,.16),transparent 24%)!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .momentIcon{
+    display:none!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featurePlay{
+    position:relative!important;
+    left:auto!important;
+    top:auto!important;
+    grid-column:1!important;
+    width:46px!important;
+    height:46px!important;
+    border-radius:50%!important;
+    border:1px solid rgba(255,213,31,.82)!important;
+    background:radial-gradient(circle at 50% 50%,rgba(255,213,31,.20),rgba(0,0,0,.42))!important;
+    color:#ffd51f!important;
+    box-shadow:0 0 22px rgba(255,213,31,.18),inset 0 1px 0 rgba(255,255,255,.10)!important;
+    font-size:18px!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackCopy{
+    grid-column:2!important;
+    max-width:none!important;
+    min-width:0!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackCopy span{
+    display:inline-flex!important;
+    width:max-content!important;
+    margin:0 0 5px!important;
+    padding:4px 8px!important;
+    border:1px solid rgba(255,213,31,.26)!important;
+    border-radius:999px!important;
+    background:rgba(255,213,31,.10)!important;
+    color:#ffd51f!important;
+    font-size:10px!important;
+    line-height:1!important;
+    font-weight:950!important;
+    letter-spacing:.10em!important;
+    text-transform:uppercase!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackCopy h4{
+    margin:0 0 6px!important;
+    color:#fff!important;
+    font-family:Georgia,"Times New Roman",serif!important;
+    font-size:26px!important;
+    line-height:1!important;
+    letter-spacing:0!important;
+    text-shadow:0 4px 18px rgba(0,0,0,.72)!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackCopy p{
+    max-width:620px!important;
+    margin:0!important;
+    color:rgba(255,255,255,.76)!important;
+    font-size:13px!important;
+    line-height:1.35!important;
+    font-style:normal!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackCopy em{
+    display:none!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave{
+    display:flex!important;
+    width:min(100%,340px)!important;
+    height:16px!important;
+    margin:2px 0 6px!important;
+    gap:4px!important;
+    align-items:center!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i{
+    flex:1 1 0!important;
+    min-width:8px!important;
+    width:auto!important;
+    border-radius:999px!important;
+    background:linear-gradient(90deg,rgba(255,213,31,.45),rgba(255,238,141,.95),rgba(255,213,31,.42))!important;
+    box-shadow:0 0 12px rgba(255,213,31,.22)!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(1),
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(11){height:4px!important;}
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(2),
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(10){height:8px!important;}
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(3),
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(9){height:12px!important;}
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(4),
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(8){height:15px!important;}
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(5),
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(7){height:14px!important;}
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureWave i:nth-child(6){height:16px!important;}
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackScore{
+    position:relative!important;
+    left:auto!important;
+    top:auto!important;
+    grid-column:3!important;
+    display:grid!important;
+    place-items:center!important;
+    justify-self:center!important;
+    width:56px!important;
+    height:56px!important;
+    border-radius:14px!important;
+    background:rgba(0,0,0,.42)!important;
+    border:1px solid rgba(255,213,31,.22)!important;
+    text-align:center!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackScore strong{
+    font-size:18px!important;
+    line-height:1!important;
+    color:#ffd51f!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .featureTrackScore span{
+    display:none!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .singleArtMoment{
+    position:relative!important;
+    right:auto!important;
+    top:auto!important;
+    grid-column:4!important;
+    width:96px!important;
+    height:62px!important;
+    padding:4px!important;
+    border-radius:12px!important;
+    background:rgba(0,0,0,.42)!important;
+    border:1px solid rgba(255,213,31,.22)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05)!important;
+  }
+  #albumModal .albumTrackSections .linerFeaturedTrack .singleArtMoment img{
+    width:54px!important;
+    height:54px!important;
+    border-radius:8px!important;
+    object-fit:cover!important;
+    box-shadow:0 10px 26px rgba(0,0,0,.42)!important;
   }
 }
 
@@ -15850,4 +16149,25 @@ body.light .topbarChatButton{
   background:#111827!important;
   border-color:rgba(17,24,39,.10)!important;
   color:#fff!important;
+}
+
+.albumTrackSections .trackEditorialBadge{
+  display:inline-flex;
+  align-items:center;
+  margin-left:7px;
+  padding:2px 6px;
+  border-radius:999px;
+  border:1px solid rgba(242,201,76,.28);
+  background:rgba(242,201,76,.08);
+  color:#ffd51f;
+  font-size:9px;
+  line-height:1;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  vertical-align:middle;
+}
+.albumTrackSections .trackEditorialBadge.defining{
+  color:rgba(255,255,255,.68);
+  border-color:rgba(255,255,255,.14);
+  background:rgba(255,255,255,.055);
 }

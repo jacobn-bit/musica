@@ -454,6 +454,23 @@ alter table album_overviews add column if not exists hero_focus text;
 alter table album_overviews add column if not exists overview_focus text;
 alter table album_overviews add column if not exists moment_focus text;
 
+-- Generated + editable Muze album reviews
+alter table album_overviews add column if not exists review_overview text;
+alter table album_overviews add column if not exists review_sound text;
+alter table album_overviews add column if not exists review_impact text;
+alter table album_overviews add column if not exists review_legacy text;
+alter table album_overviews add column if not exists review_tagline text;
+alter table album_overviews add column if not exists review_alternative_taglines jsonb not null default '[]'::jsonb;
+alter table album_overviews add column if not exists review_defining_moments jsonb not null default '[]'::jsonb;
+alter table album_overviews add column if not exists review_muze_score numeric;
+alter table album_overviews add column if not exists review_minimum_raters int;
+alter table album_overviews add column if not exists review_closing_verdict text;
+alter table album_overviews add column if not exists review_mellow_intense_score int;
+alter table album_overviews add column if not exists review_mellow_intense_explanation text;
+alter table album_overviews add column if not exists review_generated_at timestamptz;
+alter table album_overviews add column if not exists review_generation_model text;
+alter table album_overviews add column if not exists review_manual_fields jsonb not null default '[]'::jsonb;
+
 -- Muze user profile avatars
 -- Existing auth users are preserved; this only adds profile/avatar storage.
 -- Users can browse publicly without a profile row.
