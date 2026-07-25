@@ -10618,6 +10618,43 @@ body{
   font-weight:850!important;
   color:rgba(255,252,238,.88)!important;
 }
+.heroSideCard.influence .influenceFull{
+  display:none!important;
+}
+.heroSideCard.influence.is-expanded .influencePreview{
+  display:none!important;
+}
+.heroSideCard.influence.is-expanded .influenceFull{
+  display:block!important;
+}
+.heroSideCard.influence .influenceExpandHint{
+  display:none!important;
+}
+@media(min-width:1051px){
+  #albumModal .heroSideCard.influence.is-collapsible{
+    cursor:pointer!important;
+  }
+  #albumModal .heroSideCard.influence.is-collapsible:focus-visible{
+    outline:2px solid rgba(255,213,31,.62)!important;
+    outline-offset:4px!important;
+  }
+  #albumModal .heroSideCard.influence .influenceExpandHint{
+    display:block!important;
+    margin-top:10px!important;
+    color:#ffd51f!important;
+    font-size:9px!important;
+    font-weight:900!important;
+    letter-spacing:.08em!important;
+    text-transform:uppercase!important;
+  }
+  #albumModal .heroSideCard.influence .influenceExpandHint b{
+    font-weight:900!important;
+  }
+  #albumModal .heroSideCard.influence.is-expanded .influenceExpandHint b:first-child,
+  #albumModal .heroSideCard.influence:not(.is-expanded) .influenceExpandHint b:last-child{
+    display:none!important;
+  }
+}
 
 /* Insight card balance pass: readable supporting text, not dominant */
 .heroSideCard p{
