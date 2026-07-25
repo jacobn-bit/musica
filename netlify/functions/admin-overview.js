@@ -72,6 +72,34 @@ exports.handler = async function(event) {
       }
       return text ? JSON.parse(text) : null;
     };
+    const missingColumnFromError = error => {
+      const raw = String(error?.message || error || "");
+      let message = raw;
+      try { message = JSON.parse(raw).message || message; } catch (_) {}
+      const match = message.match(/Could not find the '([^']+)' column/);
+      return match ? match[1] : "";
+    };
+    const postAlbumOverview = async payload => {
+      const strippedColumns = [];
+      let nextPayload = { ...payload };
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        try {
+          const rows = await api("album_overviews", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+            body: JSON.stringify(nextPayload)
+          });
+          return { rows, strippedColumns };
+        } catch (error) {
+          const missingColumn = missingColumnFromError(error);
+          if (!missingColumn || !Object.prototype.hasOwnProperty.call(nextPayload, missingColumn)) throw error;
+          strippedColumns.push(missingColumn);
+          delete nextPayload[missingColumn];
+          console.warn("[Muze admin] album_overviews column missing; saving without it", missingColumn);
+        }
+      }
+      throw new Error("Could not save album overview after removing missing schema columns.");
+    };
 
     const normalizeAlbumKey = value => String(value || "")
       .toLowerCase()
@@ -145,12 +173,8 @@ exports.handler = async function(event) {
       if (!album_key || !title) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key and title are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ album_key, title, artist, overview, ...overviewFieldPayload(), fallback_generated: false, manual_override: true, updated_at: new Date().toISOString() })
-      });
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
+      const { rows, strippedColumns } = await postAlbumOverview({ album_key, title, artist, overview, ...overviewFieldPayload(), fallback_generated: false, manual_override: true, updated_at: new Date().toISOString() });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null, strippedColumns }) };
     }
 
 
@@ -164,11 +188,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || !hero_focus) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and hero focus are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ hero_focus }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ hero_focus }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
@@ -177,11 +197,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || !overview_focus) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and overview focus are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ overview_focus }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ overview_focus }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
@@ -190,11 +206,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || !moment_focus) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and moment focus are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ moment_focus }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ moment_focus }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
@@ -203,11 +215,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || admin_score === null || !Number.isFinite(admin_score) || admin_score < 0 || admin_score > 10) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and score from 0 to 10 are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ admin_score }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ admin_score }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
@@ -218,11 +226,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || !manual_genre) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and genre are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ manual_genre }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ manual_genre }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
     if (action === "set_mood_score") {
@@ -230,11 +234,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || mood_score === null || !Number.isFinite(mood_score)) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and mood value from 0 to 100 are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ mood_score }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ mood_score }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
@@ -243,11 +243,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || admin_ratings_count === null || !Number.isFinite(admin_ratings_count)) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and rating count are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ admin_ratings_count }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ admin_ratings_count }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
@@ -256,11 +252,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || !loved_track_key) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and track are required." }) };
       }
-      const rows = await api("album_overviews", {
-        method: "POST",
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(overviewPatchPayload({ loved_track_key, loved_track_name }))
-      });
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ loved_track_key, loved_track_name }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
