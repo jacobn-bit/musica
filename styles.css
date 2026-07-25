@@ -10620,6 +10620,15 @@ body{
 }
 .heroSideCard.influence .influenceFull{
   display:none!important;
+  white-space:normal!important;
+}
+.linerHeroCopy > p,
+.linerHeroSoul p,
+.linerHeroSoul h3,
+.communityPulse,
+.heroSideCard.influence .influencePreview,
+.heroSideCard.influence .influenceFull{
+  white-space:normal!important;
 }
 .heroSideCard.influence.is-expanded .influencePreview{
   display:none!important;
