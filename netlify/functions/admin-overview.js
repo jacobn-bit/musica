@@ -99,6 +99,12 @@ exports.handler = async function(event) {
     const overview_focus = String(body.overview_focus || "").trim();
     const moment_focus = String(body.moment_focus || "").trim();
     const cleanText = value => String(value || "").replace(/\s+/g, " ").trim();
+    const cleanParagraphText = value => String(value || "")
+      .replace(/\r\n?/g, "\n")
+      .split(/\n{2,}/)
+      .map(paragraph => paragraph.replace(/[ \t\f\v]+/g, " ").replace(/\n/g, " ").trim())
+      .filter(Boolean)
+      .join("\n\n");
     const cleanTextList = value => {
       if (Array.isArray(value)) return value.map(item => cleanText(item)).filter(Boolean);
       return String(value || "").split(/\n|,/).map(item => cleanText(item)).filter(Boolean);
@@ -106,10 +112,20 @@ exports.handler = async function(event) {
     const overviewFieldPayload = () => {
       const fields = {};
       ["intro_summary", "sound_summary", "impact_summary", "legacy_summary", "quote_headline"].forEach(key => {
-        if (Object.prototype.hasOwnProperty.call(body, key)) fields[key] = cleanText(body[key]);
+        if (Object.prototype.hasOwnProperty.call(body, key)) fields[key] = cleanParagraphText(body[key]);
       });
       if (Object.prototype.hasOwnProperty.call(body, "defining_tracks")) fields.defining_tracks = cleanTextList(body.defining_tracks);
       if (Object.prototype.hasOwnProperty.call(body, "sources_used")) fields.sources_used = Array.isArray(body.sources_used) ? body.sources_used : cleanTextList(body.sources_used);
+      const reviewTextFields = ["review_overview", "review_sound", "review_impact", "review_legacy", "review_tagline", "review_closing_verdict", "review_mellow_intense_explanation"];
+      reviewTextFields.forEach(key => {
+        if (Object.prototype.hasOwnProperty.call(body, key)) fields[key] = cleanParagraphText(body[key]);
+      });
+      if (Object.prototype.hasOwnProperty.call(body, "review_alternative_taglines")) fields.review_alternative_taglines = cleanTextList(body.review_alternative_taglines);
+      if (Object.prototype.hasOwnProperty.call(body, "review_defining_moments")) fields.review_defining_moments = cleanTextList(body.review_defining_moments);
+      if (Object.prototype.hasOwnProperty.call(body, "review_muze_score")) fields.review_muze_score = Math.max(0, Math.min(9.7, Math.round(Number(body.review_muze_score || 0) * 10) / 10));
+      if (Object.prototype.hasOwnProperty.call(body, "review_minimum_raters")) fields.review_minimum_raters = Math.max(0, Math.round(Number(body.review_minimum_raters || 0)));
+      if (Object.prototype.hasOwnProperty.call(body, "review_mellow_intense_score")) fields.review_mellow_intense_score = Math.max(0, Math.min(100, Math.round(Number(body.review_mellow_intense_score || 0))));
+      if (Object.prototype.hasOwnProperty.call(body, "review_manual_fields")) fields.review_manual_fields = cleanTextList(body.review_manual_fields);
       if (album_id) fields.album_id = album_id;
       return fields;
     };
