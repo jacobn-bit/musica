@@ -101,8 +101,12 @@ exports.handler = async function(event) {
     const cleanText = value => String(value || "").replace(/\s+/g, " ").trim();
     const cleanParagraphText = value => String(value || "")
       .replace(/\r\n?/g, "\n")
-      .split(/\n{2,}/)
-      .map(paragraph => paragraph.replace(/[ \t\f\v]+/g, " ").replace(/\n/g, " ").trim())
+      .split("\n")
+      .map(line => line.replace(/[ \t\f\v]+/g, " ").trim())
+      .join("\n")
+      .replace(/\n{4,}/g, "\n\n\n")
+      .split(/\n{3,}/)
+      .map(section => section.trim())
       .filter(Boolean)
       .join("\n\n");
     const cleanTextList = value => {
