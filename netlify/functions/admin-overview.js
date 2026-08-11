@@ -222,7 +222,11 @@ exports.handler = async function(event) {
     if (action === "set_album_genre") {
       const overview = String(body.overview || "").trim();
       if (!title && album_key) title = album_key;
-      if (!album_key && title) album_key = normalizeAlbumKey(title);
+      if (!album_key && title) {
+        const titleKey = normalizeAlbumKey(title);
+        const artistKey = normalizeAlbumKey(artist);
+        album_key = titleKey && artistKey ? `${artistKey} ${titleKey}` : titleKey;
+      }
       if (!album_key || !title || !manual_genre) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and genre are required." }) };
       }

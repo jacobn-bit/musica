@@ -248,7 +248,9 @@ exports.handler = async function(event) {
     album.year = cleanText(album.year || body.year, 24);
     album.clean_title = cleanAlbumTitle(album.title);
     const tracklist = cleanTrackList(Array.isArray(body.tracks) ? body.tracks : album.tracks);
-    const album_key = normalizeOverviewTitle(body.album_key || album.clean_title || album.title);
+    const titleKey = normalizeOverviewTitle(album.clean_title || album.title);
+    const artistKey = normalizeOverviewTitle(album.artist);
+    const album_key = normalizeOverviewTitle(body.album_key) || (titleKey && artistKey ? `${artistKey} ${titleKey}` : titleKey);
     if (!album_key || !album.title) {
       return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: "Album title and album key are required." }) };
     }
