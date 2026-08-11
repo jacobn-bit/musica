@@ -28,7 +28,17 @@ create table if not exists album_credits (
   album_id text,
   person_name text not null,
   person_id text,
+  person_wikidata_id text,
   image_url text,
+  image_source_url text,
+  image_author text,
+  image_license text,
+  image_license_url text,
+  image_attribution text,
+  image_modified text,
+  image_status text not null default 'candidate',
+  image_approved boolean not null default false,
+  image_last_verified_at timestamptz,
   credit_type text not null,
   role text,
   instrument text,
@@ -38,6 +48,19 @@ create table if not exists album_credits (
   manually_verified boolean not null default false,
   updated_at timestamptz not null default now()
 );
+
+-- Keep reruns useful when album_credits was created by an earlier Muze schema.
+alter table if exists album_credits
+  add column if not exists person_wikidata_id text,
+  add column if not exists image_source_url text,
+  add column if not exists image_author text,
+  add column if not exists image_license text,
+  add column if not exists image_license_url text,
+  add column if not exists image_attribution text,
+  add column if not exists image_modified text,
+  add column if not exists image_status text not null default 'candidate',
+  add column if not exists image_approved boolean not null default false,
+  add column if not exists image_last_verified_at timestamptz;
 
 create unique index if not exists album_credits_identity_idx
 on album_credits(album_ref, person_name, credit_type, coalesce(role, ''), coalesce(instrument, ''));
