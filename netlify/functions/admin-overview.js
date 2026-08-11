@@ -154,6 +154,13 @@ exports.handler = async function(event) {
       });
       if (Object.prototype.hasOwnProperty.call(body, "review_alternative_taglines")) fields.review_alternative_taglines = cleanTextList(body.review_alternative_taglines);
       if (Object.prototype.hasOwnProperty.call(body, "review_defining_moments")) fields.review_defining_moments = cleanTextList(body.review_defining_moments);
+      if (Object.prototype.hasOwnProperty.call(body, "review_most_popular_track")) {
+        const popularTrack = body.review_most_popular_track;
+        const title = cleanText(popularTrack?.title || popularTrack?.name || popularTrack);
+        const explanation = cleanParagraphText(popularTrack?.explanation || "");
+        fields.review_most_popular_track = title ? { title, explanation } : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, "review_factual_warnings")) fields.review_factual_warnings = cleanTextList(body.review_factual_warnings);
       if (Object.prototype.hasOwnProperty.call(body, "review_muze_score")) fields.review_muze_score = Math.max(0, Math.min(9.7, Math.round(Number(body.review_muze_score || 0) * 10) / 10));
       if (Object.prototype.hasOwnProperty.call(body, "review_minimum_raters")) fields.review_minimum_raters = Math.max(0, Math.round(Number(body.review_minimum_raters || 0)));
       if (Object.prototype.hasOwnProperty.call(body, "review_mellow_intense_score")) fields.review_mellow_intense_score = Math.max(0, Math.min(100, Math.round(Number(body.review_mellow_intense_score || 0))));
