@@ -742,7 +742,7 @@ async function portraitForCredit(credit) {
 
 async function attachArtistPortraits(info) {
   const credits = Array.isArray(info?.credits) ? info.credits : [];
-  const candidates = credits.filter(row => row.credit_type === "performer" && !row.image_approved
+  const candidates = credits.filter(row => ["performer", "production"].includes(row.credit_type) && !row.image_approved
     && (!row.image_status || (row.image_status === "candidate" && !row.image_url))).slice(0, 8);
   await Promise.all(candidates.map(async credit => {
     const portrait = await portraitForCredit(credit);
