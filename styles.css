@@ -9135,6 +9135,58 @@ body.light .authPanel .adminOverviewUnlock{
   padding-top:18px!important;
   border-top:1px solid rgba(255,213,31,.18)!important;
 }
+.editorialWorkflowPanel{
+  margin-top:18px!important;
+  padding:18px!important;
+  border:1px solid rgba(255,213,31,.22)!important;
+  border-radius:8px!important;
+  background:rgba(4,4,4,.55)!important;
+}
+.editorialWorkflowHead{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:16px!important;
+}
+.editorialWorkflowHead h4{margin:3px 0 4px!important;color:#fff!important;font-size:20px!important}
+.editorialWorkflowHead span{color:rgba(255,255,255,.56)!important;font-size:12px!important}
+.editorialWorkflowHead span.dirty{color:#ffd51f!important}
+.editorialStatus{
+  padding:6px 9px!important;
+  border:1px solid rgba(255,255,255,.16)!important;
+  border-radius:6px!important;
+  color:rgba(255,255,255,.78)!important;
+  background:rgba(255,255,255,.06)!important;
+  font-size:11px!important;
+  text-transform:uppercase!important;
+}
+.editorialStatus.status-draft,.editorialStatus.status-approved{border-color:rgba(79,211,133,.42)!important;color:#82e5a8!important}
+.editorialStatus.status-needs_revision{border-color:rgba(255,213,31,.42)!important;color:#ffd51f!important}
+.editorialStatus.status-quality_failed,.editorialStatus.status-rejected{border-color:rgba(255,102,102,.42)!important;color:#ff9292!important}
+.editorialMeta{display:flex!important;flex-wrap:wrap!important;gap:7px!important;margin:13px 0!important}
+.editorialMeta span{padding:5px 7px!important;border-radius:5px!important;background:rgba(255,255,255,.06)!important;color:rgba(255,255,255,.66)!important;font-size:11px!important}
+.editorialComparisons{display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:7px!important;margin:10px 0!important}
+.editorialComparisons strong{margin-right:4px!important;color:rgba(255,255,255,.78)!important;font-size:12px!important}
+.editorialComparisons span{padding:5px 7px!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:5px!important;color:rgba(255,255,255,.64)!important;font-size:11px!important}
+.editorialIssues,.editorialWarnings{margin:12px 0!important;padding:12px!important;border-left:3px solid #ffd51f!important;background:rgba(255,213,31,.06)!important}
+.editorialWarnings{border-left-color:#ff9292!important;background:rgba(255,102,102,.06)!important}
+.editorialIssues p,.editorialWarnings p{margin:8px 0 0!important;color:rgba(255,255,255,.76)!important;font-size:12px!important;line-height:1.45!important}
+.editorialIssues p small{display:block!important;margin-top:3px!important;color:rgba(255,255,255,.52)!important}
+.editorialIssues p[data-severity="critical"]{color:#ff9292!important}
+.editorialActions{display:flex!important;flex-wrap:wrap!important;gap:8px!important;margin-top:14px!important}
+.editorialActions button,.editorialBatchPanel>button{min-height:36px!important;padding:8px 11px!important;border:1px solid rgba(255,213,31,.25)!important;border-radius:6px!important;background:#17150b!important;color:#fff!important;font-weight:800!important;cursor:pointer!important}
+.editorialActions button:hover,.editorialBatchPanel>button:hover{border-color:#ffd51f!important}
+.editorialActions button:disabled{opacity:.34!important;cursor:not-allowed!important}
+.editorialActions button.approve{background:#ffd51f!important;color:#090909!important}
+.editorialActions button.danger{border-color:rgba(255,102,102,.35)!important;background:#241010!important}
+.editorialBatchPanel{margin-top:14px!important;padding-top:14px!important;border-top:1px solid rgba(255,255,255,.10)!important}
+.editorialBatchChoices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px 14px!important;margin:10px 0!important}
+.editorialBatchChoices label{display:flex!important;align-items:center!important;gap:7px!important;min-width:0!important;color:rgba(255,255,255,.72)!important;font-size:12px!important}
+.editorialBatchChoices span{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+#editorialBatchResults{margin-top:10px!important}
+#editorialBatchResults p{margin:4px 0!important;font-size:12px!important}
+#editorialBatchResults .success{color:#82e5a8!important}
+#editorialBatchResults .error{color:#ff9292!important}
 .overviewEditorInput{
   width:100%!important;
   border:1px solid rgba(255,255,255,.12)!important;
@@ -9148,6 +9200,9 @@ body.light .authPanel .adminOverviewUnlock{
   .muzeReviewMetrics{grid-template-columns:1fr!important}
   .muzeAlbumReview{padding:16px!important}
   .muzeReviewHead h3{font-size:24px!important}
+  .editorialWorkflowHead{display:block!important}
+  .editorialStatus{display:inline-block!important;margin-top:8px!important}
+  .editorialBatchChoices{grid-template-columns:1fr!important}
 }
 .backCoverZoomHint{position:absolute!important;left:18px!important;bottom:16px!important;z-index:2!important;padding:8px 12px!important;border-radius:999px!important;border:1px solid rgba(212,175,55,.20)!important;background:rgba(0,0,0,.62)!important;color:rgba(255,255,255,.82)!important;font-size:12px!important;font-weight:800!important;letter-spacing:.03em!important;box-shadow:0 14px 34px rgba(0,0,0,.32)!important;}
 @media(max-width:1050px){.backCoverZoomHotspot{display:none!important;}.backCoverZoomPanel{width:100vw!important;height:100vh!important;border-radius:0!important;border-left:0!important;border-right:0!important;}.backCoverZoomViewer{padding:0!important;}}
@@ -16304,3 +16359,176 @@ body.light .topbarChatButton{
   #albumModal .albumTrackSections .linerFeaturedTrack:has(.featurePlay.isPreviewing) .featureWave i:nth-child(10){animation-delay:.54s!important}
   #albumModal .albumTrackSections .linerFeaturedTrack:has(.featurePlay.isPreviewing) .featureWave i:nth-child(11){animation-delay:.60s!important}
 }
+/* Album Info tab */
+.albumInfoSection{scroll-margin-top:84px;margin:34px 0 110px;padding:30px 0;border-top:1px solid rgba(255,255,255,.12);position:relative;z-index:2}
+.albumInfoPopupPanel{width:min(1240px,94vw);background:#0d0d0d;border:1px solid rgba(255,255,255,.12);border-radius:8px}
+.albumInfoPage{min-height:70vh;padding:34px 44px 12px;background:linear-gradient(180deg,rgba(255,213,31,.045),transparent 190px),#0d0d0d;color:#fff}
+.albumInfoPageHeader{display:grid;grid-template-columns:94px minmax(0,1fr);gap:20px;align-items:center;padding:0 60px 28px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+.albumInfoPageHeader img,.albumInfoCoverFallback{width:94px;height:94px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,213,31,.32);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.albumInfoCoverFallback{display:grid;place-items:center;background:#222;color:#ffd51f;font-size:24px;font-weight:850}
+.albumInfoPageHeader span{display:block;color:#ffd51f;font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:7px}
+.albumInfoPageHeader h2{margin:0;color:#fff;font-family:Georgia,serif;font-size:38px;line-height:1.05;letter-spacing:0;overflow-wrap:anywhere}
+.albumInfoPageHeader p{margin:8px 0 0;color:rgba(255,255,255,.64);font-size:15px}
+.albumInfoPopup .albumInfoSection{margin:0;padding:0 0 46px;border-top:0}
+.albumInfoPopup .albumOverviewClose{position:sticky;float:right;top:16px;margin:16px 16px -60px 0}
+.albumBatchMore{display:flex;align-items:center;justify-content:center;gap:14px;padding:28px 0 8px}.albumBatchMore button{border:1px solid rgba(255,213,31,.42);background:#15130b;color:#ffd51f;border-radius:6px;padding:11px 18px;font-weight:750;cursor:pointer}.albumBatchMore button:hover{background:#211c09}.albumBatchMore span{color:rgba(255,255,255,.5);font-size:12px}
+.albumInfoLoading,.albumInfoUnavailable{min-height:180px;display:grid;place-items:center;align-content:center;gap:12px;color:rgba(255,255,255,.64);text-align:center}
+.albumInfoLoading span{width:26px;height:26px;border:2px solid rgba(255,213,31,.2);border-top-color:#ffd51f;border-radius:50%;animation:albumInfoSpin .8s linear infinite}
+@keyframes albumInfoSpin{to{transform:rotate(360deg)}}
+.albumInfoAdminBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0 18px;border-bottom:1px solid rgba(255,255,255,.1)}
+.albumInfoAdminBar span{margin-right:auto;color:#ffd51f;font-size:12px;font-weight:800;text-transform:uppercase}
+.albumInfoAdminBar button,.infoRowActions button{border:1px solid rgba(255,255,255,.16);background:#121212;color:#fff;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px}
+.albumInfoAdminBar button:hover,.infoRowActions button:hover{border-color:#ffd51f;color:#ffd51f}
+.albumInfoSchemaNote{padding:10px 12px;border-left:3px solid #ffd51f;background:rgba(255,213,31,.07);color:#e6dfc5}
+.albumInfoBlock{padding:28px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.albumInfoHeading{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.albumInfoHeading h3{margin:0;font-size:20px;letter-spacing:0;color:#fff}
+.albumInfoFacts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:1px solid rgba(255,255,255,.1);border-left:1px solid rgba(255,255,255,.1)}
+.albumInfoFacts>div{min-height:82px;padding:15px;border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:7px}
+.albumInfoFacts span,.albumSales>span{font-size:11px;color:rgba(255,255,255,.52);text-transform:uppercase;font-weight:750}
+.albumInfoFacts strong{font-size:15px;color:#f7f5ee;overflow-wrap:anywhere}
+.infoSource{display:inline-block;margin-top:9px;color:rgba(255,213,31,.72);font-size:11px;text-decoration:none}
+.albumInfoPeople{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:30px}
+.infoPerson{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:13px;align-items:center;min-height:82px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.09)}
+.infoPersonAvatar{width:48px;height:48px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#252525;border:1px solid rgba(255,213,31,.26);color:#ffd51f;font-size:18px;font-weight:850}
+.infoPersonAvatar img{width:100%;height:100%;object-fit:cover}
+.infoPerson strong{font-size:15px;color:#fff}.infoPerson p{margin:4px 0 0;color:rgba(255,255,255,.62);font-size:13px;line-height:1.45}
+.infoRowActions{display:flex;gap:5px;align-items:center}.infoRowActions button{padding:5px 7px;font-size:10px}
+.albumSongwriting{border-top:1px solid rgba(255,255,255,.09)}
+.albumSongwriting summary{padding:13px 0;cursor:pointer;color:#ffd51f;font-weight:700}
+.albumInfoLabels>div{display:flex;justify-content:space-between;gap:15px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.09)}
+.albumInfoLabels strong{display:block}.albumInfoLabels span{display:block;margin-top:4px;color:rgba(255,255,255,.58);font-size:12px}
+.albumSales{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:4px 0 22px}
+.albumSales strong{font-family:Georgia,serif;color:#ffd51f;font-size:27px;font-weight:700}.albumSales small{color:rgba(255,255,255,.52);text-transform:capitalize}
+.albumCertifications{border-top:1px solid rgba(255,255,255,.1);padding-top:18px}.albumCertifications h4{font-size:13px;text-transform:uppercase;margin:0 0 8px;color:rgba(255,255,255,.64)}
+.albumCertifications>div{display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1fr) minmax(120px,1fr) auto;gap:16px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.08);align-items:center}
+.albumCertifications em{font-style:normal;color:rgba(255,255,255,.52);font-size:12px}.infoEmpty{color:rgba(255,255,255,.52);margin:0}
+body.light .albumInfoSection{border-color:#dedbd2}body.light .albumInfoBlock{border-color:#dedbd2}body.light .albumInfoHeading h3,body.light .infoPerson strong,body.light .albumInfoFacts strong{color:#171717}
+body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson,body.light .albumInfoLabels>div{border-color:#dedbd2}body.light .albumInfoFacts span,body.light .infoPerson p,body.light .albumInfoLabels span{color:#68645d}
+@media(max-width:760px){.albumInfoSection{margin-top:24px;padding-top:20px}.albumInfoFacts{grid-template-columns:repeat(2,minmax(0,1fr))}.albumInfoPeople{grid-template-columns:1fr}.albumCertifications>div{grid-template-columns:1fr 1fr}.albumCertifications em{grid-column:1/-1}.albumInfoAdminBar{align-items:stretch}.albumInfoAdminBar span{width:100%;margin-bottom:4px}}
+@media(max-width:430px){.albumInfoFacts{grid-template-columns:1fr}.infoPerson{grid-template-columns:44px minmax(0,1fr)}.infoPersonAvatar{width:42px;height:42px}.infoPerson .infoRowActions{grid-column:2}.albumSales strong{font-size:23px}}
+@media(max-width:900px){.albumInfoPopupPanel{width:100vw!important;height:100vh!important;max-height:100vh!important;border:0!important;border-radius:0!important}.albumInfoPage{min-height:100vh;padding:max(24px,env(safe-area-inset-top)) 20px 40px}.albumInfoPageHeader{grid-template-columns:72px minmax(0,1fr);gap:14px;padding:4px 50px 22px 0}.albumInfoPageHeader img,.albumInfoCoverFallback{width:72px;height:72px}.albumInfoPageHeader h2{font-size:28px}.albumInfoPopup .albumInfoSection{margin:0!important;padding-top:0!important}.albumInfoPopup .albumOverviewClose{position:fixed!important;float:none!important;margin:0!important}}
+
+/* Premium Album Info experience */
+.albumInfoPopupPanel{--album-info-accent:#ffd51f;--album-info-accent-soft:rgba(255,213,31,.14);scroll-behavior:smooth;background:#0b0c0d;border-color:rgba(255,255,255,.14)}
+.albumInfoPage{padding:0 48px 54px;background:#0b0c0d}
+.albumInfoPopup .albumOverviewClose{position:sticky;z-index:12;top:18px;float:right;margin:18px 18px -66px 0!important;background:rgba(8,9,10,.86);border-color:rgba(255,255,255,.2);backdrop-filter:blur(10px)}
+.albumInfoPopup .albumOverviewClose:hover{border-color:var(--album-info-accent);color:var(--album-info-accent)}
+.albumInfoHero{display:grid;grid-template-columns:230px minmax(0,1fr);gap:38px;align-items:center;min-height:310px;padding:40px 70px 38px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+.albumInfoHeroArt{width:230px;aspect-ratio:1;position:relative}
+.albumInfoHeroArt:after{content:"";position:absolute;inset:8px -8px -8px 8px;border:1px solid color-mix(in srgb,var(--album-info-accent) 55%,transparent);border-radius:8px;z-index:0}
+.albumInfoHeroArt img,.albumInfoHeroArt .albumInfoCoverFallback{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid color-mix(in srgb,var(--album-info-accent) 68%,rgba(255,255,255,.15));box-shadow:0 24px 54px rgba(0,0,0,.52)}
+.albumInfoEyebrow{display:block;margin:0 0 12px;color:var(--album-info-accent);font-size:11px;font-weight:850;text-transform:uppercase}
+.albumInfoHero h2{max-width:920px;margin:0;color:#faf8f0;font-family:Georgia,serif;font-size:48px;line-height:1.02;letter-spacing:0;overflow-wrap:anywhere}
+.albumInfoArtist{margin:13px 0 0;color:#fff;font-size:21px;font-weight:780}
+.albumInfoHeroMeta{display:flex;flex-wrap:wrap;gap:0;margin:12px 0 0;color:rgba(255,255,255,.63);font-size:14px}
+.albumInfoHeroMeta span{display:inline-flex;align-items:center}
+.albumInfoHeroMeta span:not(:last-child):after{content:"";width:3px;height:3px;margin:0 10px;border-radius:50%;background:var(--album-info-accent)}
+.albumInfoHeroSignals{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.albumInfoHeroSignals>div{min-width:150px;padding:11px 14px;border:1px solid color-mix(in srgb,var(--album-info-accent) 36%,rgba(255,255,255,.1));border-radius:7px;background:rgba(255,255,255,.025)}
+.albumInfoHeroSignals strong{display:block;color:var(--album-info-accent);font-family:Georgia,serif;font-size:22px;line-height:1.15}
+.albumInfoHeroSignals span{display:block;margin-top:3px;color:rgba(255,255,255,.53);font-size:11px;text-transform:uppercase;font-weight:750}
+.albumInfoPopup .albumInfoSection{padding-bottom:0}
+.albumInfoNav{position:sticky;z-index:10;top:0;display:flex;align-items:center;gap:4px;margin:0 -48px;padding:10px 48px;border-bottom:1px solid rgba(255,255,255,.11);background:rgba(11,12,13,.94);backdrop-filter:blur(14px);overflow-x:auto;scrollbar-width:none}
+.albumInfoNav::-webkit-scrollbar{display:none}
+.albumInfoNav a{min-height:40px;display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:9px 12px;border:1px solid transparent;border-radius:6px;color:rgba(255,255,255,.61);font-size:12px;font-weight:750;text-decoration:none;transition:color .16s ease,border-color .16s ease,background .16s ease}
+.albumInfoNav a:hover,.albumInfoNav a:focus-visible{color:var(--album-info-accent);border-color:color-mix(in srgb,var(--album-info-accent) 42%,transparent);background:var(--album-info-accent-soft);outline:0}
+.albumInfoIcon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.albumInfoBlock{scroll-margin-top:72px;padding:44px 0 48px;border-bottom:1px solid rgba(255,255,255,.1)}
+.albumInfoHeading{justify-content:flex-start;gap:11px;margin-bottom:22px}
+.albumInfoHeading>span{width:32px;height:32px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--album-info-accent) 42%,transparent);border-radius:50%;color:var(--album-info-accent);background:var(--album-info-accent-soft)}
+.albumInfoHeading>.albumInfoHeadingCover{width:32px;height:32px;overflow:hidden;border-radius:50%;background:#111;border-color:rgba(255,213,31,.5);box-shadow:0 5px 14px rgba(0,0,0,.34)}
+.albumInfoHeadingCover img{width:100%;height:100%;display:block;object-fit:cover}
+.albumInfoHeading h3{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:21px;font-weight:600;letter-spacing:0;color:#f8f6ef}
+.albumDetailsBlock>.albumInfoHeading h3{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:21px;font-weight:600;letter-spacing:0}
+.albumInfoFacts{display:grid;grid-template-columns:1fr;gap:0;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:7px;background:rgba(255,255,255,.012)}
+.albumDetailsBlock .albumInfoFacts{width:50%}
+.albumInfoFacts>article{min-height:52px;display:grid;grid-template-columns:38px minmax(0,1fr);gap:11px;align-items:center;padding:9px 16px;border:0;border-bottom:1px solid rgba(255,255,255,.1);border-radius:0;background:transparent;transition:background .16s ease}
+.albumInfoFacts>article:last-child{border-bottom:0}
+.albumInfoFacts>article:hover{transform:none;border-color:rgba(255,255,255,.1);background:rgba(255,213,31,.035)}
+.albumInfoFacts>article>div{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,2fr);gap:20px;align-items:center}
+.albumInfoFacts i{width:32px;height:32px;display:grid;place-items:center;color:var(--album-info-accent);font-style:normal}
+.albumInfoFacts span,.albumSales>span{display:block;color:rgba(255,255,255,.48);font-size:10px;text-transform:uppercase;font-weight:800}
+.albumInfoFacts strong{display:block;margin-top:0;color:#f4f2eb;font-size:15px;line-height:1.3;text-align:right;overflow-wrap:anywhere}
+.albumInfoDetailSources{display:flex;flex-wrap:wrap;gap:6px 14px}
+.albumDetailsBlock{padding-top:32px;padding-bottom:34px}
+.albumDetailsBlock>.albumInfoHeading{margin-bottom:16px}
+.albumSnapshotGrid{width:min(100%,1020px);display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);gap:14px;align-items:stretch}
+.albumInformationPanel,.albumGlancePanel{min-width:0;border:1px solid rgba(255,255,255,.12);border-radius:7px;background:#111214}
+.albumInformationPanel>header,.albumGlancePanel>header{min-height:48px;display:flex;align-items:center;gap:9px;padding:10px 15px;border-bottom:1px solid rgba(255,255,255,.1)}
+.albumInformationPanel>header>span,.albumGlancePanel>header>span{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;color:var(--album-info-accent);background:rgba(255,213,31,.09);border:1px solid rgba(255,213,31,.25)}
+.albumInformationPanel>header h4,.albumGlancePanel>header h4{margin:0;color:#f8f6ef;font-family:Georgia,serif;font-size:17px}
+.albumInformationPanel>header h4{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
+.albumInformationPrimary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:13px 15px 11px}
+.albumInformationPrimary>article{min-height:66px;display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:center;padding:6px 12px;border-right:1px solid rgba(255,255,255,.08)}
+.albumInformationPrimary>article:first-child{padding-left:0}
+.albumInformationPrimary>article:last-child{padding-right:0;border-right:0}
+.albumInformationPrimary i{width:26px;height:26px;display:grid;place-items:center;color:var(--album-info-accent);font-style:normal}
+.albumInformationPrimary i .albumInfoIcon{width:16px;height:16px}
+.albumInformationPrimary span,.albumInformationCompact span,.albumGlanceStats span{display:block;color:rgba(255,255,255,.43);font-size:10px;font-weight:800;text-transform:uppercase}
+.albumInformationPrimary span,.albumInformationCompact span{color:rgba(255,255,255,.62);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;line-height:1.35;text-transform:none;letter-spacing:0}
+.albumInformationPrimary strong{display:block;margin-top:3px;color:#f8f6ef;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;line-height:1.25;letter-spacing:0}
+.albumInformationCompact{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));margin:0 15px 13px;border:1px solid rgba(255,213,31,.16);border-radius:6px;background:rgba(255,213,31,.025)}
+.albumInformationCompact>article{min-height:58px;display:flex;flex-direction:column;justify-content:center;padding:9px 11px;border-right:1px solid rgba(255,255,255,.08)}
+.albumInformationCompact>article:last-child{border-right:0}
+.albumInformationCompact strong{display:block;margin-top:3px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;line-height:1.25;letter-spacing:0;overflow-wrap:anywhere}
+.albumGlancePanel{display:flex;flex-direction:column;border-color:rgba(255,213,31,.23);background:#0e0f10}
+.albumGlancePanel>header>span{color:#0b0b0b;background:var(--album-info-accent);border-color:var(--album-info-accent)}
+.albumGlancePanel>header h4{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
+.albumGlanceStats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;flex:1;padding:8px 15px 12px}
+.albumGlanceStats>article{min-height:76px;display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-content:center;padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.albumGlanceStats>article:nth-child(odd){border-right:1px solid rgba(255,255,255,.08);padding-left:0}
+.albumGlanceStats>article:nth-child(even){padding-right:0}
+.albumGlanceStats>article:nth-last-child(-n+2){border-bottom:0}
+.albumGlanceStats i{width:22px;height:22px;display:grid;place-items:center;color:var(--album-info-accent);font-style:normal}
+.albumGlanceStats i .albumInfoIcon{width:16px;height:16px}
+.albumGlanceStats strong{display:block;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:18px;font-weight:600;line-height:1.2;letter-spacing:0;overflow-wrap:anywhere}
+.albumGlanceFact-music strong{font-size:16px;font-weight:600;line-height:1.25}
+.albumGlanceStats span{margin-top:3px;color:rgba(255,255,255,.62);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;line-height:1.35;text-transform:none;letter-spacing:0}
+.albumDetailsBlock>.albumInfoDetailSources{width:min(100%,1020px);margin-top:0}
+.albumInfoPeopleGroup+.albumInfoPeopleGroup{margin-top:30px}
+.albumInfoPeopleGroup>h4{margin:0 0 11px;color:var(--album-info-accent);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0}
+.albumInfoPeople{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.infoPerson{min-height:112px;padding:15px;grid-template-columns:58px minmax(0,1fr) auto;align-items:start;border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#111214;transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.infoPerson:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--album-info-accent) 48%,rgba(255,255,255,.1));background:#141517}
+.infoPersonAvatar{width:54px;height:54px;border-color:rgba(255,213,31,.42);background:linear-gradient(145deg,#e3bd19 8%,#a58408 58%,#705900 100%);color:#0b0b0b;font-size:15px;font-weight:900;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 6px 18px rgba(0,0,0,.3)}
+.infoPersonCopy{min-width:0}
+.infoPerson strong{display:block;color:#f9f7f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
+.infoPerson p{margin:0;overflow-wrap:anywhere}
+.infoPersonPrimary{margin-top:5px!important;color:rgba(255,255,255,.75)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:13px!important;font-weight:400!important;letter-spacing:0!important}
+.infoPersonSecondary{margin-top:4px!important;color:rgba(255,255,255,.48)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:12px!important;font-weight:400!important;letter-spacing:0!important}
+.infoPersonMore{margin-top:6px}
+.infoPersonMore summary{display:inline-flex;min-height:28px;align-items:center;color:var(--album-info-accent);font-size:11px;font-weight:750;cursor:pointer;list-style:none}
+.infoPersonMore summary::-webkit-details-marker{display:none}
+.infoPersonMore p{padding:5px 0 2px;color:rgba(255,255,255,.55);font-size:12px;line-height:1.45}
+.infoSource{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:rgba(255,255,255,.35);font-size:10px;text-decoration:none}
+.infoSource:hover{color:var(--album-info-accent)}
+.infoSource .albumInfoIcon{width:11px;height:11px}
+.albumProductionBlock .infoPerson{min-height:86px;grid-template-columns:44px minmax(0,1fr) auto;background:transparent}
+.albumProductionBlock .infoPersonAvatar{width:40px;height:40px;font-size:12px}
+.albumSongwriting{border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#101113}
+.albumSongwriting summary{min-height:48px;display:flex;align-items:center;padding:10px 15px;color:var(--album-info-accent);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
+.albumSongwriting .albumInfoPeople{padding:0 12px 12px}
+.albumInfoLabels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.albumInfoLabels>div{min-height:86px;padding:15px;border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#111214}
+.albumInfoLabels>div:last-child{border-bottom:1px solid rgba(255,255,255,.1)}
+.albumInfoLabels strong{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
+.albumInfoLabels span{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;line-height:1.35;letter-spacing:0}
+.albumSales{max-width:560px;gap:6px;padding:2px 0 24px}
+.albumSales strong{color:var(--album-info-accent);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:26px;font-weight:600;line-height:1.2;letter-spacing:0}
+.albumSales>span{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0}
+.albumSales>span{order:2}.albumSales>small{order:3}.albumSales>.infoSource{order:4}
+.albumCertifications{padding-top:24px}
+.albumCertifications h4{margin-bottom:12px;color:rgba(255,255,255,.55);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;text-transform:none;letter-spacing:0}
+.albumCertificationGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.albumCertificationGrid>article{min-height:116px;display:flex;flex-direction:column;align-items:flex-start;padding:15px;border:1px solid color-mix(in srgb,var(--album-info-accent) 30%,rgba(255,255,255,.1));border-radius:7px;background:#111214}
+.albumCertificationGrid span{color:rgba(255,255,255,.62);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0}
+.albumCertificationGrid strong{margin-top:5px;color:#f7f4e9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
+.albumCertificationGrid em,.albumCertificationGrid small{margin-top:4px;color:rgba(255,255,255,.5);font-size:11px;font-style:normal}
+.albumInfoAdminBar{margin-top:18px;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#111214}
+.albumInfoSchemaNote{border-radius:0 6px 6px 0}
+body.light .albumInfoPopupPanel,body.light .albumInfoPage{background:#f2f0e9}body.light .albumInfoNav{background:rgba(242,240,233,.95);border-color:#d8d4c9}body.light .albumInfoHero{border-color:#d8d4c9}body.light .albumInfoHero h2,body.light .albumInfoArtist,body.light .albumInfoHeading h3,body.light .infoPerson strong,body.light .albumInformationPanel h4,body.light .albumGlancePanel h4,body.light .albumInformationPrimary strong,body.light .albumInformationCompact strong,body.light .albumGlanceStats strong{color:#171717}body.light .albumInfoHeroMeta,body.light .albumInfoNav a{color:#6b675f}body.light .albumInfoFacts>article,body.light .infoPerson,body.light .albumInfoLabels>div,body.light .albumCertificationGrid>article,body.light .albumSongwriting,body.light .albumInformationPanel,body.light .albumGlancePanel{background:#faf9f5;border-color:#d8d4c9}body.light .albumInfoFacts strong{color:#222}body.light .infoPersonPrimary{color:#494640!important}body.light .infoPersonSecondary{color:#777168!important}
+@media(max-width:900px){.albumInfoPage{padding:max(22px,env(safe-area-inset-top)) 26px 46px}.albumInfoHero{grid-template-columns:170px minmax(0,1fr);gap:25px;min-height:246px;padding:20px 56px 28px 0}.albumInfoHeroArt{width:170px}.albumInfoHero h2{font-size:37px}.albumInfoNav{margin:0 -26px;padding:9px 26px}.albumInfoPopup .albumOverviewClose{position:fixed!important;top:14px!important;right:14px!important}.albumDetailsBlock .albumInfoFacts{width:100%}.albumSnapshotGrid{grid-template-columns:1fr;gap:16px}.albumCertificationGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.albumInfoPage{padding:20px 18px 38px}.albumInfoHero{grid-template-columns:112px minmax(0,1fr);gap:18px;min-height:190px;padding:22px 44px 24px 0}.albumInfoHeroArt{width:112px}.albumInfoHero h2{font-size:28px}.albumInfoArtist{font-size:17px}.albumInfoHeroMeta{font-size:12px}.albumInfoHeroSignals{grid-column:1/-1;margin-top:15px}.albumInfoHeroSignals>div{min-width:130px;flex:1}.albumInfoNav{margin:0 -18px;padding:8px 18px}.albumInfoNav a{min-height:42px;padding:9px 10px}.albumInfoFacts{grid-template-columns:1fr}.albumInfoPeople,.albumInfoLabels{grid-template-columns:1fr}.albumInfoBlock{padding:36px 0 40px}.albumInfoHeading h3{font-size:22px}.albumCertificationGrid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:5px}.albumCertificationGrid>article{min-width:210px;scroll-snap-align:start}}
+@media(max-width:430px){.albumInfoHero{grid-template-columns:92px minmax(0,1fr);gap:14px}.albumInfoHeroArt{width:92px}.albumInfoHero h2{font-size:24px}.albumInfoEyebrow{margin-bottom:7px}.albumInfoHeroMeta span:nth-child(n+3){display:none}.albumInfoHeroSignals>div{min-width:100%}.albumInfoFacts{grid-template-columns:1fr}.albumInfoFacts>article{grid-template-columns:32px minmax(0,1fr);padding:10px 12px}.albumInfoFacts>article>div{grid-template-columns:minmax(82px,1fr) minmax(0,1.4fr);gap:10px}.albumInfoFacts strong{font-size:14px}.albumInformationCompact{grid-template-columns:repeat(2,minmax(0,1fr))}.albumInformationCompact>article{border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats{grid-template-columns:1fr}.albumGlanceStats>article,.albumGlanceStats>article:nth-child(odd){min-height:86px;padding:12px 0;border-right:0;border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats>article:last-child{border-bottom:0}.albumGlanceStats strong{font-size:18px}.infoPerson{grid-template-columns:48px minmax(0,1fr);min-height:104px;padding:13px}.infoPersonAvatar{width:44px;height:44px}.infoPerson .infoRowActions{grid-column:2}.albumInfoNav .albumInfoIcon{display:none}}
+@media(max-width:430px){.albumGlanceStats .albumGlanceFact-music strong{font-size:16px}}
