@@ -491,20 +491,36 @@ async function approveReview(api, albumId, reviewId, approvedBy) {
     review_muze_score: review.muzeScore,
     review_minimum_raters: review.raterCount,
     review_closing_verdict: review.scoreExplanation,
+    review_most_popular_track: review.mostPopularTrack || null,
+    review_factual_warnings: review.factualWarnings || [],
     review_generated_at: current.generated_at,
     review_generation_model: current.generation_model,
     review_manual_fields: [
       "overview", "sound", "impact", "legacy", "tagline", "alternativeTaglines",
-      "definingMoments", "muzeScore", "minimumRaters", "closingVerdict"
+      "definingMoments", "mostPopularTrack", "muzeScore", "minimumRaters",
+      "closingVerdict", "factualWarnings"
     ],
     manual_override: true,
     updated_at: now
   };
-  await api("album_overviews", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify(overviewPayload)
-  });
+  try {
+    await api("album_overviews", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(overviewPayload)
+    });
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("review_most_popular_track") && !message.includes("review_factual_warnings")) throw error;
+    const compatiblePayload = { ...overviewPayload };
+    delete compatiblePayload.review_most_popular_track;
+    delete compatiblePayload.review_factual_warnings;
+    await api("album_overviews", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(compatiblePayload)
+    });
+  }
   return patchReview(api, current.id, {
     status: "approved",
     approved_at: now,
