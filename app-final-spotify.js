@@ -63,7 +63,7 @@ function clearLocalOverviewOverride(key){
     }
   }catch(error){}
 }
-const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",chatThread:"",albums:[],ratingMap:{},theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
+const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
 let homeSearchRenderTimer=0;
@@ -2388,6 +2388,11 @@ function muzeOverallRank(album){
   const index=ranked.findIndex(item=>String(item.id)===String(album.id));
   return index>=0?index+1:null;
 }
+function muzeTop250Rank(album){
+  const value=muzeOverallRank(album)||album?.muze_rank||album?.ranking||album?.rank;
+  const rank=Number(String(value||"").replace(/[^0-9]/g,""));
+  return Number.isInteger(rank)&&rank>=1&&rank<=250?rank:null;
+}
 function userScore(a){return state.ratingMap[a.id]||(isLocalRuntime()?localRatings()[a.id]:null)||null}
 function displayScore(a){return score(a)>0?score(a).toFixed(1):"-"}
 function coverText(a){return(a.title||"?").split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase()}
@@ -2414,8 +2419,10 @@ function backCoverDisabledForAlbum(album){
   return artist.includes("eric clapton")||artist.includes("the kinks")||artist==="kinks"||title.includes("echoes silence patience and grace")||(artist.includes("pink floyd")&&title.includes("dark side of the moon"))||(artist.includes("iron maiden")&&title==="iron maiden"&&year==="1980")||(artist.includes("eagle eye cherry")&&title.includes("back on track"))||(artist.includes("bush")&&title.includes("i beat loneliness"))||(artist.includes("natalie imbruglia")&&title.includes("left of the middle"));
 }
 function flippableAlbumCover(a,albumId){
-  if(backCoverDisabledForAlbum(a))return cover(a);
-  return `<div class="linerCoverFlip" data-flipped="0" onclick="flipAlbumCover('${escapeJsString(albumId)}')" title="Click album cover to flip"><div class="linerCoverFlipCard"><div class="linerCoverFace linerCoverFront">${cover(a)}</div><div class="linerCoverFace linerCoverBack"><div class="cover"><div class="backCoverLoading">Back cover</div></div></div></div></div>`;
+  const popularTrackTitle=albumMostPopularTrackTitle(a);
+  const previewButton=popularTrackTitle?`<button type="button" class="albumCoverPreviewButton" aria-label="Play ${escapeHtml(popularTrackTitle)} preview" title="Play" onclick="event.stopPropagation();playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(popularTrackTitle)}',this)"></button>`:"";
+  if(backCoverDisabledForAlbum(a))return `${cover(a)}${previewButton}`;
+  return `<div class="linerCoverFlip" data-flipped="0" onclick="flipAlbumCover('${escapeJsString(albumId)}')" title="Click album cover to flip"><div class="linerCoverFlipCard"><div class="linerCoverFace linerCoverFront">${cover(a)}</div><div class="linerCoverFace linerCoverBack"><div class="cover"><div class="backCoverLoading">Back cover</div></div></div></div></div>${previewButton}`;
 }
 function comparableImageUrl(url){
   return String(url||"").trim().split("?")[0].replace(/\/+$/,"").toLowerCase();
@@ -2455,6 +2462,7 @@ function albumBackCoverOverrideUrl(album){
   if(text.includes("aretha franklin")&&text.includes("i never loved a man"))return "https://coverartarchive.org/release/4b43b2a7-2cab-4f87-9a7e-dfc0913c39ab/30181577323.jpg";
   if(text.includes("the beatles")&&text.includes("rubber soul"))return "https://coverartarchive.org/release/df2dd7e9-c39a-4302-a32f-76fd630a274c/33142967902.jpg";
   if(text.includes("the kinks")&&text.includes("low budget"))return "https://coverartarchive.org/release/42b8324a-590c-31d8-8627-e9f2832d3a14/15681828011.jpg";
+  if(text.includes("metallica")&&text.includes("ride the lightning"))return "https://coverartarchive.org/release/589ff96d-0be8-3f82-bdd2-299592e51b40/41578956333.jpg";
   if(text.includes("metallica")&&text.includes("72 seasons"))return "https://coverartarchive.org/release/dbe7d43d-4a29-4a7e-b942-a62207f5a53d/back";
   if(text.includes("muse")&&text.includes("simulation theory"))return "https://coverartarchive.org/release/e4d797e2-2b5e-4d0b-9290-eb91c3b5ca39/back";
   if(text.includes("goo goo dolls")&&(text.includes("its christmas all over")||text.includes("it s christmas all over")))return "https://coverartarchive.org/release/44c1ee76-31b9-46ac-b238-02ef05a8f2d8/27726786453.jpg";
@@ -4654,9 +4662,31 @@ function albumInfoDate(value){
   return Number.isNaN(date.getTime())?text:date.toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric",timeZone:"UTC"});
 }
 function albumInfoCountry(value){
-  const text=String(value||"").trim();
-  const names={GB:"United Kingdom",US:"United States",AU:"Australia",CA:"Canada",DE:"Germany",FR:"France",JP:"Japan",IT:"Italy",ES:"Spain",IE:"Ireland",NL:"Netherlands",NZ:"New Zealand"};
-  return names[text.toUpperCase()]||text;
+  const text=String(value||"").split(/\s*\/\s*|\s*;\s*|\s*,\s*(?=[A-Z])/).map(part=>part.trim()).find(part=>part&&!/^(?:europe|worldwide)$/i.test(part))||"";
+  const code=text.toUpperCase();
+  if(code==="EUROPE"||code==="WORLDWIDE")return "";
+  if(/^[A-Z]{2}$/.test(code))return "";
+  return text;
+}
+const albumInfoCountryCodeCache=new Map();
+const albumInfoCurrentCountryCodes="AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW".split(" ");
+function albumInfoCountryFlag(value){
+  const country=albumInfoCountry(value);
+  if(!country)return "";
+  const key=country.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+  if(albumInfoCountryCodeCache.has(key))return albumInfoCountryCodeCache.get(key);
+  const aliases={"united states of america":"US","south korea":"KR","north korea":"KP",russia:"RU","czech republic":"CZ",czechia:"CZ","ivory coast":"CI","vatican city":"VA",bolivia:"BO",iran:"IR",syria:"SY",tanzania:"TZ",venezuela:"VE",moldova:"MD",laos:"LA",brunei:"BN","cape verde":"CV","democratic republic of the congo":"CD","republic of the congo":"CG",palestine:"PS",taiwan:"TW",turkey:"TR",england:"GB",scotland:"GB",wales:"GB","northern ireland":"GB"};
+  let code=aliases[key]||"";
+  if(!code&&typeof Intl!=="undefined"&&Intl.DisplayNames){
+    const regions=new Intl.DisplayNames(["en"],{type:"region"});
+    for(const candidate of albumInfoCurrentCountryCodes){
+      const name=String(regions.of(candidate)||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+      if(name===key){code=candidate;break}
+    }
+  }
+  const flag=/^[A-Z]{2}$/.test(code)?`https://flagcdn.com/w40/${code.toLowerCase()}.png`:"";
+  albumInfoCountryCodeCache.set(key,flag);
+  return flag;
 }
 function albumInfoIcon(name){
   const paths={calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',disc:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',map:'<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/>',tag:'<path d="M20 13 13 20l-9-9V4h7z"/><circle cx="8.5" cy="8.5" r="1"/>',music:'<path d="M9 18V5l11-2v13M9 9l11-2"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 1 0 0-8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',pen:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>',award:'<circle cx="12" cy="8" r="6"/><path d="m8.5 13-1.5 8 5-3 5 3-1.5-8"/>',building:'<path d="M3 21h18M6 18V8l6-5 6 5v10M9 18v-5h6v5"/>',external:'<path d="M14 3h7v7M10 14 21 3M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/>',star:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',trophy:'<path d="M8 4h8v5a4 4 0 0 1-8 0zM6 6H3v2a4 4 0 0 0 5 4M18 6h3v2a4 4 0 0 1-5 4M12 13v5M8 21h8M9 18h6"/>',mic:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/>'};
@@ -4668,6 +4698,7 @@ function albumInfoRoleList(credit){
 }
 function albumInfoRoles(credit){return albumInfoRoleList(credit).join(", ")}
 function albumInfoSourceLink(row){
+  if(!isAdminUnlocked())return "";
   const url=String(row?.source_url||"").trim();
   const source=String(row?.source||"").trim();
   if(!url)return source?`<span class="infoSource">Source: ${escapeHtml(source)}</span>`:"";
@@ -4675,13 +4706,19 @@ function albumInfoSourceLink(row){
 }
 function albumInfoPersonCard(credit,admin){
   const name=String(credit.person_name||"Unknown");
-  const image=String(credit.image_url||"").trim();
+  const portraitStatus=String(credit.image_status||"").toLowerCase();
+  const portraitApproved=credit.image_approved===true||portraitStatus==="approved";
+  const candidateVisible=admin&&portraitStatus==="candidate";
+  const image=portraitApproved||candidateVisible?String(credit.image_url||"").trim():"";
   const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("").toUpperCase();
   const avatar=image?`<img src="${escapeHtml(image)}" alt="" loading="lazy">`:`<span>${escapeHtml(initials||"M")}</span>`;
   const roles=albumInfoRoleList(credit),primary=roles.slice(0,2),secondary=roles.slice(2,4),remaining=roles.slice(4);
   const more=remaining.length?`<details class="infoPersonMore"><summary>+ ${remaining.length} more role${remaining.length===1?"":"s"}</summary><p>${escapeHtml(remaining.join(", "))}</p></details>`:"";
-  const controls=admin?`<div class="infoRowActions"><button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
-  return `<article class="infoPerson"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${escapeHtml(primary.join(" / ")||"Credit unavailable")}</p>${secondary.length?`<p class="infoPersonSecondary">${escapeHtml(secondary.join(", "))}</p>`:""}${more}${albumInfoSourceLink(credit)}</div>${controls}</article>`;
+  const portraitSource=String(credit.image_source_url||"").trim(),portraitAuthor=String(credit.image_author||"Wikimedia Commons contributor").trim(),portraitLicense=String(credit.image_license||"").trim(),portraitLicenseUrl=String(credit.image_license_url||"").trim();
+  const portraitCredit=image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` · <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} · circular crop</span>`:"";
+  const portraitActions=admin&&portraitStatus==="candidate"&&credit.id?`<button onclick="setAlbumInfoPortraitStatus('${escapeJsString(credit.id)}','approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus('${escapeJsString(credit.id)}','rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"&&credit.id?`<button onclick="setAlbumInfoPortraitStatus('${escapeJsString(credit.id)}','approved')" title="Approve licensed portrait">Approve photo</button>`:"";
+  const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
+  return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${escapeHtml(primary.join(" / ")||"Credit unavailable")}</p>${secondary.length?`<p class="infoPersonSecondary">${escapeHtml(secondary.join(", "))}</p>`:""}${more}${portraitCredit}${albumInfoSourceLink(credit)}</div>${controls}</article>`;
 }
 function albumInfoSection(id,title,icon,body,className=""){
   if(!body)return "";
@@ -4709,24 +4746,35 @@ function albumInfoHeroHtml(album,info={}){
   const originalLabel=labels.find(label=>label.is_original_label)||labels[0];
   const coverUrl=albumCoverUrl(album),rating=score(album),raters=count(album),genre=albumGenreLabel(album);
   const meta=[metadata.release_year||album.year,genre&&genre!=="Album"?genre:"",albumInfoRuntime(metadata.total_runtime_ms),originalLabel?.label_name].filter(Boolean);
-  const rank=muzeOverallRank(album)||album.muze_rank||album.ranking||album.rank;
-  const signals=[rating>0?`<div><strong>${escapeHtml(rating.toFixed(1))}</strong><span>Muze score${raters?` / ${escapeHtml(raters.toLocaleString())} rater${raters===1?"":"s"}`:""}</span></div>`:"",sales.display_value?`<div><strong>${escapeHtml(sales.display_value)}</strong><span>Worldwide sales</span></div>`:"",rank?`<div><strong>#${escapeHtml(rank)}</strong><span>Muze ranking</span></div>`:""].filter(Boolean).join("");
+  const rank=muzeTop250Rank(album);
+  const signals=[rating>0?`<div><strong>${escapeHtml(rating.toFixed(1))}</strong><span>Muze score${raters?` / ${escapeHtml(raters.toLocaleString())} rater${raters===1?"":"s"}`:""}</span></div>`:"",rank?`<div><strong>#${escapeHtml(rank)}</strong><span>Muze ranking</span></div>`:""].filter(Boolean).join("");
   return `<header id="albumInfoHero" class="albumInfoHero"><div class="albumInfoHeroArt">${coverUrl?`<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(album.title)} cover">`:`<div class="albumInfoCoverFallback">${escapeHtml(coverText(album))}</div>`}</div><div class="albumInfoHeroCopy"><span class="albumInfoEyebrow">Album information</span><h2>${escapeHtml(album.title)}</h2><p class="albumInfoArtist">${escapeHtml(album.artist)}</p>${meta.length?`<p class="albumInfoHeroMeta">${meta.map(value=>`<span>${escapeHtml(value)}</span>`).join("")}</p>`:""}${signals?`<div class="albumInfoHeroSignals">${signals}</div>`:""}</div></header>`;
 }
-function albumInfoAtAGlance(album,info={}){
-  const sales=info.sales||{},overview=albumOverviewRowReadOnly(album),review=albumReviewData(overview,album);
-  const rating=score(album),raters=count(album),rank=muzeOverallRank(album)||album.muze_rank||album.ranking||album.rank;
-  let popular=review.mostPopularTrack||overview.review_most_popular_track||(overview.loved_track_name?{title:overview.loved_track_name}:null);
+function albumMostPopularTrackTitle(album,overview=albumOverviewRowReadOnly(album)){
+  const review=albumReviewData(overview,album);
+  let popular=review.mostPopularTrack||overview?.review_most_popular_track||(overview?.loved_track_name?{title:overview.loved_track_name}:null);
   if(typeof popular==="string"){try{popular=JSON.parse(popular)}catch(_){popular={title:popular}}}
+  return String(popular?.title||popular?.name||"").trim();
+}
+function albumInfoAtAGlance(album,info={}){
+  const sales=info.sales||{},overview=albumOverviewRowReadOnly(album);
+  const rating=score(album),rank=muzeTop250Rank(album);
+  const popularTitle=albumMostPopularTrackTitle(album,overview);
   const facts=[
     ["Muze Score",rating>0?rating.toFixed(1):"","star"],
     ["Muze All-Time",rank?`#${rank}`:"","trophy"],
     ["Worldwide Sales",String(sales.display_value||"").trim(),"globe"],
-    ["Most Popular Track",String(popular?.title||popular?.name||"").trim(),"music"],
-    ["Muze Raters",raters>0?raters.toLocaleString():"","users"]
+    ["Most Popular Track",popularTitle,"music"]
   ].filter(([,value])=>value);
   if(!facts.length)return "";
   return `<aside class="albumGlancePanel"><header><span>${albumInfoIcon("star")}</span><h4>At a Glance</h4></header><div class="albumGlanceStats">${facts.map(([label,value,icon])=>`<article class="albumGlanceFact albumGlanceFact-${icon}"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></article>`).join("")}</div></aside>`;
+}
+function albumInfoLabelCardLogo(label){
+  const image=String(label?.logo_url||"").trim();
+  const name=normalizeAlbumName(label?.label_name);
+  const apple=name==="apple"||name==="apple records";
+  if(!image)return `<span class="albumInfoLabelLogo albumInfoLabelLogoFallback">${albumInfoIcon("building")}</span>`;
+  return `<span class="albumInfoLabelLogo${apple?" isAppleMark":""}"><img src="${escapeHtml(image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon("building")}</span>`;
 }
 function renderAlbumInfo(albumId=extras.currentAlbumId){
   const host=document.querySelector("#albumInfoPopup #albumInfoSection");
@@ -4749,45 +4797,58 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
     :[["Runtime",albumInfoRuntime(albumRuntime||spotifyRuntime),"clock"]];
   const hero=document.querySelector("#albumInfoPopup #albumInfoHero");
   if(hero)hero.outerHTML=albumInfoHeroHtml(album,info);
-  const primaryDetails=[["Released",albumInfoDate(metadata.original_release_date),"calendar"],["Label",originalLabel?.label_name,"building"],["Country",albumInfoCountry(metadata.country),"map"]].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
-  const compactDetails=[["Album Type",metadata.album_type||"Album"],["Tracks",metadata.track_count],...runtimeDetails.map(([label,value])=>[label,value])].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
+  const countryValue=albumInfoCountry(metadata.country),countryFlag=albumInfoCountryFlag(countryValue);
+  const appleLogoOnly=normalizeAlbumName(originalLabel?.label_name)==="apple"||normalizeAlbumName(originalLabel?.label_name)==="apple records";
+  const primaryDetails=[["Released",albumInfoDate(metadata.original_release_date),"calendar","","","","released"] ,["Label",originalLabel?.label_name,"building",originalLabel?.logo_url,"",appleLogoOnly?"appleOnly":"","label"],["Country",countryValue,"map","",countryFlag,"","country"]].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
+  const compactDetails=[["Tracks",metadata.track_count],...runtimeDetails.map(([label,value])=>[label,value])].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
   const admin=isAdminUnlocked();
   const adminHead=admin?`<div class="albumInfoAdminBar"><span>Admin editing</span><button onclick="editAlbumInfoMetadata()">Edit details</button><button onclick="addAlbumInfoCredit()">Add credit</button><button onclick="addAlbumInfoLabel()">Add label</button><button onclick="editAlbumInfoSales()">Edit sales</button><button onclick="addAlbumInfoCertification()">Add certification</button></div>`:"";
   const spotifySource=spotifyRuntime&&album.spotify_url?albumInfoSourceLink({source:"Spotify",source_url:album.spotify_url}):"";
-  const informationPanel=`<section class="albumInformationPanel"><header><h4>Album Information</h4></header><div class="albumInformationPrimary">${primaryDetails.map(([label,value,icon])=>`<article><i>${albumInfoIcon(icon)}</i><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div></article>`).join("")}</div><div class="albumInformationCompact">${compactDetails.map(([label,value])=>`<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</div></section>`;
+  const informationPanel=`<section class="albumInformationPanel"><header><h4>Album Information</h4></header><div class="albumInformationPrimary">${primaryDetails.map(([label,value,icon,image,mark,variant,kind])=>{const classes=[image?"hasOrganizationMark":"",image&&variant?"hasCompactOrganizationMark":"",`albumInformationDetail-${kind}`].filter(Boolean).join(" ");return `<article class="${classes}"><i>${image?`<span class="albumInfoOrganizationMark${variant?" isAppleMark":""}"><img src="${escapeHtml(image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon(icon)}</span>`:mark?`<span class="albumInfoCountryFlag"><img src="${escapeHtml(mark)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon(icon)}</span>`:albumInfoIcon(icon)}</i><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div></article>`}).join("")}</div><div class="albumInformationCompact">${compactDetails.map(([label,value])=>`<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</div></section>`;
   const detailHtml=`<div class="albumSnapshotGrid">${informationPanel}${albumInfoAtAGlance(album,info)}</div><div class="albumInfoDetailSources">${albumInfoSourceLink(metadata)}${spotifySource}</div>`;
   const peopleGrid=items=>`<div class="albumInfoPeople">${items.map(item=>albumInfoPersonCard(item,admin)).join("")}</div>`;
   const performerGroups=albumInfoGroupPerformers(performers,album);
   const groupedPerformers=[["Core artists / band members",performerGroups.core],["Additional musicians",performerGroups.additional],["Guest performers",performerGroups.guest],["Orchestra / ensemble",performerGroups.ensemble]].filter(([,items])=>items.length);
   const performerBody=groupedPerformers.length?groupedPerformers.map(([title,items])=>`<div class="albumInfoPeopleGroup"><h4>${escapeHtml(title)}</h4>${peopleGrid(items)}</div>`).join(""):'<p class="infoEmpty">Credits unavailable.</p>';
   const songwriterBody=songwriting.length?(songwriting.length>4?`<details class="albumSongwriting"><summary>View album songwriting credits</summary>${peopleGrid(songwriting)}</details>`:peopleGrid(songwriting)):"";
-  const labelBody=labels.length?`<div class="albumInfoLabels">${labels.map(label=>`<div><div><strong>${escapeHtml(label.label_name)}</strong><span>${escapeHtml(label.is_original_label?"Original label":label.label_type||"Label")}${label.release_region?` · ${escapeHtml(label.release_region)}`:""}</span>${albumInfoSourceLink(label)}</div>${admin?`<div class="infoRowActions"><button onclick="editAlbumInfoLabel('${escapeJsString(label.id)}')">Edit</button><button onclick="deleteAlbumInfoLabel('${escapeJsString(label.id)}')">Delete</button></div>`:""}</div>`).join("")}</div>`:"";
+  const labelBody=labels.length?`<div class="albumInfoLabels">${labels.map(label=>`<div><div class="albumInfoLabelIdentity">${albumInfoLabelCardLogo(label)}<div><strong>${escapeHtml(label.label_name)}</strong><span>${escapeHtml(label.is_original_label?"Original label":label.label_type||"Label")}${label.release_region?` · ${escapeHtml(label.release_region)}`:""}</span>${albumInfoSourceLink(label)}</div></div>${admin?`<div class="infoRowActions"><button onclick="editAlbumInfoLabel('${escapeJsString(label.id)}')">Edit</button><button onclick="deleteAlbumInfoLabel('${escapeJsString(label.id)}')">Delete</button></div>`:""}</div>`).join("")}</div>`:"";
   const sales=info.sales;
   const salesText=String(sales?.display_value||"").trim();
   const certHtml=certifications.length?`<div class="albumCertifications"><h4>Certifications</h4><div class="albumCertificationGrid">${certifications.map(cert=>`<article><span>${escapeHtml(cert.country)}</span><strong>${escapeHtml(cert.certification)}</strong>${cert.organization?`<em>${escapeHtml(cert.organization)}</em>`:""}${cert.certified_units?`<small>${escapeHtml(Number(cert.certified_units).toLocaleString())} certified units</small>`:""}${albumInfoSourceLink(cert)}${admin?`<div class="infoRowActions"><button onclick="editAlbumInfoCertification('${escapeJsString(cert.id)}')">Edit</button><button onclick="deleteAlbumInfoCertification('${escapeJsString(cert.id)}')">Delete</button></div>`:""}</article>`).join("")}</div></div>`:"";
-  const commercialBody=`${salesText?`<div class="albumSales"><strong>${escapeHtml(salesText)}</strong><span>Estimated worldwide sales</span>${sales?.confidence?`<small>${escapeHtml(sales.confidence)} confidence</small>`:""}${albumInfoSourceLink(sales)}</div>`:'<p class="infoEmpty">Worldwide sales are not reliably documented.</p>'}${certHtml}`;
+  const commercialBody=`${salesText?`<div class="albumSales"><strong>${escapeHtml(salesText)}</strong><span>Estimated worldwide sales</span>${sales?.confidence?`<small>${escapeHtml(sales.confidence)}</small>`:""}${albumInfoSourceLink(sales)}</div>`:'<p class="infoEmpty">Worldwide sales are not reliably documented.</p>'}${certHtml}`;
   const schemaNote=admin&&info.schema_ready===false?'<p class="albumInfoSchemaNote">Run supabase/album-info-schema.sql to enable caching and admin edits.</p>':"";
   const sections=[["details","Album Snapshot","disc",detailHtml,"albumDetailsBlock"],["performers","Performing Artists","users",performerBody,"albumPerformersBlock"],["production","Production","sliders",production.length?peopleGrid(production):"","albumProductionBlock"],["writing","Songwriting","pen",songwriterBody,"albumWritingBlock"],["labels","Record Labels","building",labelBody,"albumLabelsBlock"],["commercial","Commercial Performance","award",commercialBody,"albumCommercialBlock"]].filter(([, , ,body])=>body);
   const navigation=`<nav class="albumInfoNav" aria-label="Album information sections">${sections.map(([id,title,icon])=>`<a href="#album-info-${id}">${albumInfoIcon(icon)}<span>${escapeHtml(title.replace("Album ",""))}</span></a>`).join("")}</nav>`;
   host.innerHTML=`${adminHead}${schemaNote}${navigation}${sections.map(([id,title,icon,body,className])=>albumInfoSection(id,title,icon,body,className)).join("")}`;
 }
-async function loadAlbumInfo(album,force=false){
+function albumInfoContentSignature(info){
+  return JSON.stringify(info,(key,value)=>key==="cached"?undefined:value);
+}
+async function loadAlbumInfo(album,force=false,quiet=false){
   const ref=albumRef(album?.id);
   if(!album||!ref)return null;
-  if(extras.albumInfo[ref]&&!force){renderAlbumInfo(ref);return extras.albumInfo[ref]}
+  if(extras.albumInfo[ref]&&!force&&!quiet){renderAlbumInfo(ref);return extras.albumInfo[ref]}
   if(extras.albumInfoRequests[ref])return extras.albumInfoRequests[ref];
-  renderAlbumInfo(ref);
+  const previous=extras.albumInfo[ref];
+  if(!quiet)renderAlbumInfo(ref);
   const params=new URLSearchParams({album_ref:ref,album_id:String(album.id||""),title:album.title||"",artist:album.artist||"",year:String(album.year||"")});
   if(force)params.set("refresh","1");
   extras.albumInfoRequests[ref]=(async()=>{
+    let changed=false;
     try{
       const response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store"});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.error||data.message||"Album information could not be loaded.");
+      changed=albumInfoContentSignature(previous)!==albumInfoContentSignature(data);
       extras.albumInfo[ref]=data;
-    }catch(error){extras.albumInfo[ref]={error:error.message||"Album information could not be loaded."}}
+    }catch(error){
+      if(!previous){
+        extras.albumInfo[ref]={error:error.message||"Album information could not be loaded."};
+        changed=true;
+      }
+    }
     finally{delete extras.albumInfoRequests[ref]}
-    if(extras.currentAlbumId===ref)renderAlbumInfo(ref);
+    if(extras.currentAlbumId===ref&&(!quiet||changed))renderAlbumInfo(ref);
     return extras.albumInfo[ref];
   })();
   return extras.albumInfoRequests[ref];
@@ -4820,11 +4881,28 @@ window.addAlbumInfoCredit=async function(existingId=""){
   const role=promptNullable("Role (for example Producer or Vocals)",row.role||"");if(role===null)return;
   const instrument=promptNullable("Instrument(s), comma separated",row.instrument||"");if(instrument===null)return;
   const image_url=promptNullable("Profile image URL (optional)",row.image_url||"");if(image_url===null)return;
+  let image_source_url=row.image_source_url||"",image_author=row.image_author||"",image_license=row.image_license||"",image_license_url=row.image_license_url||"",image_attribution=row.image_attribution||"",image_status=row.image_status||"",image_approved=Boolean(row.image_approved);
+  if(image_url){
+    image_source_url=promptNullable("Wikimedia Commons file-page URL",image_source_url);if(image_source_url===null)return;
+    image_author=promptNullable("Photographer / creator",image_author);if(image_author===null)return;
+    image_license=promptNullable("Licence (for example CC BY-SA 4.0)",image_license);if(image_license===null)return;
+    image_license_url=promptNullable("Licence URL",image_license_url);if(image_license_url===null)return;
+    image_attribution=promptNullable("Attribution text",image_attribution||`Photo: ${image_author} / Wikimedia Commons / ${image_license}`);if(image_attribution===null)return;
+    image_approved=confirm("Approve this licensed Wikimedia Commons portrait for public display?");
+    image_status=image_approved?"approved":"candidate";
+  }else{
+    image_source_url="";image_author="";image_license="";image_license_url="";image_attribution="";image_status="unavailable";image_approved=false;
+  }
   const source_url=promptNullable("Supporting source URL",row.source_url||"");if(source_url===null)return;
-  await albumInfoAdminRequest({...albumInfoAdminBase("save_credit"),id:existingId||undefined,person_name,credit_type,role,instrument,image_url,source:"Admin verified",source_url,manually_verified:true});
+  await albumInfoAdminRequest({...albumInfoAdminBase("save_credit"),id:existingId||undefined,person_name,credit_type,role,instrument,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_modified:image_url?"Displayed with a circular crop":"",image_status,image_approved,image_last_verified_at:image_url?new Date().toISOString():null,source:"Admin verified",source_url,manually_verified:true});
 }
 window.editAlbumInfoCredit=id=>window.addAlbumInfoCredit(id);
 window.deleteAlbumInfoCredit=async function(id){if(confirm("Delete this credit?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_credit"),id})}
+window.setAlbumInfoPortraitStatus=async function(id,status){
+  const action=status==="approved"?"approve":"reject";
+  if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this artist portrait?`))return;
+  await albumInfoAdminRequest({...albumInfoAdminBase("set_credit_image_status"),id,image_status:status});
+}
 window.addAlbumInfoLabel=async function(existingId=""){
   const album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.labels||[]:[],row=items.find(item=>String(item.id)===String(existingId))||{};
   const label_name=promptNullable("Record label",row.label_name||"");if(!label_name)return;
@@ -5013,6 +5091,7 @@ window.closeAlbumOverviewPopup=function(){
 window.openAlbumInfoPopup=function(){
   const album=albumInfoCurrentAlbum();
   if(!album)return;
+  const ref=albumRef(album.id);
   let popup=$("#albumInfoPopup");
   if(!popup){
     popup=document.createElement("div");
@@ -5020,14 +5099,37 @@ window.openAlbumInfoPopup=function(){
     popup.className="albumOverviewPopup albumInfoPopup hidden";
     document.body.appendChild(popup);
   }
-  popup.innerHTML=`<div class="albumOverviewBackdrop" onclick="closeAlbumInfoPopup()"></div><div class="albumOverviewPopupPanel albumInfoPopupPanel"><button class="albumOverviewClose" onclick="closeAlbumInfoPopup()" aria-label="Close album information">&times;</button><div class="albumInfoPage">${albumInfoHeroHtml(album,extras.albumInfo[albumRef(album.id)]||{})}<section id="albumInfoSection" class="albumInfoSection" aria-label="Album information"><div class="albumInfoLoading"><span></span><p>Loading verified album information...</p></div></section></div></div>`;
+  if(popup.dataset.albumRef===ref&&popup.querySelector("#albumInfoSection")){
+    popup.classList.remove("hidden");
+    if(!extras.albumInfo[ref]&&!extras.albumInfoRequests[ref])loadAlbumInfo(album);
+    else loadAlbumInfo(album,false,true);
+    startAlbumInfoAutoRefresh(album);
+    return;
+  }
+  popup.dataset.albumRef=ref;
+  const hasCachedInfo=Boolean(extras.albumInfo[ref]);
+  const initialSection=hasCachedInfo?"":'<div class="albumInfoLoading"><span></span><p>Loading verified album information...</p></div>';
+  popup.innerHTML=`<div class="albumOverviewBackdrop" onclick="closeAlbumInfoPopup()"></div><div class="albumOverviewPopupPanel albumInfoPopupPanel"><button class="albumOverviewClose" onclick="closeAlbumInfoPopup()" aria-label="Close album information">&times;</button><div class="albumInfoPage">${albumInfoHeroHtml(album,extras.albumInfo[ref]||{})}<section id="albumInfoSection" class="albumInfoSection" aria-label="Album information">${initialSection}</section></div></div>`;
   popup.classList.remove("hidden");
   renderAlbumInfo(album.id);
-  loadAlbumInfo(album);
+  loadAlbumInfo(album,false,hasCachedInfo);
+  startAlbumInfoAutoRefresh(album);
+}
+function startAlbumInfoAutoRefresh(album){
+  clearInterval(extras.albumInfoRefreshTimer);
+  const ref=albumRef(album?.id);
+  if(!ref)return;
+  extras.albumInfoRefreshTimer=setInterval(()=>{
+    const popup=$("#albumInfoPopup");
+    if(!popup||popup.classList.contains("hidden")||popup.dataset.albumRef!==ref)return;
+    loadAlbumInfo(album,false,true);
+  },30000);
 }
 window.closeAlbumInfoPopup=function(){
   const popup=$("#albumInfoPopup");
   if(popup)popup.classList.add("hidden");
+  clearInterval(extras.albumInfoRefreshTimer);
+  extras.albumInfoRefreshTimer=null;
 }
 window.openReactionReplyBox=function(albumId,commentId,name){
   if(!requireAuth("chat",()=>window.openReactionReplyBox(albumId,commentId,name)))return;
@@ -7774,7 +7876,9 @@ function scheduleHomeSearchRender(){
 }
 function card(a){const genreLabel=albumGenreLabel(a);const adminDelete=isAdminUnlocked()?`<button class="adminAlbumDeleteBtn" onclick="event.stopPropagation();deleteAlbumAdmin('${escapeJsString(a.id)}')" aria-label="Delete ${escapeHtml(a.title)}">Delete</button>`:"";return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button>${adminDelete}<div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(genreLabel)}</span></div></article>`}
 function row(a,i){const genreLabel=albumGenreLabel(a);return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(genreLabel)} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
-function render(){let arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;const heroCard=$("#heroCard");if(heroCard){if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}}$("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("");
+function render(){
+if(!state.dataReady){$("#heroScore").textContent="-";$("#heroTitle").textContent="Loading current rankings...";$("#heroCard")?.style.removeProperty("--hero-cover");content.innerHTML='<div class="empty">Loading current album rankings...</div>';return}
+let arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;const heroCard=$("#heroCard");if(heroCard){if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}}$("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("");
 if(state.view==="rankings"){
   const limit=Math.max(60,Number(state.homeAlbumLimit)||120);
   const visible=arr.slice(0,limit);
@@ -8023,7 +8127,8 @@ window.openAlbum=async function(id){
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${formatParagraphText(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood" style="--mood-score:${moodScore}%;--mood-start:${moodStart};--mood-end:${moodEnd};--mood-glow:${moodGlow}"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${albumVibeTags(a).slice(0,3).map(escapeHtml).join(" &middot; ")}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence${soundInfluenceHasMore?" is-collapsible":""}"${soundInfluenceAttrs}><h4><span>&#9733;</span>Sound & Influence</h4><p class="influencePreview">${formatParagraphText(compactPreviewText(soundInfluenceText))}</p><p class="influenceFull">${formatParagraphText(soundInfluenceText)}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div>${soundInfluenceHint}</div></aside>`;
   $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${formatParagraphText(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="window.scrollAlbumSeeMore()">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${formatParagraphText(returnHeadline)}</h3></div><p>${formatParagraphText(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
   const albumTabs=$("#albumModalContent .linerTabs");
-  if(albumTabs)albumTabs.insertAdjacentHTML("beforeend",'<button data-album-tab="info" onclick="setAlbumPopupTab(\'info\')">Info</button>');
+  const ratingsTab=albumTabs?.querySelector('[data-album-tab="ratings"]');
+  if(ratingsTab)ratingsTab.insertAdjacentHTML("beforebegin",'<button data-album-tab="info" onclick="setAlbumPopupTab(\'info\')">Details &amp; Credits</button>');
   const flip=$("#albumModalContent .linerCoverFlip");
   const reviewAtmosphere=$("#albumModalContent .reactionsPanel .reactionAtmosphere");
   const reviewComposer=$("#albumModalContent .reactionsPanel .linerComposer");
@@ -8162,6 +8267,8 @@ function showSavedAlbumImmediately(album){
   return visibleAlbum;
 }
 async function loadData(){
+  state.dataReady=false;
+  render();
   if(!db){
     $("#setupWarning").classList.remove("hidden");
     const localOnly=isLocalRuntime();
@@ -8170,6 +8277,7 @@ async function loadData(){
     state.ratingMap=localOnly?localRatings():{};
     await loadCustomOverviews();
     applyCachedCovers();
+    state.dataReady=true;
     render();
     if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
     hydrateMissingCovers();
@@ -8187,11 +8295,17 @@ async function loadData(){
   if(!state.albums.length){state.albums=seedAlbums}
   state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
   applyCachedCovers();
-  render();
-  let {data:ratings,error:ratingsError}=await db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId);
-  state.ratingMap=ratingsError?{}:Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));
-  await loadCustomOverviews();
+  const [ratingsResult,overviewsResult]=await Promise.allSettled([
+    db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId),
+    loadCustomOverviews()
+  ]);
+  if(ratingsResult.status==="fulfilled"){
+    const {data:ratings,error:ratingsError}=ratingsResult.value;
+    state.ratingMap=ratingsError?{}:Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));
+  }else state.ratingMap={};
+  if(overviewsResult.status==="rejected")console.warn("Muze overview scores could not be loaded",overviewsResult.reason);
   applyCachedCovers();
+  state.dataReady=true;
   render();
   if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
   hydrateMissingCovers();
