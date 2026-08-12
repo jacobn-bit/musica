@@ -903,6 +903,14 @@ function metadataValue(metadata, key) {
   return clean(metadata?.[key]?.value);
 }
 
+function stringArray(value) {
+  if (Array.isArray(value)) return value.map(clean).filter(Boolean);
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    return Array.isArray(parsed) ? parsed.map(clean).filter(Boolean) : [];
+  } catch (_) { return []; }
+}
+
 async function wikidataIdForCredit(credit) {
   const name = clean(credit?.person_name);
   if (name) {
@@ -925,32 +933,16 @@ async function wikidataIdForCredit(credit) {
   return "";
 }
 
-async function fetchCommonsPortrait(itemId, personName) {
-  if (!/^Q\d+$/.test(clean(itemId))) return null;
-  const entityData = await wikidataJson({ action: "wbgetentities", ids: itemId, props: "claims|labels|aliases", languages: "en" });
-  const entity = entityData?.entities?.[itemId];
-  const names = [entity?.labels?.en?.value, ...(entity?.aliases?.en || []).map(item => item.value)].map(normalize).filter(Boolean);
-  if (!names.includes(normalize(personName))) return null;
-  const filename = clean(entity?.claims?.P18?.find(claim => claim.rank === "preferred")?.mainsnak?.datavalue?.value
-    || entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value);
-  if (!filename) return null;
-  const result = await commonsJson({
-    action: "query",
-    titles: `File:${filename}`,
-    prop: "imageinfo",
-    iiprop: "url|extmetadata",
-    iiurlwidth: "240",
-    iiextmetadatalanguage: "en",
-    iiextmetadatafilter: "LicenseShortName|LicenseUrl|Artist|Credit|Attribution|AttributionRequired|UsageTerms"
-  });
-  const page = result?.query?.pages?.[0];
+function commonsPortraitFromPage(page, itemId, personName, requireNamedFile = false) {
   const image = page?.imageinfo?.[0];
   const metadata = image?.extmetadata || {};
   const license = htmlText(metadataValue(metadata, "LicenseShortName") || metadataValue(metadata, "UsageTerms"));
   if (!image || !isAllowedCommonsLicense(license)) return null;
+  const filename = clean(String(page?.title || "").replace(/^File:/i, ""));
+  if (requireNamedFile && !normalize(filename).includes(normalize(personName))) return null;
   const author = htmlText(metadataValue(metadata, "Artist") || metadataValue(metadata, "Credit")) || "Wikimedia Commons contributor";
   const suppliedAttribution = htmlText(metadataValue(metadata, "Attribution"));
-  const sourceUrl = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(filename.replace(/ /g, "_"))}`;
+  const sourceUrl = clean(image.descriptionurl) || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(filename.replace(/ /g, "_"))}`;
   return {
     person_wikidata_id: itemId,
     image_url: clean(image.thumburl || image.url),
@@ -966,7 +958,37 @@ async function fetchCommonsPortrait(itemId, personName) {
   };
 }
 
-const portraitFields = ["person_wikidata_id", "image_url", "image_source_url", "image_author", "image_license", "image_license_url", "image_attribution", "image_modified", "image_status", "image_approved", "image_last_verified_at"];
+async function fetchCommonsPortrait(itemId, personName, excludedUrls = [], findAlternative = false) {
+  if (!/^Q\d+$/.test(clean(itemId))) return null;
+  const excluded = new Set((excludedUrls || []).map(clean).filter(Boolean));
+  const entityData = await wikidataJson({ action: "wbgetentities", ids: itemId, props: "claims|labels|aliases", languages: "en" });
+  const entity = entityData?.entities?.[itemId];
+  const names = [entity?.labels?.en?.value, ...(entity?.aliases?.en || []).map(item => item.value)].map(normalize).filter(Boolean);
+  if (!names.includes(normalize(personName))) return null;
+  const filename = clean(entity?.claims?.P18?.find(claim => claim.rank === "preferred")?.mainsnak?.datavalue?.value
+    || entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value);
+  if (filename) {
+    const result = await commonsJson({
+      action: "query", titles: `File:${filename}`, prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "240",
+      iiextmetadatalanguage: "en", iiextmetadatafilter: "LicenseShortName|LicenseUrl|Artist|Credit|Attribution|AttributionRequired|UsageTerms"
+    });
+    const portrait = commonsPortraitFromPage(result?.query?.pages?.[0], itemId, personName);
+    if (portrait && !excluded.has(portrait.image_url) && !excluded.has(portrait.image_source_url)) return portrait;
+  }
+  if (!findAlternative) return null;
+  const search = await commonsJson({
+    action: "query", generator: "search", gsrsearch: `\"${personName}\" filetype:bitmap`, gsrnamespace: "6", gsrlimit: "20",
+    prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "240", iiextmetadatalanguage: "en",
+    iiextmetadatafilter: "LicenseShortName|LicenseUrl|Artist|Credit|Attribution|AttributionRequired|UsageTerms"
+  });
+  const alternatives = (search?.query?.pages || [])
+    .map(page => commonsPortraitFromPage(page, itemId, personName, true))
+    .filter(Boolean)
+    .filter(portrait => !excluded.has(portrait.image_url) && !excluded.has(portrait.image_source_url));
+  return alternatives[0] || null;
+}
+
+const portraitFields = ["person_wikidata_id", "image_url", "image_source_url", "image_author", "image_license", "image_license_url", "image_attribution", "image_modified", "image_status", "image_approved", "image_last_verified_at", "image_rejected_urls"];
 
 async function portraitForCredit(credit) {
   const key = clean(credit?.person_id) || normalize(credit?.person_name);
@@ -1351,7 +1373,7 @@ async function importAlbumInfo(input) {
 
 function preserveManualCachedInfo(imported, cached) {
   if (!cached) return imported;
-  const manualCredits = (cached.credits || []).filter(row => row.manually_verified || row.image_approved || ["approved", "rejected"].includes(clean(row.image_status).toLowerCase()));
+  const manualCredits = (cached.credits || []).filter(row => row.manually_verified || row.image_approved || stringArray(row.image_rejected_urls).length || ["approved", "rejected"].includes(clean(row.image_status).toLowerCase()));
   const manualLabels = (cached.labels || []).filter(row => row.manually_verified);
   return {
     ...imported,
@@ -1473,22 +1495,68 @@ async function adminAction(body) {
   }
   if (body.action === "set_credit_image_status") {
     const approved = body.image_status === "approved";
-    const target = body.id
-      ? `id=eq.${encodeURIComponent(body.id)}`
-      : `album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.credit_type))}`;
     let rows;
     try {
-      rows = await api(`album_credits?${target}&select=id,image_source_url,image_license`);
+      const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license,image_rejected_urls`);
+      rows = (albumRows || []).filter(row => (body.id && String(row.id) === String(body.id))
+        || (normalize(row.person_name) === normalize(body.person_name) && normalize(row.credit_type) === normalize(body.credit_type)));
     } catch (error) {
+      if (/image_rejected_urls/i.test(error.message || "")) {
+        throw new Error("Alternate portrait suggestions are not enabled in the live database. Run supabase/migrations/202608120004_artist_portrait_rejections.sql in the Supabase SQL Editor, then try Reject photo again.");
+      }
       if (/image_source_url|image_license|album_credits|PGRST204|PGRST205|42703|42P01/i.test(error.message || "")) {
         throw new Error("Artist portrait approval is not enabled in the live database. Run supabase/migrations/202608120001_artist_portraits.sql in the Supabase SQL Editor, then reopen Details & Credits.");
       }
       throw error;
     }
-    if (!rows?.length) {
-      const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,image_source_url,image_license`);
-      rows = (albumRows || []).filter(row => normalize(row.person_name) === normalize(body.person_name)
-        && normalize(row.credit_type) === normalize(body.credit_type));
+    if (!rows?.length && !approved && clean(body.image_url)) {
+      const candidate = {
+        ...base,
+        manually_verified: false,
+        person_name: clean(body.person_name),
+        person_id: clean(body.person_id) || null,
+        person_wikidata_id: clean(body.person_wikidata_id) || null,
+        credit_type: normalize(body.credit_type),
+        role: clean(body.role) || null,
+        instrument: clean(body.instrument) || null,
+        sort_order: Number.isFinite(Number(body.sort_order)) ? Number(body.sort_order) : 0,
+        source: clean(body.source) || null,
+        source_url: clean(body.source_url) || null,
+        image_url: clean(body.image_url),
+        image_source_url: clean(body.image_source_url),
+        image_author: clean(body.image_author) || null,
+        image_license: clean(body.image_license) || null,
+        image_license_url: clean(body.image_license_url) || null,
+        image_attribution: clean(body.image_attribution) || null,
+        image_modified: clean(body.image_modified) || "Displayed with a circular crop",
+        image_status: "candidate",
+        image_approved: false,
+        image_last_verified_at: now,
+        image_rejected_urls: []
+      };
+      rows = await api("album_credits", { method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(candidate) });
+      if (!rows?.length) {
+        const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license,image_rejected_urls`);
+        rows = (albumRows || []).filter(row => normalize(row.person_name) === normalize(candidate.person_name)
+          && normalize(row.credit_type) === candidate.credit_type);
+      }
+    }
+    if (!approved && rows?.length) {
+      const rejectedUrls = [...new Set(rows.flatMap(row => stringArray(row.image_rejected_urls))
+        .concat(rows.flatMap(row => [row.image_url, row.image_source_url])).concat([body.image_url, body.image_source_url]).map(clean).filter(Boolean))];
+      const itemId = clean(body.person_wikidata_id || rows.find(row => row.person_wikidata_id)?.person_wikidata_id);
+      let alternative = null;
+      try {
+        if (itemId) alternative = await fetchCommonsPortrait(itemId, body.person_name, rejectedUrls, true);
+      } catch (error) {
+        console.warn("[Muze album info] alternate portrait unavailable", body.person_name, error.message);
+      }
+      const update = alternative
+        ? { ...alternative, image_rejected_urls: rejectedUrls, updated_at: now }
+        : { image_url: null, image_source_url: null, image_author: null, image_license: null, image_license_url: null, image_attribution: null, image_modified: null, image_status: "rejected", image_approved: false, image_last_verified_at: now, image_rejected_urls: rejectedUrls, updated_at: now };
+      return Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
+        method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(update)
+      })));
     }
     if (approved && clean(body.image_url)) {
       if (!isAllowedCommonsLicense(body.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(body.image_source_url))) {
@@ -1532,7 +1600,7 @@ async function adminAction(body) {
           throw new Error(`This portrait candidate could not be saved: ${error.message}`);
         }
         if (!rows?.length) {
-          const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,image_source_url,image_license`);
+          const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license,image_rejected_urls`);
           rows = (albumRows || []).filter(row => normalize(row.person_name) === normalize(candidate.person_name)
             && normalize(row.credit_type) === candidate.credit_type);
           if (rows.length) {
@@ -1675,4 +1743,4 @@ exports.handler = async function handler(event) {
   }
 };
 
-exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, structuredCreditFacts, wikipediaAlbumMatches };
+exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
