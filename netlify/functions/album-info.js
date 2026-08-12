@@ -609,6 +609,10 @@ function mergeCredits(...lists) {
     .sort((left, right) => left.sort_order - right.sort_order);
 }
 
+function hasNamedPerformerCredits(info) {
+  return Array.isArray(info?.credits) && info.credits.some(row => normalize(row?.credit_type) === "performer" && clean(row?.person_name));
+}
+
 function mergeLabels(...lists) {
   const merged = new Map();
   lists.flat().forEach(row => {
@@ -1491,7 +1495,12 @@ async function adminAction(body) {
     if (row.image_approved && (!isAllowedCommonsLicense(row.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(row.image_source_url)))) {
       throw new Error("Approved portraits must use an allowed Wikimedia Commons licence and file-page URL.");
     }
-    if (body.id) return api(`album_credits?id=eq.${encodeURIComponent(body.id)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
+    let creditId = clean(body.id);
+    if (!creditId && clean(body.original_person_name) && clean(body.original_credit_type)) {
+      const matches = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.original_person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.original_credit_type))}&select=id&limit=1`);
+      creditId = clean(matches?.[0]?.id);
+    }
+    if (creditId) return api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
     return api("album_credits", { method: "POST", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
   }
   if (body.action === "set_credit_image_status") {
@@ -1628,7 +1637,15 @@ async function adminAction(body) {
       method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(update)
     })));
   }
-  if (body.action === "delete_credit") return api(`album_credits?id=eq.${encodeURIComponent(body.id)}`, { method: "DELETE" });
+  if (body.action === "delete_credit") {
+    let creditId = clean(body.id);
+    if (!creditId && clean(body.person_name) && clean(body.credit_type)) {
+      const matches = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.credit_type))}&select=id&limit=1`);
+      creditId = clean(matches?.[0]?.id);
+    }
+    if (!creditId) throw new Error("This credit could not be matched to a saved album credit.");
+    return api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "DELETE" });
+  }
   if (body.action === "save_label") {
     const row = { ...base, ...pick(body, ["label_name", "label_type", "is_original_label", "release_region", "source", "source_url"]) };
     if (body.id) return api(`album_labels?id=eq.${encodeURIComponent(body.id)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
@@ -1715,7 +1732,7 @@ exports.handler = async function handler(event) {
       console.warn("[Muze album info] cache unavailable", error.message);
     }
     const logoSchemaReady = schemaReady && cached?.record_label_logo_schema_ready !== false;
-    const currentImportCache = cached?.metadata?.source_confidence === ALBUM_INFO_IMPORT_VERSION;
+    const currentImportCache = cached?.metadata?.source_confidence === ALBUM_INFO_IMPORT_VERSION && hasNamedPerformerCredits(cached);
     if (cached?.metadata && input.refresh !== "1" && currentImportCache) {
       applyVerifiedAlbumOverrides(cached, input);
       await Promise.all([attachRecordLabelLogos(cached, { persist: logoSchemaReady }), attachArtistPortraits(cached)]);
@@ -1748,4 +1765,4 @@ exports.handler = async function handler(event) {
   }
 };
 
-exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
+exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
