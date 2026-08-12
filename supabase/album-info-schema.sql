@@ -39,6 +39,7 @@ create table if not exists album_credits (
   image_status text not null default 'candidate',
   image_approved boolean not null default false,
   image_last_verified_at timestamptz,
+  image_rejected_urls jsonb not null default '[]'::jsonb,
   credit_type text not null,
   role text,
   instrument text,
@@ -63,6 +64,7 @@ alter table if exists album_credits
   add column if not exists image_status text not null default 'candidate',
   add column if not exists image_approved boolean not null default false,
   add column if not exists image_last_verified_at timestamptz,
+  add column if not exists image_rejected_urls jsonb not null default '[]'::jsonb,
   add column if not exists source_secondary text,
   add column if not exists source_secondary_url text;
 
