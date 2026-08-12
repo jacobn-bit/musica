@@ -1485,22 +1485,17 @@ async function adminAction(body) {
       }
       throw error;
     }
-    if (!rows?.length && approved && clean(body.image_url)) {
+    if (!rows?.length) {
+      const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,image_source_url,image_license`);
+      rows = (albumRows || []).filter(row => normalize(row.person_name) === normalize(body.person_name)
+        && normalize(row.credit_type) === normalize(body.credit_type));
+    }
+    if (approved && clean(body.image_url)) {
       if (!isAllowedCommonsLicense(body.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(body.image_source_url))) {
         throw new Error("This portrait does not have an approved Wikimedia Commons licence record.");
       }
-      const candidate = {
-        ...base,
-        manually_verified: false,
-        person_name: clean(body.person_name),
-        person_id: clean(body.person_id) || null,
+      const portraitPatch = {
         person_wikidata_id: clean(body.person_wikidata_id) || null,
-        credit_type: normalize(body.credit_type),
-        role: clean(body.role) || null,
-        instrument: clean(body.instrument) || null,
-        sort_order: Number.isFinite(Number(body.sort_order)) ? Number(body.sort_order) : 0,
-        source: clean(body.source) || null,
-        source_url: clean(body.source_url) || null,
         image_url: clean(body.image_url),
         image_source_url: clean(body.image_source_url),
         image_author: clean(body.image_author) || null,
@@ -1510,14 +1505,43 @@ async function adminAction(body) {
         image_modified: clean(body.image_modified) || "Displayed with a circular crop",
         image_status: "candidate",
         image_approved: false,
-        image_last_verified_at: now
+        image_last_verified_at: now,
+        updated_at: now
       };
-      try {
-        rows = await api("album_credits", { method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(candidate) });
-      } catch (error) {
-        throw new Error(`This portrait candidate could not be saved: ${error.message}`);
+      if (rows?.length) {
+        rows = (await Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
+          method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(portraitPatch)
+        })))).flat();
+      } else {
+        const candidate = {
+          ...base,
+          manually_verified: false,
+          person_name: clean(body.person_name),
+          person_id: clean(body.person_id) || null,
+          credit_type: normalize(body.credit_type),
+          role: clean(body.role) || null,
+          instrument: clean(body.instrument) || null,
+          sort_order: Number.isFinite(Number(body.sort_order)) ? Number(body.sort_order) : 0,
+          source: clean(body.source) || null,
+          source_url: clean(body.source_url) || null,
+          ...portraitPatch
+        };
+        try {
+          rows = await api("album_credits", { method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(candidate) });
+        } catch (error) {
+          throw new Error(`This portrait candidate could not be saved: ${error.message}`);
+        }
+        if (!rows?.length) {
+          const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,image_source_url,image_license`);
+          rows = (albumRows || []).filter(row => normalize(row.person_name) === normalize(candidate.person_name)
+            && normalize(row.credit_type) === candidate.credit_type);
+          if (rows.length) {
+            rows = (await Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
+              method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(portraitPatch)
+            })))).flat();
+          }
+        }
       }
-      if (!rows?.length) rows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(candidate.person_name)}&credit_type=eq.${encodeURIComponent(candidate.credit_type)}&select=id,image_source_url,image_license`);
     }
     if (!rows?.length) throw new Error("This portrait candidate could not be matched to a saved album credit. Refresh Details & Credits and try once more.");
     if (approved) {
