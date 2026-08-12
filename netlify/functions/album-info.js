@@ -933,7 +933,7 @@ async function wikidataIdForCredit(credit) {
   return "";
 }
 
-function commonsPortraitFromPage(page, itemId, personName, requireNamedFile = false) {
+function commonsPortraitFromPage(page, itemId, personName, requireNamedFile = false, autoApprove = false) {
   const image = page?.imageinfo?.[0];
   const metadata = image?.extmetadata || {};
   const license = htmlText(metadataValue(metadata, "LicenseShortName") || metadataValue(metadata, "UsageTerms"));
@@ -952,8 +952,8 @@ function commonsPortraitFromPage(page, itemId, personName, requireNamedFile = fa
     image_license_url: clean(metadataValue(metadata, "LicenseUrl")),
     image_attribution: suppliedAttribution || `Photo: ${author} / Wikimedia Commons / ${license}`,
     image_modified: "Displayed with a circular crop",
-    image_status: "candidate",
-    image_approved: false,
+    image_status: autoApprove ? "approved" : "candidate",
+    image_approved: autoApprove,
     image_last_verified_at: new Date().toISOString()
   };
 }
@@ -972,7 +972,7 @@ async function fetchCommonsPortrait(itemId, personName, excludedUrls = [], findA
       action: "query", titles: `File:${filename}`, prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "240",
       iiextmetadatalanguage: "en", iiextmetadatafilter: "LicenseShortName|LicenseUrl|Artist|Credit|Attribution|AttributionRequired|UsageTerms"
     });
-    const portrait = commonsPortraitFromPage(result?.query?.pages?.[0], itemId, personName);
+    const portrait = commonsPortraitFromPage(result?.query?.pages?.[0], itemId, personName, false, true);
     if (portrait && !excluded.has(portrait.image_url) && !excluded.has(portrait.image_source_url)) return portrait;
   }
   if (!findAlternative) return null;
@@ -1008,10 +1008,11 @@ async function portraitForCredit(credit) {
 async function attachArtistPortraits(info) {
   const credits = Array.isArray(info?.credits) ? info.credits : [];
   const candidates = credits.filter(row => ["performer", "production"].includes(row.credit_type) && !row.image_approved
-    && (!row.image_status || (row.image_status === "candidate" && !row.image_url))).slice(0, 8);
+    && (!row.image_status || (row.image_status === "candidate" && (!row.image_url || !stringArray(row.image_rejected_urls).length)))).slice(0, 8);
   await Promise.all(candidates.map(async credit => {
     const portrait = await portraitForCredit(credit);
-    Object.assign(credit, portrait || { image_status: "unavailable", image_approved: false, image_last_verified_at: new Date().toISOString() });
+    if (portrait) Object.assign(credit, portrait);
+    else if (!credit.image_url) Object.assign(credit, { image_status: "unavailable", image_approved: false, image_last_verified_at: new Date().toISOString() });
     if (!credit.id) return;
     const patch = Object.fromEntries(portraitFields.filter(field => Object.prototype.hasOwnProperty.call(credit, field)).map(field => [field, credit[field]]));
     patch.updated_at = new Date().toISOString();
@@ -1502,12 +1503,16 @@ async function adminAction(body) {
         || (normalize(row.person_name) === normalize(body.person_name) && normalize(row.credit_type) === normalize(body.credit_type)));
     } catch (error) {
       if (/image_rejected_urls/i.test(error.message || "")) {
-        throw new Error("Alternate portrait suggestions are not enabled in the live database. Run supabase/migrations/202608120004_artist_portrait_rejections.sql in the Supabase SQL Editor, then try Reject photo again.");
+        if (!approved) throw new Error("Alternate portrait suggestions are not enabled in the live database. Run supabase/migrations/202608120004_artist_portrait_rejections.sql in the Supabase SQL Editor, then try Reject photo again.");
+        const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license`);
+        rows = (albumRows || []).filter(row => (body.id && String(row.id) === String(body.id))
+          || (normalize(row.person_name) === normalize(body.person_name) && normalize(row.credit_type) === normalize(body.credit_type)));
+      } else {
+        if (/image_source_url|image_license|album_credits|PGRST204|PGRST205|42703|42P01/i.test(error.message || "")) {
+          throw new Error("Artist portrait approval is not enabled in the live database. Run supabase/migrations/202608120001_artist_portraits.sql in the Supabase SQL Editor, then reopen Details & Credits.");
+        }
+        throw error;
       }
-      if (/image_source_url|image_license|album_credits|PGRST204|PGRST205|42703|42P01/i.test(error.message || "")) {
-        throw new Error("Artist portrait approval is not enabled in the live database. Run supabase/migrations/202608120001_artist_portraits.sql in the Supabase SQL Editor, then reopen Details & Credits.");
-      }
-      throw error;
     }
     if (!rows?.length && !approved && clean(body.image_url)) {
       const candidate = {
