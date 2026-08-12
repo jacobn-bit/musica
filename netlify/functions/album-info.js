@@ -1351,7 +1351,7 @@ async function importAlbumInfo(input) {
 
 function preserveManualCachedInfo(imported, cached) {
   if (!cached) return imported;
-  const manualCredits = (cached.credits || []).filter(row => row.manually_verified);
+  const manualCredits = (cached.credits || []).filter(row => row.manually_verified || row.image_approved || ["approved", "rejected"].includes(clean(row.image_status).toLowerCase()));
   const manualLabels = (cached.labels || []).filter(row => row.manually_verified);
   return {
     ...imported,
