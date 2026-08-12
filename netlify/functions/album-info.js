@@ -6,7 +6,7 @@ const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const USER_AGENT = "Muze/1.0 (https://themuze.app; factual album metadata and licensed artwork)";
-const ALBUM_INFO_IMPORT_VERSION = "structured-sources-v1-wikipedia-fallback";
+const ALBUM_INFO_IMPORT_VERSION = "structured-sources-v2-preserve-solo-primary";
 const BESTSELLING_ALBUMS_ROOT = "https://bestsellingalbums.org";
 const WIKIPEDIA_BESTSELLERS_URL = "https://en.wikipedia.org/wiki/List_of_best-selling_albums";
 let wikipediaSalesHtmlCache = { html: "", expiresAt: 0 };
@@ -595,6 +595,13 @@ function mergeCredits(...lists) {
     const key = `${normalize(row.person_name)}::${normalize(row.credit_type)}`;
     const current = merged.get(key);
     if (!current) { merged.set(key, { ...row }); return; }
+    const currentIsManual = current.manually_verified === true;
+    const rowIsManual = row.manually_verified === true;
+    if (rowIsManual && !currentIsManual) {
+      merged.set(key, { ...current, ...row });
+      return;
+    }
+    if (currentIsManual && !rowIsManual) return;
     const roles = [...new Set(`${current.role || ""},${row.role || ""}`.split(",").map(clean).filter(Boolean))];
     const instruments = [...new Set(`${current.instrument || ""},${row.instrument || ""}`.split(",").map(clean).filter(Boolean))];
     current.role = roles.join(", ");
@@ -626,11 +633,15 @@ function mergeLabels(...lists) {
 function mergeStructuredCredits(structuredRows = [], wikipediaRows = [], albumArtist = "") {
   const artistKey = normalize(albumArtist);
   const wikipediaNamedPerformers = wikipediaRows.filter(row => row.credit_type === "performer" && normalize(row.person_name) !== artistKey);
+  const wikipediaCorePerformers = wikipediaNamedPerformers.filter(row => {
+    const order = Number(row.sort_order);
+    return Number.isFinite(order) && order >= 10000 && order < 20000;
+  });
   let primary = structuredRows.slice();
   const structuredPerformers = primary.filter(row => row.credit_type === "performer");
   const onlyGenericArtist = structuredPerformers.length === 1 && /primary artist/.test(normalize(structuredPerformers[0].role))
     && (!artistKey || normalize(structuredPerformers[0].person_name) === artistKey);
-  if (onlyGenericArtist && wikipediaNamedPerformers.length) {
+  if (onlyGenericArtist && wikipediaCorePerformers.length >= 2) {
     const genericName = normalize(structuredPerformers[0].person_name);
     primary = primary.filter(row => row.credit_type !== "performer" || normalize(row.person_name) !== genericName);
   }
@@ -1495,13 +1506,32 @@ async function adminAction(body) {
     if (row.image_approved && (!isAllowedCommonsLicense(row.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(row.image_source_url)))) {
       throw new Error("Approved portraits must use an allowed Wikimedia Commons licence and file-page URL.");
     }
+    const originalPersonName = clean(body.original_person_name);
+    const originalCreditType = normalize(body.original_credit_type);
     let creditId = clean(body.id);
-    if (!creditId && clean(body.original_person_name) && clean(body.original_credit_type)) {
+    if (!creditId && originalPersonName && originalCreditType) {
       const matches = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.original_person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.original_credit_type))}&select=id&limit=1`);
       creditId = clean(matches?.[0]?.id);
     }
-    if (creditId) return api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
-    return api("album_credits", { method: "POST", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
+    let saved = [];
+    if (creditId) saved = await api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
+    if (!saved?.length && originalPersonName && originalCreditType) {
+      const matches = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(originalPersonName)}&credit_type=eq.${encodeURIComponent(originalCreditType)}&select=id&limit=1`);
+      creditId = clean(matches?.[0]?.id);
+      if (creditId) saved = await api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
+    }
+    if (!saved?.length) saved = await api("album_credits", { method: "POST", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
+    const savedId = clean(saved?.[0]?.id);
+    if (savedId) {
+      const identities = new Map([
+        [`${normalize(row.person_name)}::${row.credit_type}`, [clean(row.person_name), row.credit_type]],
+        [`${normalize(originalPersonName)}::${originalCreditType}`, [originalPersonName, originalCreditType]]
+      ]);
+      await Promise.all([...identities.values()].filter(([name, type]) => name && type).map(([name, type]) =>
+        api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(name)}&credit_type=eq.${encodeURIComponent(type)}&manually_verified=eq.false&id=neq.${encodeURIComponent(savedId)}`, { method: "DELETE" })
+      ));
+    }
+    return saved;
   }
   if (body.action === "set_credit_image_status") {
     const approved = body.image_status === "approved";

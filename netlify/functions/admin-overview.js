@@ -82,7 +82,8 @@ exports.handler = async function(event) {
     const postAlbumOverview = async payload => {
       const strippedColumns = [];
       let nextPayload = { ...payload };
-      for (let attempt = 0; attempt < 20; attempt += 1) {
+      const maximumAttempts = Object.keys(nextPayload).length + 1;
+      for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
         try {
           const rows = await api("album_overviews", {
             method: "POST",
@@ -181,7 +182,24 @@ exports.handler = async function(event) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key and title are required." }) };
       }
       const { rows, strippedColumns } = await postAlbumOverview({ album_key, title, artist, overview, ...overviewFieldPayload(), fallback_generated: false, manual_override: true, updated_at: new Date().toISOString() });
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null, strippedColumns }) };
+      const meaningful = value => Array.isArray(value) ? value.length > 0 : value && typeof value === "object" ? Object.keys(value).length > 0 : String(value ?? "").trim() !== "";
+      const lostManualFields = strippedColumns.filter(column => column !== "review_manual_fields" && meaningful(body[column]));
+      if (lostManualFields.length) {
+        return {
+          statusCode: 409,
+          headers,
+          body: JSON.stringify({
+            error: `Manual overview fields could not be saved because the live database is missing: ${lostManualFields.join(", ")}. Run supabase/migrations/202608120005_album_overview_manual_fields.sql in the Supabase SQL Editor, then try again.`,
+            missing_columns: lostManualFields
+          })
+        };
+      }
+      const verified = await api(`album_overviews?album_key=eq.${encodeURIComponent(album_key)}&select=*&limit=1`);
+      const savedRow = verified?.[0] || rows?.[0] || null;
+      if (!savedRow || String(savedRow.overview || "").trim() !== overview) {
+        return { statusCode: 500, headers, body: JSON.stringify({ error: "The manual overview was not confirmed in the database. Nothing was reported as saved." }) };
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: savedRow, strippedColumns }) };
     }
 
 
