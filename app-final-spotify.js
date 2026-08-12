@@ -3155,8 +3155,19 @@ function mostLovedTrackWhyLines(track){
   ];
 }
 function setPreviewingButton(button){
-  document.querySelectorAll(".isPreviewing").forEach(x=>{x.classList.remove("isPreviewing");x.removeAttribute("aria-label");if(x.dataset.playLabel)x.textContent=x.dataset.playLabel});
-  if(button){button.dataset.playLabel=button.dataset.playLabel||button.textContent;button.classList.add("isPreviewing");button.setAttribute("aria-label","Pause sample");if(!button.classList.contains("overviewMomentChip"))button.textContent=""}
+  document.querySelectorAll(".isPreviewing").forEach(x=>{
+    x.classList.remove("isPreviewing");
+    if(x.dataset.playAriaLabel)x.setAttribute("aria-label",x.dataset.playAriaLabel);
+    else x.removeAttribute("aria-label");
+    if(x.dataset.playLabel&&!x.classList.contains("albumGlanceFact-music"))x.textContent=x.dataset.playLabel
+  });
+  if(button){
+    button.dataset.playLabel=button.dataset.playLabel||button.textContent;
+    button.dataset.playAriaLabel=button.dataset.playAriaLabel||button.getAttribute("aria-label")||"Play sample";
+    button.classList.add("isPreviewing");
+    button.setAttribute("aria-label","Pause sample");
+    if(!button.classList.contains("overviewMomentChip")&&!button.classList.contains("albumGlanceFact-music"))button.textContent=""
+  }
   document.body.classList.toggle("samplePlaying",!!button);
 }
 function releasePreviewAudio(){
@@ -4779,7 +4790,7 @@ function albumInfoAtAGlance(album,info={}){
     ["Most Popular Track",popularTitle,"music"]
   ].filter(([,value])=>value);
   if(!facts.length)return "";
-  return `<aside class="albumGlancePanel"><header><span>${albumInfoIcon("star")}</span><h4>At a Glance</h4></header><div class="albumGlanceStats">${facts.map(([label,value,icon])=>`<article class="albumGlanceFact albumGlanceFact-${icon}"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></article>`).join("")}</div></aside>`;
+  return `<aside class="albumGlancePanel"><header><span>${albumInfoIcon("star")}</span><h4>At a Glance</h4></header><div class="albumGlanceStats">${facts.map(([label,value,icon])=>icon==="music"?`<button type="button" class="albumGlanceFact albumGlanceFact-music" onclick="playOverviewMomentPreview('${escapeJsString(album.id)}','${escapeJsString(value)}',this)" aria-label="Play ${escapeHtml(value)}" title="Play"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></button>`:`<article class="albumGlanceFact albumGlanceFact-${icon}"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></article>`).join("")}</div></aside>`;
 }
 function albumInfoLabelCardLogo(label,admin=false){
   const audit=label?.record_label_logo||{};
@@ -4928,7 +4939,68 @@ window.addAlbumInfoCredit=async function(existingId=""){
   const source_url=promptNullable("Supporting source URL",row.source_url||"");if(source_url===null)return;
   await albumInfoAdminRequest({...albumInfoAdminBase("save_credit"),id:existingId||undefined,person_name,credit_type,role,instrument,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_modified:image_url?"Displayed with a circular crop":"",image_status,image_approved,image_last_verified_at:image_url?new Date().toISOString():null,source:"Admin verified",source_url,manually_verified:true});
 }
-window.editAlbumInfoCredit=id=>window.addAlbumInfoCredit(id);
+function albumInfoCreditEditorField(label,name,value,{textarea=false,type="text"}={}){
+  const control=textarea
+    ?`<textarea name="${escapeHtml(name)}" rows="3">${escapeHtml(value||"")}</textarea>`
+    :`<input type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(value||"")}">`;
+  return `<label><span>${escapeHtml(label)}</span>${control}</label>`;
+}
+window.closeAlbumInfoCreditEditor=function(){
+  const dialog=document.querySelector("#albumInfoCreditEditor");
+  if(!dialog)return;
+  if(dialog.open)dialog.close();
+  dialog.remove();
+}
+window.editAlbumInfoCredit=function(id){
+  const album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.credits||[]:[];
+  const row=items.find(item=>String(item.id)===String(id));
+  if(!row){alert("This credit could not be found. Refresh Details & Credits and try again.");return}
+  closeAlbumInfoCreditEditor();
+  const dialog=document.createElement("dialog");
+  dialog.id="albumInfoCreditEditor";
+  dialog.className="albumInfoCreditEditor";
+  dialog.innerHTML=`<form method="dialog" onsubmit="saveAlbumInfoCreditEditor(event,'${escapeJsString(id)}')">
+    <header><div><span>Admin credit editor</span><h3>Edit ${escapeHtml(row.person_name||"album credit")}</h3><p>All displayed credit text can be changed here.</p></div><button type="button" class="albumCreditEditorClose" onclick="closeAlbumInfoCreditEditor()" aria-label="Close">&times;</button></header>
+    <div class="albumCreditEditorGrid">
+      ${albumInfoCreditEditorField("Person or artist name","person_name",row.person_name)}
+      <label><span>Credit section</span><select name="credit_type"><option value="performer"${row.credit_type==="performer"?" selected":""}>Performing Artists</option><option value="production"${row.credit_type==="production"?" selected":""}>Production</option><option value="songwriting"${row.credit_type==="songwriting"?" selected":""}>Songwriting</option></select></label>
+      ${albumInfoCreditEditorField("Main credit / role","role",row.role,{textarea:true})}
+      ${albumInfoCreditEditorField("Additional roles and instruments","instrument",row.instrument,{textarea:true})}
+      ${albumInfoCreditEditorField("Supporting source URL","source_url",row.source_url,{type:"url"})}
+    </div>
+    <details class="albumCreditPortraitFields"><summary>Portrait and attribution details</summary><div class="albumCreditEditorGrid">
+      ${albumInfoCreditEditorField("Portrait image URL","image_url",row.image_url,{type:"url"})}
+      ${albumInfoCreditEditorField("Wikimedia Commons file-page URL","image_source_url",row.image_source_url,{type:"url"})}
+      ${albumInfoCreditEditorField("Photographer / creator","image_author",row.image_author)}
+      ${albumInfoCreditEditorField("Licence","image_license",row.image_license)}
+      ${albumInfoCreditEditorField("Licence URL","image_license_url",row.image_license_url,{type:"url"})}
+      ${albumInfoCreditEditorField("Attribution text","image_attribution",row.image_attribution,{textarea:true})}
+    </div></details>
+    <footer><button type="button" onclick="closeAlbumInfoCreditEditor()">Cancel</button><button type="submit" class="primary">Save all changes</button></footer>
+  </form>`;
+  dialog.addEventListener("click",event=>{if(event.target===dialog)closeAlbumInfoCreditEditor()});
+  document.body.appendChild(dialog);
+  dialog.showModal();
+  dialog.querySelector('[name="person_name"]')?.focus();
+}
+window.saveAlbumInfoCreditEditor=async function(event,id){
+  event.preventDefault();
+  const form=event.currentTarget,album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.credits||[]:[];
+  const row=items.find(item=>String(item.id)===String(id));
+  if(!row)return;
+  const data=new FormData(form),person_name=String(data.get("person_name")||"").trim();
+  if(!person_name){form.querySelector('[name="person_name"]')?.focus();return}
+  const submit=form.querySelector('button[type="submit"]');
+  if(submit){submit.disabled=true;submit.textContent="Saving..."}
+  const image_url=String(data.get("image_url")||"").trim();
+  const saved=await albumInfoAdminRequest({...albumInfoAdminBase("save_credit"),id,person_name,
+    credit_type:String(data.get("credit_type")||"performer").trim(),role:String(data.get("role")||"").trim(),instrument:String(data.get("instrument")||"").trim(),
+    image_url,image_source_url:String(data.get("image_source_url")||"").trim(),image_author:String(data.get("image_author")||"").trim(),image_license:String(data.get("image_license")||"").trim(),image_license_url:String(data.get("image_license_url")||"").trim(),image_attribution:String(data.get("image_attribution")||"").trim(),
+    image_modified:row.image_modified||(image_url?"Displayed with a circular crop":""),image_status:row.image_status||(image_url?"candidate":"unavailable"),image_approved:Boolean(row.image_approved),image_last_verified_at:row.image_last_verified_at||null,
+    person_id:row.person_id||null,person_wikidata_id:row.person_wikidata_id||null,sort_order:row.sort_order||0,source:"Admin verified",source_url:String(data.get("source_url")||"").trim(),source_secondary:row.source_secondary||null,source_secondary_url:row.source_secondary_url||null,manually_verified:true});
+  if(saved)closeAlbumInfoCreditEditor();
+  else if(submit){submit.disabled=false;submit.textContent="Save all changes"}
+}
 window.deleteAlbumInfoCredit=async function(id){if(confirm("Delete this credit?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_credit"),id})}
 window.setAlbumInfoPortraitStatus=async function(id,person_name,credit_type,status){
   const action=status==="approved"?"approve":"reject";
