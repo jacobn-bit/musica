@@ -4724,7 +4724,7 @@ function albumInfoSourceLink(row){
   return primary+secondary;
 }
 function albumInfoRoleFactsHtml(items){
-  return items.map(escapeHtml).join('<span class="infoRoleSeparator" aria-hidden="true">&bull;</span>');
+  return items.map(item=>`<span class="infoRolePill">${escapeHtml(item)}</span>`).join('<i class="infoRoleSeparator" aria-hidden="true">&bull;</i>');
 }
 function albumInfoPersonCard(credit,admin){
   const name=String(credit.person_name||"Unknown");
@@ -5485,6 +5485,7 @@ window.saveAlbumOverview=async function(albumId){
   const album=state.albums.find(x=>String(x.id)===String(albumId));
   const textarea=$("#overviewEditorText");
   if(!album||!textarea)return;
+  const button=document.querySelector("#albumOverviewSection .overviewEditorActions button:first-child");
   const readEditorValue=id=>String($(id)?.value||"").trim();
   const intro_summary=readEditorValue("#overviewIntroEditor");
   const sound_summary=readEditorValue("#overviewSoundEditor");
@@ -5496,11 +5497,13 @@ window.saveAlbumOverview=async function(albumId){
   const editorialDraft=extras.editorialDrafts?.[String(album.id)];
   const reviewPayload=editorialDraft&&editorialDraft.status!=="approved"?{}:albumReviewPayloadFromEditor();
   const payload={...adminAlbumPayload(album,"save"),overview,intro_summary,sound_summary,impact_summary,legacy_summary,quote_headline,defining_tracks,...reviewPayload};
+  if(button){button.disabled=true;button.textContent="Saving..."}
   const data=await adminOverviewRequest(payload);
-  if(!data)return;
+  if(!data){if(button){button.disabled=false;button.textContent="Save overview"}return}
   const savedRow={...(extras.overviews[payload.album_key]||{}),...(data.row||{}),album_key:payload.album_key,album_id:payload.album_id,title:payload.title,artist:payload.artist,overview,intro_summary,sound_summary,impact_summary,legacy_summary,quote_headline,defining_tracks,...reviewPayload,fallback_generated:false,manual_override:true};
   cacheOverviewAliases(album,savedRow);
   localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
+  setAdminInlineStatus(data.localOnly?"Manual overview saved in this browser.":"Manual overview saved and verified.","success");
   openAlbumOverviewPopup();
 }
 window.regenerateAlbumOverviewAdmin=async function(albumId){
