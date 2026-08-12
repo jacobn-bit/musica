@@ -5,13 +5,19 @@ const MUSICBRAINZ_ROOT = "https://musicbrainz.org/ws/2";
 const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
-const USER_AGENT = "Muze/1.0 (album information; https://themuze.app)";
-const WIKIPEDIA_IMPORT_VERSION = "wikipedia-personnel-v17-licensed-portraits-v1";
+const USER_AGENT = "Muze/1.0 (https://themuze.app; factual album metadata and licensed artwork)";
+const ALBUM_INFO_IMPORT_VERSION = "structured-sources-v1-wikipedia-fallback";
 const BESTSELLING_ALBUMS_ROOT = "https://bestsellingalbums.org";
 const WIKIPEDIA_BESTSELLERS_URL = "https://en.wikipedia.org/wiki/List_of_best-selling_albums";
 let wikipediaSalesHtmlCache = { html: "", expiresAt: 0 };
-const wikipediaLabelLogoCache = new Map();
+const recordLabelLogoCache = new Map();
 const artistPortraitCache = new Map();
+const musicBrainzApiCache = new Map();
+const wikipediaApiCache = new Map();
+const wikidataApiCache = new Map();
+const commonsApiCache = new Map();
+let activeWikimediaRequests = 0;
+const pendingWikimediaRequests = [];
 
 function json(statusCode, body, cacheSeconds = 0) {
   return {
@@ -19,7 +25,7 @@ function json(statusCode, body, cacheSeconds = 0) {
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, X-Muze-Admin-Pin",
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
       "Cache-Control": cacheSeconds ? `public, max-age=${cacheSeconds}` : "no-store"
     },
@@ -69,6 +75,36 @@ async function timedFetch(url, options = {}, timeoutMs = 8000) {
   }
 }
 
+async function withWikimediaRequestSlot(task) {
+  if (activeWikimediaRequests >= 3) await new Promise(resolve => pendingWikimediaRequests.push(resolve));
+  activeWikimediaRequests += 1;
+  try {
+    return await task();
+  } finally {
+    activeWikimediaRequests -= 1;
+    pendingWikimediaRequests.shift()?.();
+  }
+}
+
+async function cachedApiJson(cache, url, errorLabel, options = {}) {
+  const now = Date.now();
+  const cached = cache.get(url);
+  if (cached?.expiresAt > now) return cached.promise;
+  const request = (options.wikimedia ? withWikimediaRequestSlot : task => task())(async () => {
+    const response = await timedFetch(url, { headers: { "Accept": "application/json", "User-Agent": USER_AGENT } }, options.timeoutMs || 8000);
+    if (!response.ok) throw new Error(`${errorLabel} request failed (${response.status}).`);
+    return response.json();
+  });
+  cache.set(url, { promise: request, expiresAt: now + (options.ttlMs || 6 * 60 * 60 * 1000) });
+  if (cache.size > 500) cache.delete(cache.keys().next().value);
+  try {
+    return await request;
+  } catch (error) {
+    cache.delete(url);
+    throw error;
+  }
+}
+
 async function api(path, options = {}) {
   const config = supabaseConfig();
   if (!config.url || !config.key) throw new Error("Supabase service settings are missing.");
@@ -100,21 +136,27 @@ async function readCachedInfo(ref) {
     api(`album_sales?album_ref=eq.${filter}&select=*`),
     api(`album_certifications?album_ref=eq.${filter}&select=*&order=country.asc`)
   ]);
+  let recordLabelLogos = [];
+  let recordLabelLogoSchemaReady = true;
+  try {
+    recordLabelLogos = await api(`record_label_logos?album_ref=eq.${filter}&select=*&order=updated_at.desc`);
+  } catch (error) {
+    if (!/record_label_logos|PGRST205|42P01/i.test(error.message || "")) throw error;
+    recordLabelLogoSchemaReady = false;
+  }
   return {
     metadata: metadata?.[0] || null,
     credits: credits || [],
     labels: labels || [],
     sales: sales?.[0] || null,
-    certifications: certifications || []
+    certifications: certifications || [],
+    record_label_logos: recordLabelLogos || [],
+    record_label_logo_schema_ready: recordLabelLogoSchemaReady
   };
 }
 
 async function musicBrainzJson(path) {
-  const response = await timedFetch(`${MUSICBRAINZ_ROOT}${path}`, {
-    headers: { "Accept": "application/json", "User-Agent": USER_AGENT }
-  }, 9000);
-  if (!response.ok) throw new Error(`MusicBrainz request failed (${response.status}).`);
-  return response.json();
+  return cachedApiJson(musicBrainzApiCache, `${MUSICBRAINZ_ROOT}${path}`, "MusicBrainz", { timeoutMs: 9000 });
 }
 
 function releaseArtist(release) {
@@ -322,7 +364,7 @@ function parseWikipediaAlbumInfo(wikitext, context = {}) {
   const metadata = {
     source: "Wikipedia",
     source_url: context.source_url || "",
-    source_confidence: hasNamedPerformers ? WIKIPEDIA_IMPORT_VERSION : "wikipedia-metadata-only"
+    source_confidence: hasNamedPerformers ? ALBUM_INFO_IMPORT_VERSION : "wikipedia-metadata-only"
   };
   if (released) {
     metadata.original_release_date = released;
@@ -419,9 +461,50 @@ function wikipediaCreditPersonNames(rawValue, fallbackValue) {
   return [...new Set(links.map(link => stripWikiMarkup(link[1]).replace(/\s+\([^)]*\)\s*$/, "").trim()).filter(Boolean))];
 }
 
+function creditFactBase(value) {
+  const text = normalize(value);
+  const bases = [
+    ["vocals", /\bvocals?\b/], ["guitar", /\bguitars?\b/], ["bass", /\bbasses?|bass guitar\b/],
+    ["keyboards", /\bkeyboards?\b/], ["piano", /\bpiano\b/], ["organ", /\borgan\b/],
+    ["drums", /\bdrums?\b/], ["percussion", /\bpercussion\b/], ["saxophone", /\bsaxophones?\b/],
+    ["trumpet", /\btrumpets?\b/], ["trombone", /\btrombones?\b/], ["violin", /\bviolins?\b/],
+    ["viola", /\bviolas?\b/], ["cello", /\bcellos?\b/], ["flute", /\bflutes?\b/],
+    ["clarinet", /\bclarinets?\b/], ["harmonica", /\bharmonica\b/], ["synthesizer", /\bsynthesizers?|synths?\b/]
+  ];
+  return bases.find(([, pattern]) => pattern.test(text))?.[0] || "";
+}
+
+function normalizeCreditFact(value) {
+  return clean(value)
+    .replace(/\bbackground vocals?\b/ig, "backing vocals")
+    .replace(/\bguitars\b/ig, "guitar")
+    .replace(/\bsaxophones\b/ig, "saxophone")
+    .replace(/\btrumpets\b/ig, "trumpet")
+    .replace(/\btrombones\b/ig, "trombone")
+    .replace(/\bviolins\b/ig, "violin")
+    .replace(/\bviolas\b/ig, "viola")
+    .replace(/\bcellos\b/ig, "cello")
+    .replace(/\bflutes\b/ig, "flute")
+    .replace(/\bclarinets\b/ig, "clarinet");
+}
+
+function structuredCreditFacts(value) {
+  const modifiers = new Set(["lead", "harmony", "backing", "background", "rhythm", "acoustic", "electric", "slide"]);
+  const facts = [];
+  String(value || "").split(/\s*;\s*/).forEach(group => {
+    const parts = group.split(/\s*,\s*|\s+and\s+/i).map(normalizeCreditFact).filter(Boolean);
+    parts.forEach((part, index) => {
+      if (creditFactBase(part) || !modifiers.has(normalize(part))) { facts.push(part); return; }
+      const base = parts.slice(index + 1).map(creditFactBase).find(Boolean);
+      facts.push(base ? `${part} ${base}` : part);
+    });
+  });
+  return [...new Set(facts.map(normalizeCreditFact).filter(Boolean))];
+}
+
 function wikipediaCreditRow(personName, roles, subsection, context, sortOrder) {
   const name = clean(personName).replace(/^['"\s]+|['"\s]+$/g, "");
-  const role = clean(roles);
+  const role = structuredCreditFacts(roles).join(", ");
   if (wikipediaExcludedCreditSection(subsection)) return null;
   if (!name || !role || name.length > 100 || /^["']|\b(track|song|side|session musicians?|orchestra|section)\b/i.test(name)) return null;
   const creditType = wikipediaCreditType(subsection, role, context);
@@ -536,19 +619,48 @@ function mergeLabels(...lists) {
   return [...merged.values()].map((row, index) => ({ ...row, is_original_label: index === 0 }));
 }
 
-function mergeWikipediaAlbumInfo(fallback, wikipedia) {
-  if (!wikipedia) return fallback;
-  const wikipediaMetadata = Object.fromEntries(Object.entries(wikipedia.metadata || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined));
-  const wikipediaCreditTypes = new Set((wikipedia.credits || []).map(row => row.credit_type).filter(Boolean));
-  const credits = mergeCredits(wikipedia.credits || [], fallback?.credits || []).filter(row => {
-    if (!wikipediaCreditTypes.has(row.credit_type)) return true;
-    return normalize(row.source).includes("wikipedia");
+function mergeStructuredCredits(structuredRows = [], wikipediaRows = [], albumArtist = "") {
+  const artistKey = normalize(albumArtist);
+  const wikipediaNamedPerformers = wikipediaRows.filter(row => row.credit_type === "performer" && normalize(row.person_name) !== artistKey);
+  let primary = structuredRows.slice();
+  const structuredPerformers = primary.filter(row => row.credit_type === "performer");
+  const onlyGenericArtist = structuredPerformers.length === 1 && /primary artist/.test(normalize(structuredPerformers[0].role))
+    && (!artistKey || normalize(structuredPerformers[0].person_name) === artistKey);
+  if (onlyGenericArtist && wikipediaNamedPerformers.length) {
+    const genericName = normalize(structuredPerformers[0].person_name);
+    primary = primary.filter(row => row.credit_type !== "performer" || normalize(row.person_name) !== genericName);
+  }
+  const merged = new Map(primary.filter(row => row?.person_name && row?.credit_type)
+    .map(row => [`${normalize(row.person_name)}::${normalize(row.credit_type)}`, { ...row }]));
+  wikipediaRows.forEach(row => {
+    if (!row?.person_name || !row?.credit_type) return;
+    const key = `${normalize(row.person_name)}::${normalize(row.credit_type)}`;
+    const current = merged.get(key);
+    if (!current) { merged.set(key, { ...row }); return; }
+    let usedWikipedia = false;
+    if (!clean(current.role) && clean(row.role)) { current.role = row.role; usedWikipedia = true; }
+    if (!clean(current.instrument) && clean(row.instrument)) { current.instrument = row.instrument; usedWikipedia = true; }
+    if (usedWikipedia) {
+      current.source_secondary = "Wikipedia";
+      current.source_secondary_url = clean(row.source_url);
+    }
   });
+  return [...merged.values()]
+    .map((row, index) => ({ ...row, sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : index }))
+    .sort((left, right) => left.sort_order - right.sort_order);
+}
+
+function mergeWikipediaAlbumInfo(fallback, wikipedia) {
+  if (!wikipedia) return { ...fallback, metadata: { ...(fallback?.metadata || {}), source_confidence: ALBUM_INFO_IMPORT_VERSION } };
+  const wikipediaMetadata = Object.fromEntries(Object.entries(wikipedia.metadata || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined));
+  const structuredMetadata = Object.fromEntries(Object.entries(fallback?.metadata || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined));
+  const metadata = { ...wikipediaMetadata, ...structuredMetadata, source_confidence: ALBUM_INFO_IMPORT_VERSION };
+  const credits = mergeStructuredCredits(fallback?.credits || [], wikipedia.credits || [], fallback?.metadata?.artist);
   return {
     ...fallback,
-    metadata: { ...(fallback?.metadata || {}), country: "", ...wikipediaMetadata },
+    metadata,
     credits,
-    labels: mergeLabels(wikipedia.labels || [], fallback?.labels || []),
+    labels: mergeLabels(fallback?.labels || [], wikipedia.labels || []),
     sales: fallback?.sales || null,
     certifications: fallback?.certifications || []
   };
@@ -556,96 +668,227 @@ function mergeWikipediaAlbumInfo(fallback, wikipedia) {
 
 async function wikipediaJson(params) {
   const query = new URLSearchParams({ format: "json", formatversion: "2", origin: "*", ...params });
-  const response = await timedFetch(`${WIKIPEDIA_API}?${query}`, { headers: { "User-Agent": USER_AGENT } }, 7000);
-  if (!response.ok) throw new Error(`Wikipedia API request failed (${response.status}).`);
-  return response.json();
+  return cachedApiJson(wikipediaApiCache, `${WIKIPEDIA_API}?${query}`, "Wikipedia API", { timeoutMs: 7000, wikimedia: true });
 }
 
-function knownLabelLogo(labelName) {
-  const key = normalize(clean(labelName).replace(/\s*\([^)]*\)\s*/g, " "));
-  if (["warner", "warner records", "warner bros", "warner bros records", "warner brothers", "warner brothers records"].includes(key)) {
-    return "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warner_Records_(2019_Logo).svg";
-  }
-  if (["track", "track record", "track records"].includes(key)) {
-    return "https://upload.wikimedia.org/wikipedia/en/0/02/Trackrecs.jpg";
-  }
-  if (["tamla", "tamla record", "tamla records", "tamla record company"].includes(key)) {
-    return "https://thumbs.peoplesgdarchive.org/static/media-items/image/38213/fit-512x512/67c9dca4/1/L-6200-1697646350-6647.jpg";
+function plainCommonsValue(value) {
+  return clean(String(value || "")
+    .replace(/<br\s*\/?\s*>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'"));
+}
+
+function recordLabelLogoHasReuseBasis(logo) {
+  const sourcePage = clean(logo?.source_page_url);
+  const status = clean(logo?.license_name || logo?.copyright_status);
+  const attributionReady = !logo?.requires_attribution || Boolean(clean(logo?.attribution_text));
+  return Boolean(sourcePage && status && logo?.commercial_use_allowed === true && attributionReady);
+}
+
+function recordLabelLogoIsPublic(logo) {
+  return clean(logo?.review_status).toLowerCase() === "approved"
+    && logo?.verified === true
+    && recordLabelLogoHasReuseBasis(logo)
+    && logo?.license_status_changed !== true;
+}
+
+function albumInfoResponseView(info, includeAudit = false) {
+  const labels = (info?.labels || []).map(label => {
+    const logo = label?.record_label_logo;
+    if (includeAudit) return label;
+    if (!recordLabelLogoIsPublic(logo)) {
+      const { record_label_logo, ...plainLabel } = label;
+      return plainLabel;
+    }
+    return {
+      ...label,
+      record_label_logo: {
+        logo_url: logo.logo_url,
+        source_page_url: logo.source_page_url,
+        license_name: logo.license_name,
+        license_url: logo.license_url,
+        attribution_text: logo.attribution_text,
+        requires_attribution: logo.requires_attribution,
+        trademark_notice: logo.trademark_notice,
+        review_status: "approved",
+        verified: true
+      }
+    };
+  });
+  const response = { ...info, labels };
+  if (!includeAudit) delete response.record_label_logos;
+  return response;
+}
+
+function commonsLogoMetadata(filename, page) {
+  const imageInfo = page?.imageinfo?.[0] || {};
+  const metadata = imageInfo.extmetadata || {};
+  const licenseName = plainCommonsValue(metadata.LicenseShortName?.value || metadata.License?.value);
+  const licenseUrl = clean(metadata.LicenseUrl?.value);
+  const creator = plainCommonsValue(metadata.Artist?.value || metadata.Credit?.value);
+  const copyrighted = plainCommonsValue(metadata.Copyrighted?.value);
+  const restrictions = plainCommonsValue(metadata.Restrictions?.value);
+  const usageTerms = plainCommonsValue(metadata.UsageTerms?.value);
+  const description = plainCommonsValue(metadata.ImageDescription?.value);
+  const publicDomain = /public domain|pd-|cc0|copyrighted\s*[:=]?\s*(?:false|no)/i.test([licenseName, copyrighted, usageTerms].join(" "));
+  const threshold = /threshold of originality|too simple|ineligible for copyright/i.test([description, restrictions, usageTerms].join(" "));
+  const trademarkNotice = /trademark|logo/i.test(restrictions)
+    ? restrictions
+    : "This logo may be protected by trademark rights; use is limited to identifying the associated record label.";
+  const commercialUseAllowed = isAllowedCommonsLicense(licenseName) || publicDomain || threshold;
+  const requiresAttribution = /^cc by/i.test(licenseName) && !/^cc0/i.test(licenseName);
+  const attribution = requiresAttribution
+    ? [creator || "Creator listed on Wikimedia Commons", licenseName, "via Wikimedia Commons"].filter(Boolean).join(" / ")
+    : "";
+  return {
+    logo_url: clean(imageInfo.thumburl || imageInfo.url),
+    source_type: "Wikimedia Commons",
+    source_page_url: clean(imageInfo.descriptionurl),
+    source_file_url: clean(imageInfo.url),
+    license_name: licenseName,
+    license_url: licenseUrl,
+    copyright_status: publicDomain ? "Public domain stated by Wikimedia Commons" : threshold ? "Below threshold of originality stated by source metadata" : copyrighted || licenseName,
+    attribution_text: attribution,
+    creator,
+    trademark_notice: trademarkNotice,
+    commercial_use_allowed: commercialUseAllowed,
+    requires_attribution: requiresAttribution,
+    verified: false,
+    manually_verified: false,
+    review_status: "needs_review",
+    review_reason: commercialUseAllowed
+      ? "Commons metadata provides a potential reuse basis; trademark and source details require administrator review."
+      : "The Commons metadata does not establish a commercially reusable basis.",
+    notes: "Automated candidate. Do not publish until manually approved.",
+    last_license_check_at: new Date().toISOString(),
+    license_status_changed: false,
+    source_metadata: { filename, licenseName, licenseUrl, copyrighted, restrictions, usageTerms }
+  };
+}
+
+async function wikidataLabelLogoFilename(labelName) {
+  const name = clean(labelName).replace(/\s*\([^)]*\)\s*/g, " ").trim();
+  if (!name) return "";
+  const search = await wikidataJson({ action: "wbsearchentities", search: `${name} record label`, language: "en", uselang: "en", type: "item", limit: "8" });
+  const wanted = normalize(name);
+  const score = item => {
+      const label = normalize(item.label);
+      const description = normalize(item.description);
+      let value = label === wanted ? 8 : label === `${wanted} records` ? 7 : label.includes(wanted) ? 4 : 0;
+      if (/record label|record company|music label/.test(description)) value += 4;
+      return value;
+    };
+  const ranked = (search?.search || []).map(item => ({ item, score: score(item) }))
+    .filter(candidate => candidate.score >= 8)
+    .sort((left, right) => right.score - left.score);
+  for (const candidate of ranked.slice(0, 4)) {
+    const item = candidate.item;
+    const itemId = clean(item.id);
+    if (!/^Q\d+$/.test(itemId)) continue;
+    const entities = await wikidataJson({ action: "wbgetentities", ids: itemId, props: "claims" });
+    const filename = clean(entities?.entities?.[itemId]?.claims?.P154?.[0]?.mainsnak?.datavalue?.value);
+    if (filename) return filename;
   }
   return "";
 }
 
-async function fetchWikipediaLabelLogo(labelName) {
-  const name = clean(labelName);
-  const key = normalize(name);
-  if (!name) return "";
-  if (wikipediaLabelLogoCache.has(key)) return wikipediaLabelLogoCache.get(key);
-  const knownLogo = knownLabelLogo(name);
-  if (knownLogo) {
-    wikipediaLabelLogoCache.set(key, knownLogo);
-    return knownLogo;
-  }
-  const result = await wikipediaJson({
-    action: "query",
-    generator: "search",
-    gsrsearch: `intitle:"${name}" record label`,
-    gsrlimit: "6",
-    prop: "pageprops"
-  });
-  const pages = result?.query?.pages || [];
-  const ranked = pages.slice().sort((left, right) => {
-    const score = page => {
-      const title = normalize(page.title);
-      if (title === `${key} records`) return 6;
-      if (title === `${key} record label`) return 5;
-      if (title === key) return 4;
-      if (title.startsWith(`${key} records`) || title.startsWith(`${key} record label`)) return 3;
-      if (title.includes(key)) return 2;
-      return 0;
-    };
-    return score(right) - score(left);
-  });
-  const selected = ranked[0];
-  let logo = "";
-  const itemId = clean(selected?.pageprops?.wikibase_item);
-  if (/^Q\d+$/.test(itemId)) {
-    const entityData = await wikidataJson({ action: "wbgetentities", ids: itemId, props: "claims" });
-    const filename = clean(entityData?.entities?.[itemId]?.claims?.P154?.[0]?.mainsnak?.datavalue?.value);
-    if (filename) logo = `https://commons.wikimedia.org/wiki/Special:Redirect/file/${encodeURIComponent(filename)}`;
-  }
-  if (!logo && (key === "apple" || key === "apple records")) {
-    logo = "https://upload.wikimedia.org/wikipedia/en/0/04/Apple_Records.png";
-  }
-  if (!logo && (key === "dgc" || key === "dgc records")) {
-    logo = "https://upload.wikimedia.org/wikipedia/en/f/fa/DGC_Records_logo%2C_1990.png";
-  }
-  wikipediaLabelLogoCache.set(key, logo);
-  return logo;
+async function discoverCommonsLabelLogo(labelName) {
+  const key = normalize(labelName);
+  if (!key) return null;
+  if (recordLabelLogoCache.has(key)) return recordLabelLogoCache.get(key);
+  const request = (async () => {
+    const filename = await wikidataLabelLogoFilename(labelName);
+    if (!filename) return null;
+    const result = await commonsJson({
+      action: "query",
+      titles: `File:${filename}`,
+      prop: "imageinfo",
+      iiprop: "url|extmetadata",
+      iiurlwidth: "256"
+    });
+    const page = (result?.query?.pages || []).find(item => !item.missing);
+    if (!page) return null;
+    const candidate = commonsLogoMetadata(filename, page);
+    return candidate.logo_url && candidate.source_page_url ? candidate : null;
+  })();
+  recordLabelLogoCache.set(key, request);
+  try { return await request; } catch (error) { recordLabelLogoCache.delete(key); throw error; }
 }
 
-async function attachLabelLogos(info) {
+function recordLabelLogoAuditSignature(logo) {
+  return [logo?.source_page_url, logo?.source_file_url, logo?.license_name, logo?.license_url, logo?.copyright_status, logo?.attribution_text, logo?.trademark_notice, logo?.commercial_use_allowed, logo?.requires_attribution]
+    .map(value => String(value ?? "")).join("::");
+}
+
+async function persistRecordLabelLogo(logo) {
+  if (!logo?.label_id) return logo;
+  const rows = await api("record_label_logos?on_conflict=label_id", {
+    method: "POST",
+    headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({ ...logo, updated_at: new Date().toISOString() })
+  });
+  return rows?.[0] || logo;
+}
+
+async function attachRecordLabelLogos(info, options = {}) {
   const labels = Array.isArray(info?.labels) ? info.labels : [];
+  const stored = Array.isArray(info?.record_label_logos) ? info.record_label_logos : [];
+  const byLabelId = new Map(stored.filter(row => row.label_id).map(row => [String(row.label_id), row]));
+  const byName = new Map(stored.filter(row => row.label_name).map(row => [normalize(row.label_name), row]));
+  const now = Date.now();
   await Promise.all(labels.map(async label => {
-    const knownLogo = knownLabelLogo(label.label_name);
-    if (knownLogo) { label.logo_url = knownLogo; return; }
-    if (label.logo_url) return;
-    try { label.logo_url = await fetchWikipediaLabelLogo(label.label_name); } catch (_) {}
+    delete label.logo_url;
+    let logo = byLabelId.get(String(label.id || "")) || byName.get(normalize(label.label_name)) || null;
+    const lastCheck = Date.parse(logo?.last_license_check_at || "") || 0;
+    const shouldCheck = !logo || options.force || logo?.source_type === "Legacy Muze source"
+      || (logo?.source_type === "Wikimedia Commons" && now - lastCheck > 30 * 24 * 60 * 60 * 1000);
+    if (shouldCheck) {
+      try {
+        const discovered = await discoverCommonsLabelLogo(label.label_name);
+        if (discovered) {
+          const changed = Boolean(logo && recordLabelLogoAuditSignature(logo) !== recordLabelLogoAuditSignature(discovered));
+          const preserveApproval = Boolean(logo && !changed && recordLabelLogoIsPublic(logo));
+          logo = {
+            ...logo,
+            ...discovered,
+            id: logo?.id,
+            album_ref: label.album_ref || info?.metadata?.album_ref || "",
+            label_id: label.id || logo?.label_id || null,
+            label_name: label.label_name,
+            review_status: preserveApproval ? "approved" : "needs_review",
+            verified: preserveApproval,
+            manually_verified: preserveApproval,
+            verified_at: preserveApproval ? logo.verified_at : null,
+            approved_by: preserveApproval ? logo.approved_by : null,
+            approved_at: preserveApproval ? logo.approved_at : null,
+            approval_notes: preserveApproval ? logo.approval_notes : null,
+            license_status_changed: changed
+          };
+          if (options.persist !== false && logo.label_id) {
+            try { logo = await persistRecordLabelLogo(logo); } catch (error) { console.warn("[Muze label logo] candidate cache failed", error.message); }
+          }
+        }
+      } catch (error) { console.warn("[Muze label logo] Commons lookup failed", label.label_name, error.message); }
+    }
+    if (!logo) return;
+    label.record_label_logo = logo;
+    if (recordLabelLogoIsPublic(logo)) label.logo_url = clean(logo.logo_url);
   }));
+  info.record_label_logos = labels.map(label => label.record_label_logo).filter(Boolean);
   return info;
 }
 
 async function wikidataJson(params) {
   const query = new URLSearchParams({ format: "json", origin: "*", ...params });
-  const response = await timedFetch(`${WIKIDATA_API}?${query}`, { headers: { "User-Agent": USER_AGENT } }, 7000);
-  if (!response.ok) throw new Error(`Wikidata API request failed (${response.status}).`);
-  return response.json();
+  return cachedApiJson(wikidataApiCache, `${WIKIDATA_API}?${query}`, "Wikidata API", { timeoutMs: 7000, wikimedia: true });
 }
 
 async function commonsJson(params) {
   const query = new URLSearchParams({ format: "json", formatversion: "2", origin: "*", ...params });
-  const response = await timedFetch(`${COMMONS_API}?${query}`, { headers: { "User-Agent": USER_AGENT } }, 7000);
-  if (!response.ok) throw new Error(`Wikimedia Commons API request failed (${response.status}).`);
-  return response.json();
+  return cachedApiJson(commonsApiCache, `${COMMONS_API}?${query}`, "Wikimedia Commons API", { timeoutMs: 7000, wikimedia: true });
 }
 
 function isAllowedCommonsLicense(value) {
@@ -661,6 +904,15 @@ function metadataValue(metadata, key) {
 }
 
 async function wikidataIdForCredit(credit) {
+  const name = clean(credit?.person_name);
+  if (name) {
+    try {
+      const result = await wikipediaJson({ action: "query", titles: name, redirects: "1", prop: "pageprops" });
+      const page = (result?.query?.pages || []).find(item => !item.missing);
+      const itemId = clean(page?.pageprops?.wikibase_item);
+      if (/^Q\d+$/.test(itemId)) return itemId;
+    } catch (_) {}
+  }
   const personId = clean(credit?.person_id);
   if (personId) {
     try {
@@ -670,16 +922,7 @@ async function wikidataIdForCredit(credit) {
       if (itemId) return itemId.toUpperCase();
     } catch (_) {}
   }
-  const name = clean(credit?.person_name);
-  if (!name) return "";
-  try {
-    const result = await wikipediaJson({ action: "query", titles: name, redirects: "1", prop: "pageprops" });
-    const page = (result?.query?.pages || []).find(item => !item.missing);
-    const itemId = clean(page?.pageprops?.wikibase_item);
-    return /^Q\d+$/.test(itemId) ? itemId : "";
-  } catch (_) {
-    return "";
-  }
+  return "";
 }
 
 async function fetchCommonsPortrait(itemId, personName) {
@@ -1098,7 +1341,7 @@ function preserveManualCachedInfo(imported, cached) {
   const manualLabels = (cached.labels || []).filter(row => row.manually_verified);
   return {
     ...imported,
-    metadata: cached.metadata?.manually_verified ? cached.metadata : imported.metadata,
+    metadata: cached.metadata?.manually_verified ? { ...cached.metadata, source_confidence: ALBUM_INFO_IMPORT_VERSION } : imported.metadata,
     credits: mergeCredits(manualCredits, imported.credits || []),
     labels: mergeLabels(manualLabels, imported.labels || []),
     sales: cached.sales?.manually_verified ? cached.sales : (imported.sales || cached.sales || null),
@@ -1114,8 +1357,10 @@ function applyVerifiedAlbumOverrides(info, input) {
   const title = normalize(canonicalAlbumTitle(input.title));
   const artist = normalize(input.artist);
   if (title === "nevermind" && artist === "nirvana") {
+    const storedDgc = labels.find(label => ["dgc", "dgc records"].includes(normalize(label.label_name)));
     info.metadata = { ...(info.metadata || {}), country: "United States" };
     info.labels = [{
+      id: storedDgc?.id,
       album_ref: albumRef(input),
       album_id: clean(input.album_id) || null,
       label_name: "DGC",
@@ -1154,6 +1399,26 @@ async function cacheImportedInfo(info, replaceNonManual = false) {
   });
 }
 
+async function attachStoredCreditIds(info) {
+  const ref = encodeURIComponent(info?.metadata?.album_ref || "");
+  if (!ref || !Array.isArray(info?.credits) || !info.credits.length) return info;
+  const stored = await api(`album_credits?album_ref=eq.${ref}&select=id,person_name,credit_type,role,instrument`);
+  const identity = row => [row.person_name, row.credit_type, row.role, row.instrument].map(normalize).join("::");
+  const ids = new Map((stored || []).map(row => [identity(row), row.id]));
+  info.credits.forEach(row => { if (!row.id) row.id = ids.get(identity(row)) || null; });
+  return info;
+}
+
+async function attachStoredLabelIds(info) {
+  const ref = encodeURIComponent(info?.metadata?.album_ref || "");
+  if (!ref || !Array.isArray(info?.labels) || !info.labels.length) return info;
+  const stored = await api(`album_labels?album_ref=eq.${ref}&select=id,label_name,label_type,release_region`);
+  const identity = row => [row.label_name, row.label_type, row.release_region].map(normalize).join("::");
+  const ids = new Map((stored || []).map(row => [identity(row), row.id]));
+  info.labels.forEach(row => { if (!row.id) row.id = ids.get(identity(row)) || null; });
+  return info;
+}
+
 function normalizePin(value) {
   return String(value ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "").trim().replace(/^['"]|['"]$/g, "").trim();
 }
@@ -1184,7 +1449,7 @@ async function adminAction(body) {
     return api("album_metadata", { method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(row) });
   }
   if (body.action === "save_credit") {
-    const row = { ...base, ...pick(body, ["person_name", "person_id", "person_wikidata_id", "image_url", "image_source_url", "image_author", "image_license", "image_license_url", "image_attribution", "image_modified", "image_status", "image_approved", "image_last_verified_at", "credit_type", "role", "instrument", "sort_order", "source", "source_url"]) };
+    const row = { ...base, ...pick(body, ["person_name", "person_id", "person_wikidata_id", "image_url", "image_source_url", "image_author", "image_license", "image_license_url", "image_attribution", "image_modified", "image_status", "image_approved", "image_last_verified_at", "credit_type", "role", "instrument", "sort_order", "source", "source_url", "source_secondary", "source_secondary_url"]) };
     row.credit_type = normalize(row.credit_type);
     if (row.image_approved && (!isAllowedCommonsLicense(row.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(row.image_source_url)))) {
       throw new Error("Approved portraits must use an allowed Wikimedia Commons licence and file-page URL.");
@@ -1194,18 +1459,21 @@ async function adminAction(body) {
   }
   if (body.action === "set_credit_image_status") {
     const approved = body.image_status === "approved";
+    const target = body.id
+      ? `id=eq.${encodeURIComponent(body.id)}`
+      : `album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.credit_type))}`;
+    const rows = await api(`album_credits?${target}&select=id,image_source_url,image_license`);
+    if (!rows?.length) throw new Error("This portrait candidate has not finished saving yet. Reopen Details & Credits and try again.");
     if (approved) {
-      const rows = await api(`album_credits?id=eq.${encodeURIComponent(body.id)}&select=image_source_url,image_license`);
       const portrait = rows?.[0] || {};
       if (!isAllowedCommonsLicense(portrait.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(portrait.image_source_url))) {
         throw new Error("This portrait does not have an approved Wikimedia Commons licence record.");
       }
     }
-    return api(`album_credits?id=eq.${encodeURIComponent(body.id)}`, {
-      method: "PATCH",
-      headers: { "Prefer": "return=representation" },
-      body: JSON.stringify({ image_status: approved ? "approved" : "rejected", image_approved: approved, image_last_verified_at: now, updated_at: now })
-    });
+    const update = { image_status: approved ? "approved" : "rejected", image_approved: approved, image_last_verified_at: now, updated_at: now };
+    return Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
+      method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(update)
+    })));
   }
   if (body.action === "delete_credit") return api(`album_credits?id=eq.${encodeURIComponent(body.id)}`, { method: "DELETE" });
   if (body.action === "save_label") {
@@ -1214,6 +1482,52 @@ async function adminAction(body) {
     return api("album_labels", { method: "POST", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
   }
   if (body.action === "delete_label") return api(`album_labels?id=eq.${encodeURIComponent(body.id)}`, { method: "DELETE" });
+  if (body.action === "save_label_logo") {
+    const row = {
+      album_ref: ref,
+      ...pick(body, ["label_id", "label_name", "logo_url", "source_type", "source_page_url", "source_file_url", "license_name", "license_url", "copyright_status", "attribution_text", "creator", "trademark_notice", "commercial_use_allowed", "requires_attribution", "review_reason", "notes"]),
+      verified: false,
+      manually_verified: false,
+      review_status: "needs_review",
+      verified_at: null,
+      approved_by: null,
+      approved_at: null,
+      approval_notes: null,
+      last_license_check_at: now,
+      license_status_changed: false,
+      updated_at: now
+    };
+    if (!clean(row.label_id) || !clean(row.label_name)) throw new Error("A stored record label is required before adding its logo.");
+    if (!clean(row.source_page_url)) throw new Error("A logo source page URL is required.");
+    if (!/^https:\/\/commons\.wikimedia\.org\//i.test(clean(row.source_page_url)) && normalize(row.source_type) !== "official brand assets") {
+      throw new Error("Logo candidates must come from Wikimedia Commons or a documented official brand-assets page.");
+    }
+    return api("record_label_logos?on_conflict=label_id", { method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(row) });
+  }
+  if (body.action === "set_label_logo_status") {
+    const rows = await api(`record_label_logos?id=eq.${encodeURIComponent(body.id)}&select=*`);
+    const logo = rows?.[0];
+    if (!logo) throw new Error("This record-label logo candidate no longer exists.");
+    const approved = normalize(body.review_status) === "approved";
+    if (approved && !recordLabelLogoHasReuseBasis(logo)) {
+      throw new Error("This logo cannot be approved until its source, reuse status, commercial-use status, and any required attribution are documented.");
+    }
+    if (approved && !clean(body.approved_by)) throw new Error("Record who approved this logo.");
+    if (approved && !clean(body.approval_notes)) throw new Error("Approval notes are required for the logo audit trail.");
+    const update = {
+      review_status: approved ? "approved" : "rejected",
+      verified: approved,
+      manually_verified: true,
+      verified_at: approved ? now : null,
+      approved_by: approved ? clean(body.approved_by) : null,
+      approved_at: approved ? now : null,
+      approval_notes: clean(body.approval_notes) || null,
+      license_status_changed: false,
+      updated_at: now
+    };
+    return api(`record_label_logos?id=eq.${encodeURIComponent(body.id)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(update) });
+  }
+  if (body.action === "delete_label_logo") return api(`record_label_logos?id=eq.${encodeURIComponent(body.id)}`, { method: "DELETE" });
   if (body.action === "save_sales") {
     const row = { ...base, ...pick(body, ["worldwide_sales_estimate", "worldwide_sales_min", "worldwide_sales_max", "display_value", "confidence", "source", "source_url"]), last_verified_at: now };
     return api("album_sales", { method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(row) });
@@ -1238,6 +1552,7 @@ exports.handler = async function handler(event) {
     }
     if (event.httpMethod !== "GET") return json(405, { error: "Method not allowed." });
     const input = event.queryStringParameters || {};
+    const includeLogoAudit = validAdminPin(event.headers?.["x-muze-admin-pin"] || event.headers?.["X-Muze-Admin-Pin"]);
     input.album_ref = albumRef(input);
     if (!clean(input.title) || !clean(input.artist)) return json(400, { error: "Album title and artist are required." });
     let cached = null;
@@ -1246,35 +1561,33 @@ exports.handler = async function handler(event) {
       schemaReady = false;
       console.warn("[Muze album info] cache unavailable", error.message);
     }
-    const cachedSource = normalize(cached?.metadata?.source);
-    const wikipediaLedCache = cachedSource.includes("wikipedia") && cached?.metadata?.source_confidence === WIKIPEDIA_IMPORT_VERSION;
-    const manuallyCompleteCache = cached?.metadata?.manually_verified && Boolean(cached?.sales);
-    if (cached?.metadata && input.refresh !== "1" && (manuallyCompleteCache || wikipediaLedCache)) {
+    const logoSchemaReady = schemaReady && cached?.record_label_logo_schema_ready !== false;
+    const currentImportCache = cached?.metadata?.source_confidence === ALBUM_INFO_IMPORT_VERSION;
+    if (cached?.metadata && input.refresh !== "1" && currentImportCache) {
       applyVerifiedAlbumOverrides(cached, input);
-      await Promise.all([attachLabelLogos(cached), attachArtistPortraits(cached)]);
-      return json(200, { ...cached, cached: true }, 300);
+      await Promise.all([attachRecordLabelLogos(cached, { persist: logoSchemaReady }), attachArtistPortraits(cached)]);
+      return json(200, albumInfoResponseView({ ...cached, cached: true }, includeLogoAudit), 300);
     }
     const imported = await importAlbumInfo(input);
     if (!imported) {
       const fallback = applyVerifiedAlbumOverrides(cached || { metadata: null, credits: [], labels: [], sales: null, certifications: [] }, input);
-      await Promise.all([attachLabelLogos(fallback), attachArtistPortraits(fallback)]);
-      return json(200, { ...fallback, cached: Boolean(cached?.metadata), unavailable: true, schema_ready: schemaReady }, 300);
-    }
-    if (cached?.metadata && !normalize(imported.metadata?.source).includes("wikipedia")) {
-      applyVerifiedAlbumOverrides(cached, input);
-      await Promise.all([attachLabelLogos(cached), attachArtistPortraits(cached)]);
-      return json(200, { ...cached, cached: true }, 300);
+      await Promise.all([attachRecordLabelLogos(fallback, { persist: logoSchemaReady, force: input.refresh === "1" }), attachArtistPortraits(fallback)]);
+      return json(200, albumInfoResponseView({ ...fallback, cached: Boolean(cached?.metadata), unavailable: true, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), 300);
     }
     const result = preserveManualCachedInfo(imported, cached);
     applyVerifiedAlbumOverrides(result, input);
-    await Promise.all([attachLabelLogos(result), attachArtistPortraits(result)]);
+    await attachArtistPortraits(result);
     if (schemaReady) {
-      try { await cacheImportedInfo(result, Boolean(cached?.metadata)); } catch (error) { console.warn("[Muze album info] cache write failed", error.message); }
+      try {
+        await cacheImportedInfo(result, Boolean(cached?.metadata));
+        await Promise.all([attachStoredCreditIds(result), attachStoredLabelIds(result)]);
+      } catch (error) { console.warn("[Muze album info] cache write failed", error.message); }
     }
-    return json(200, { ...result, cached: false, schema_ready: schemaReady }, 86400);
+    await attachRecordLabelLogos(result, { persist: logoSchemaReady, force: input.refresh === "1" });
+    return json(200, albumInfoResponseView({ ...result, cached: false, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), 86400);
   } catch (error) {
     return json(500, { error: "Album information could not be loaded.", message: error.message });
   }
 };
 
-exports._test = { aggregateCredits, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, importedInfo, isAllowedCommonsLicense, knownLabelLogo, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, wikipediaAlbumMatches };
+exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, structuredCreditFacts, wikipediaAlbumMatches };
