@@ -11,7 +11,8 @@ alter table if exists album_credits
   add column if not exists image_modified text,
   add column if not exists image_status text not null default 'candidate',
   add column if not exists image_approved boolean not null default false,
-  add column if not exists image_last_verified_at timestamptz;
+  add column if not exists image_last_verified_at timestamptz,
+  add column if not exists image_rejected_urls jsonb not null default '[]'::jsonb;
 
 update album_credits
 set image_status = 'candidate'
