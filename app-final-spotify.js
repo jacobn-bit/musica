@@ -4870,7 +4870,7 @@ async function loadAlbumInfo(album,force=false,quiet=false){
       const adminPin=isAdminUnlocked()?normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||""):"";
       const response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
       const data=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(data.error||data.message||"Album information could not be loaded.");
+      if(!response.ok)throw new Error(data.message||data.error||"Album information could not be loaded.");
       changed=albumInfoContentSignature(previous)!==albumInfoContentSignature(data);
       extras.albumInfo[ref]=data;
     }catch(error){
@@ -4890,7 +4890,7 @@ async function albumInfoAdminRequest(payload){
   if(!pin){alert("Unlock admin mode first.");return null}
   const response=await fetch("/.netlify/functions/album-info",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,pin})});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok){alert(data.error||data.message||"Album info could not be saved.");return null}
+  if(!response.ok){alert(data.message||data.error||"Album info could not be saved.");return null}
   const album=albumInfoCurrentAlbum();
   if(album){delete extras.albumInfo[albumRef(album.id)];await loadAlbumInfo(album)}
   return data;
