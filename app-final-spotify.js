@@ -4724,7 +4724,7 @@ function albumInfoSourceLink(row){
   return primary+secondary;
 }
 function albumInfoRoleFactsHtml(items){
-  return items.map(item=>`<span>${escapeHtml(item)}</span>`).join('<i class="infoRoleSeparator" aria-hidden="true">&bull;</i>');
+  return items.map(escapeHtml).join('<span class="infoRoleSeparator" aria-hidden="true">&bull;</span>');
 }
 function albumInfoPersonCard(credit,admin){
   const name=String(credit.person_name||"Unknown");
@@ -4735,15 +4735,13 @@ function albumInfoPersonCard(credit,admin){
   const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("").toUpperCase();
   const avatar=image?`<img src="${escapeHtml(image)}" alt="" loading="lazy">`:`<span>${escapeHtml(initials||"M")}</span>`;
   const roles=albumInfoRoleList(credit),primary=roles.slice(0,2),secondary=roles.slice(2,4),remaining=roles.slice(4);
-  const more=remaining.length?`<details class="infoPersonMore"><summary><span>+ ${remaining.length} more role${remaining.length===1?"":"s"}</span></summary><div class="infoPersonContributions"><h5>Instruments &amp; other contributions</h5><p class="infoRoleFacts">${albumInfoRoleFactsHtml(remaining)}</p></div></details>`:"";
+  const more=remaining.length?`<details class="infoPersonMore"><summary>+ ${remaining.length} more role${remaining.length===1?"":"s"}</summary><p class="infoRoleFacts">${albumInfoRoleFactsHtml(remaining)}</p></details>`:"";
   const portraitSource=String(credit.image_source_url||"").trim(),portraitAuthor=String(credit.image_author||"Wikimedia Commons contributor").trim(),portraitLicense=String(credit.image_license||"").trim(),portraitLicenseUrl=String(credit.image_license_url||"").trim();
   const portraitCredit=image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` &middot; <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} &middot; circular crop</span>`:"";
   const portraitTarget=`'${escapeJsString(credit.id||"")}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}'`;
   const portraitActions=admin&&portraitApproved?'<span class="infoPortraitApproved">Photo approved</span>':admin&&portraitStatus==="candidate"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button>`:"";
   const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
-  const primaryIcon=credit.credit_type==="production"?"sliders":credit.credit_type==="songwriting"?"pen":"mic";
-  const sources=`${portraitCredit}${albumInfoSourceLink(credit)}`;
-  return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonIdentity"><div class="infoPersonAvatar">${avatar}</div><span class="infoPersonMonogram">${escapeHtml(initials||"M")}</span></div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary"><i>${albumInfoIcon(primaryIcon)}</i><span>${primary.length?primary.map(escapeHtml).join(" / "):"Credit unavailable"}</span></p>${secondary.length?`<p class="infoPersonSecondary"><i>${albumInfoIcon("users")}</i><span>${secondary.map(escapeHtml).join(", ")}</span></p>`:""}</div>${controls}${more}${sources?`<footer class="infoPersonSources">${sources}</footer>`:""}</article>`;
+  return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${primary.length?primary.map(escapeHtml).join(" / "):"Credit unavailable"}</p>${secondary.length?`<p class="infoPersonSecondary">${secondary.map(escapeHtml).join(", ")}</p>`:""}${more}${portraitCredit}${albumInfoSourceLink(credit)}</div>${controls}</article>`;
 }
 function albumInfoSection(id,title,icon,body,className=""){
   if(!body)return "";

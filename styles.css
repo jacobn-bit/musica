@@ -16599,47 +16599,34 @@ body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson
 .albumInfoPeopleGroup+.albumInfoPeopleGroup{margin-top:30px}
 .albumInfoPeopleGroup>h4{margin:0 0 11px;color:var(--album-info-accent);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0}
 .albumInfoPeople{grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
-.infoPerson{position:relative;min-height:184px;padding:18px;grid-template-columns:78px minmax(0,1fr);gap:16px;align-items:start;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:radial-gradient(circle at 84% 14%,rgba(255,213,31,.035),transparent 30%),#111214;box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 26px rgba(0,0,0,.14);transition:transform .16s ease,border-color .16s ease,background .16s ease}
-.infoPerson:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--album-info-accent) 48%,rgba(255,255,255,.1));background-color:#141517}
-.infoPersonIdentity{display:grid;justify-items:center;gap:8px}
-.infoPersonAvatar{width:74px;height:74px;border:1.5px solid rgba(255,213,31,.82);background:linear-gradient(145deg,#e3bd19 8%,#a58408 58%,#705900 100%);color:#0b0b0b;font-size:18px;font-weight:900;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 9px 24px rgba(0,0,0,.36)}
-.infoPersonMonogram{display:inline-grid;place-items:center;min-width:40px;height:23px;padding:0 9px;border:1px solid rgba(255,213,31,.48);border-radius:999px;color:var(--album-info-accent);background:rgba(255,213,31,.045);font-size:11px;font-weight:800}
-.infoPersonCopy{min-width:0;padding-top:2px}
-.infoPerson:has(.infoRowActions) .infoPersonCopy{padding-right:58px}
-.infoPerson strong{display:block;color:#f9f7f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:18px;font-weight:650;line-height:1.15;letter-spacing:0;overflow-wrap:anywhere}
+.infoPerson{min-height:112px;padding:15px;grid-template-columns:58px minmax(0,1fr) auto;align-items:start;border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#111214;transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.infoPerson:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--album-info-accent) 48%,rgba(255,255,255,.1));background:#141517}
+.infoPersonAvatar{width:54px;height:54px;border-color:rgba(255,213,31,.42);background:linear-gradient(145deg,#e3bd19 8%,#a58408 58%,#705900 100%);color:#0b0b0b;font-size:15px;font-weight:900;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 6px 18px rgba(0,0,0,.3)}
+.infoPersonCopy{min-width:0}
+.infoPerson strong{display:block;color:#f9f7f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
 .infoPerson p{margin:0;overflow-wrap:anywhere}
-.infoPersonPrimary,.infoPersonSecondary{display:grid;grid-template-columns:22px minmax(0,1fr);gap:7px;align-items:start;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;letter-spacing:0!important}
-.infoPersonPrimary{margin-top:12px!important;color:rgba(255,255,255,.9)!important;font-size:13px!important;font-weight:550!important;line-height:1.4!important}
-.infoPersonSecondary{margin-top:8px!important;color:rgba(255,255,255,.52)!important;font-size:12px!important;font-weight:400!important;line-height:1.45!important}
-.infoPersonPrimary i,.infoPersonSecondary i{width:20px;height:20px;display:grid;place-items:center;color:var(--album-info-accent);font-style:normal}
-.infoPersonSecondary i{color:rgba(255,255,255,.52)}
-.infoPersonPrimary .albumInfoIcon,.infoPersonSecondary .albumInfoIcon{width:17px;height:17px}
-.infoRoleFacts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px!important}
-.infoRoleFacts>span{display:inline-flex;align-items:center;min-height:30px;padding:5px 10px;border:1px solid rgba(255,255,255,.17);border-radius:999px;color:rgba(255,255,255,.76);background:rgba(255,255,255,.015);font-size:11px;line-height:1.25}
-.infoRoleSeparator{color:var(--album-info-accent);font-size:12px;line-height:1;font-style:normal}
-.infoPersonMore{grid-column:1/-1;margin-top:0;padding-top:3px}
-.infoPersonMore summary{display:flex;min-height:34px;align-items:center;gap:8px;padding:8px 0 0 94px;border-top:1px solid rgba(255,255,255,.09);color:var(--album-info-accent);font-size:12px;font-weight:750;cursor:pointer;list-style:none}
-.infoPersonMore summary:after{content:"⌄";font-size:18px;line-height:1;transition:transform .16s ease}
-.infoPersonMore[open] summary:after{transform:rotate(180deg)}
+.infoPersonPrimary{margin-top:5px!important;color:rgba(255,255,255,.75)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:13px!important;font-weight:400!important;letter-spacing:0!important}
+.infoPersonSecondary{margin-top:4px!important;color:rgba(255,255,255,.48)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:12px!important;font-weight:400!important;letter-spacing:0!important}
+.infoRoleFacts{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;row-gap:2px}
+.infoRoleSeparator{color:var(--album-info-accent);font-size:.72em;line-height:1;opacity:.72}
+.infoPersonMore{margin-top:6px}
+.infoPersonMore summary{display:inline-flex;min-height:28px;align-items:center;color:var(--album-info-accent);font-size:11px;font-weight:750;cursor:pointer;list-style:none}
 .infoPersonMore summary::-webkit-details-marker{display:none}
-.infoPersonContributions{padding:14px 0 2px}
-.infoPersonContributions h5{display:flex;align-items:center;gap:10px;margin:0;color:rgba(255,255,255,.43);font-size:10px;font-weight:650;text-transform:uppercase;letter-spacing:0}
-.infoPersonContributions h5:after{content:"";height:1px;flex:1;background:rgba(255,255,255,.09)}
+.infoPersonMore p{padding:5px 0 2px;color:rgba(255,255,255,.55);font-size:12px;line-height:1.45}
 .infoSource{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:rgba(255,255,255,.35);font-size:10px;text-decoration:none}
 .infoSource:hover{color:var(--album-info-accent)}
 .infoSource .albumInfoIcon{width:11px;height:11px}
 .infoSource+.infoSource{margin-left:8px}
-.infoPortraitCredit{display:block;width:fit-content;max-width:100%;color:rgba(255,255,255,.48);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:9px;line-height:1.35;overflow-wrap:anywhere}
+.infoPortraitCredit{display:block;width:fit-content;max-width:100%;margin-top:7px;color:rgba(255,255,255,.48);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:9px;line-height:1.35;overflow-wrap:anywhere}
 .infoPortraitCredit a{color:inherit;text-decoration:none}
 .infoPortraitCredit a:hover{color:var(--album-info-accent)}
 .infoPortraitCredit.isCandidate{color:var(--album-info-accent)}
 .infoPerson.hasPortraitCandidate{border-color:rgba(255,213,31,.42)}
 .infoPerson.hasPortraitCandidate .infoPersonAvatar{box-shadow:0 0 0 2px rgba(255,213,31,.2),0 6px 18px rgba(0,0,0,.3)}
-.infoPerson .infoRowActions{position:absolute;z-index:2;top:12px;right:12px;flex-wrap:wrap;justify-content:flex-end;max-width:110px}
-.infoPersonSources{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:2px;padding-top:11px;border-top:1px solid rgba(255,255,255,.09)}
-.infoPersonSources .infoSource,.infoPersonSources .infoPortraitCredit{margin-top:0}
+.infoPerson .infoRowActions{flex-wrap:wrap;justify-content:flex-end;max-width:150px}
 .infoPortraitApproved{display:inline-flex!important;align-items:center;min-height:28px;padding:5px 8px;border:1px solid rgba(91,202,129,.35);border-radius:5px;color:#8fdda9!important;background:rgba(91,202,129,.07);font-size:10px!important;font-weight:650!important;line-height:1;text-transform:none!important;white-space:nowrap}
-.albumProductionBlock .infoPerson{background-color:#111214}
+.albumProductionBlock .infoPerson{min-height:86px;grid-template-columns:44px minmax(0,1fr) auto;background:transparent}
+.albumProductionBlock .infoPersonAvatar{width:40px;height:40px;font-size:12px}
 .albumSongwriting{border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#101113}
 .albumSongwriting summary{min-height:48px;display:flex;align-items:center;padding:10px 15px;color:var(--album-info-accent);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
 .albumSongwriting .albumInfoPeople{padding:0 12px 12px}
@@ -16695,7 +16682,7 @@ body.light .albumInfoPopupPanel,body.light .albumInfoPage{background:#f2f0e9}bod
 @media(max-width:900px){.albumInfoPage{padding:max(22px,env(safe-area-inset-top)) 26px 46px}.albumInfoHero{grid-template-columns:170px minmax(0,1fr);gap:25px;min-height:246px;padding:20px 56px 28px 0}.albumInfoHeroArt{width:170px}.albumInfoHero h2{font-size:37px}.albumInfoNav{margin:0 -26px;padding:9px 26px}.albumInfoPopup .albumOverviewClose{position:fixed!important;top:14px!important;right:14px!important}.albumDetailsBlock .albumInfoFacts{width:100%}.albumSnapshotGrid{grid-template-columns:1fr;gap:16px}.albumCertificationGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.albumInfoPage{padding:20px 18px 38px}.albumInfoHero{grid-template-columns:112px minmax(0,1fr);gap:18px;min-height:190px;padding:22px 44px 24px 0}.albumInfoHeroArt{width:112px}.albumInfoHero h2{font-size:28px}.albumInfoArtist{font-size:17px}.albumInfoHeroMeta{font-size:12px}.albumInfoHeroSignals{grid-column:1/-1;margin-top:15px}.albumInfoHeroSignals>div{min-width:130px;flex:1}.albumInfoNav{margin:0 -18px;padding:8px 18px}.albumInfoNav a{min-height:42px;padding:9px 10px}.albumInfoFacts{grid-template-columns:1fr}.albumInfoPeople,.albumInfoLabels{grid-template-columns:1fr}.albumInfoBlock{padding:36px 0 40px}.albumInfoHeading h3{font-size:22px}.albumCertificationGrid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:5px}.albumCertificationGrid>article{min-width:210px;scroll-snap-align:start}}
 @media(max-width:700px){.albumInfoLogoAudit dl{grid-template-columns:1fr}}
-@media(max-width:430px){.albumInfoHero{grid-template-columns:92px minmax(0,1fr);gap:14px}.albumInfoHeroArt{width:92px}.albumInfoHero h2{font-size:24px}.albumInfoEyebrow{margin-bottom:7px}.albumInfoHeroMeta span:nth-child(n+3){display:none}.albumInfoHeroSignals>div{min-width:100%}.albumInfoFacts{grid-template-columns:1fr}.albumInfoFacts>article{grid-template-columns:32px minmax(0,1fr);padding:10px 12px}.albumInfoFacts>article>div{grid-template-columns:minmax(82px,1fr) minmax(0,1.4fr);gap:10px}.albumInfoFacts strong{font-size:14px}.albumInformationCompact{grid-template-columns:repeat(2,minmax(0,1fr))}.albumInformationCompact>article{border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats{grid-template-columns:1fr}.albumGlanceStats>.albumGlanceFact,.albumGlanceStats>.albumGlanceFact:nth-child(odd){min-height:86px;padding:12px 0;border-right:0;border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats>.albumGlanceFact:last-child{border-bottom:0}.albumGlanceStats strong{font-size:15.39px}.infoPerson{grid-template-columns:64px minmax(0,1fr);gap:12px;min-height:154px;padding:14px}.infoPersonAvatar{width:60px;height:60px}.infoPersonMonogram{min-width:34px;height:21px;padding:0 7px;font-size:10px}.infoPerson strong{font-size:16px}.infoPersonPrimary{margin-top:9px!important;font-size:12px!important}.infoPersonSecondary{font-size:11px!important}.infoPersonMore summary{padding-left:76px}.infoRoleFacts>span{min-height:28px;padding:4px 9px;font-size:10px}.albumInfoNav .albumInfoIcon{display:none}}
+@media(max-width:430px){.albumInfoHero{grid-template-columns:92px minmax(0,1fr);gap:14px}.albumInfoHeroArt{width:92px}.albumInfoHero h2{font-size:24px}.albumInfoEyebrow{margin-bottom:7px}.albumInfoHeroMeta span:nth-child(n+3){display:none}.albumInfoHeroSignals>div{min-width:100%}.albumInfoFacts{grid-template-columns:1fr}.albumInfoFacts>article{grid-template-columns:32px minmax(0,1fr);padding:10px 12px}.albumInfoFacts>article>div{grid-template-columns:minmax(82px,1fr) minmax(0,1.4fr);gap:10px}.albumInfoFacts strong{font-size:14px}.albumInformationCompact{grid-template-columns:repeat(2,minmax(0,1fr))}.albumInformationCompact>article{border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats{grid-template-columns:1fr}.albumGlanceStats>.albumGlanceFact,.albumGlanceStats>.albumGlanceFact:nth-child(odd){min-height:86px;padding:12px 0;border-right:0;border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats>.albumGlanceFact:last-child{border-bottom:0}.albumGlanceStats strong{font-size:15.39px}.infoPerson{grid-template-columns:48px minmax(0,1fr);min-height:104px;padding:13px}.infoPersonAvatar{width:44px;height:44px}.infoPerson .infoRowActions{grid-column:2}.albumInfoNav .albumInfoIcon{display:none}}
 @media(max-width:430px){.albumGlanceStats .albumGlanceFact-music strong{font-size:13.68px}}
 
 /* Compact album-info hero for phones and small tablets. */
