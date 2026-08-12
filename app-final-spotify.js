@@ -4933,7 +4933,9 @@ window.deleteAlbumInfoCredit=async function(id){if(confirm("Delete this credit?"
 window.setAlbumInfoPortraitStatus=async function(id,person_name,credit_type,status){
   const action=status==="approved"?"approve":"reject";
   if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this artist portrait?`))return;
-  await albumInfoAdminRequest({...albumInfoAdminBase("set_credit_image_status"),id,person_name,credit_type,image_status:status});
+  const album=albumInfoCurrentAlbum(),credits=album?extras.albumInfo[albumRef(album.id)]?.credits||[]:[];
+  const row=credits.find(item=>(id&&String(item.id)===String(id))||(!id&&String(item.person_name)===String(person_name)&&String(item.credit_type)===String(credit_type)))||{};
+  await albumInfoAdminRequest({...albumInfoAdminBase("set_credit_image_status"),id,person_name,credit_type,image_status:status,person_id:row.person_id||"",person_wikidata_id:row.person_wikidata_id||"",role:row.role||"",instrument:row.instrument||"",sort_order:row.sort_order||0,source:row.source||"",source_url:row.source_url||"",image_url:row.image_url||"",image_source_url:row.image_source_url||"",image_author:row.image_author||"",image_license:row.image_license||"",image_license_url:row.image_license_url||"",image_attribution:row.image_attribution||"",image_modified:row.image_modified||""});
 }
 window.addAlbumInfoLabel=async function(existingId=""){
   const album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.labels||[]:[],row=items.find(item=>String(item.id)===String(existingId))||{};
