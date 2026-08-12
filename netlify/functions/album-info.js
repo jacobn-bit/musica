@@ -1462,7 +1462,15 @@ async function adminAction(body) {
     const target = body.id
       ? `id=eq.${encodeURIComponent(body.id)}`
       : `album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.credit_type))}`;
-    const rows = await api(`album_credits?${target}&select=id,image_source_url,image_license`);
+    let rows;
+    try {
+      rows = await api(`album_credits?${target}&select=id,image_source_url,image_license`);
+    } catch (error) {
+      if (/image_source_url|image_license|album_credits|PGRST204|PGRST205|42703|42P01/i.test(error.message || "")) {
+        throw new Error("Artist portrait approval is not enabled in the live database. Run supabase/migrations/202608120001_artist_portraits.sql in the Supabase SQL Editor, then reopen Details & Credits.");
+      }
+      throw error;
+    }
     if (!rows?.length) throw new Error("This portrait candidate has not finished saving yet. Reopen Details & Credits and try again.");
     if (approved) {
       const portrait = rows?.[0] || {};
@@ -1586,7 +1594,11 @@ exports.handler = async function handler(event) {
     await attachRecordLabelLogos(result, { persist: logoSchemaReady, force: input.refresh === "1" });
     return json(200, albumInfoResponseView({ ...result, cached: false, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), 86400);
   } catch (error) {
-    return json(500, { error: "Album information could not be loaded.", message: error.message });
+    const isAdminRequest = event.httpMethod === "POST";
+    return json(500, {
+      error: isAdminRequest ? "Album information could not be saved." : "Album information could not be loaded.",
+      message: error.message
+    });
   }
 };
 
