@@ -1002,6 +1002,20 @@ async function attachArtistPortraits(info) {
   return info;
 }
 
+async function persistAttachedPortraits(info) {
+  const credits = (info?.credits || []).filter(credit => credit.id && credit.image_url && credit.image_status === "candidate" && !credit.image_approved);
+  await Promise.all(credits.map(async credit => {
+    const patch = Object.fromEntries(portraitFields.filter(field => Object.prototype.hasOwnProperty.call(credit, field)).map(field => [field, credit[field]]));
+    patch.updated_at = new Date().toISOString();
+    try {
+      await api(`album_credits?id=eq.${encodeURIComponent(credit.id)}`, { method: "PATCH", headers: { "Prefer": "return=minimal" }, body: JSON.stringify(patch) });
+    } catch (error) {
+      console.warn("[Muze album info] attached portrait write unavailable", error.message);
+    }
+  }));
+  return info;
+}
+
 async function fetchWikidataCountry(itemId, claimProperties = ["P495"]) {
   if (!/^Q\d+$/.test(clean(itemId))) return "";
   const entityData = await wikidataJson({ action: "wbgetentities", ids: itemId, props: "claims" });
@@ -1471,7 +1485,41 @@ async function adminAction(body) {
       }
       throw error;
     }
-    if (!rows?.length) throw new Error("This portrait candidate has not finished saving yet. Reopen Details & Credits and try again.");
+    if (!rows?.length && approved && clean(body.image_url)) {
+      if (!isAllowedCommonsLicense(body.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(body.image_source_url))) {
+        throw new Error("This portrait does not have an approved Wikimedia Commons licence record.");
+      }
+      const candidate = {
+        ...base,
+        manually_verified: false,
+        person_name: clean(body.person_name),
+        person_id: clean(body.person_id) || null,
+        person_wikidata_id: clean(body.person_wikidata_id) || null,
+        credit_type: normalize(body.credit_type),
+        role: clean(body.role) || null,
+        instrument: clean(body.instrument) || null,
+        sort_order: Number.isFinite(Number(body.sort_order)) ? Number(body.sort_order) : 0,
+        source: clean(body.source) || null,
+        source_url: clean(body.source_url) || null,
+        image_url: clean(body.image_url),
+        image_source_url: clean(body.image_source_url),
+        image_author: clean(body.image_author) || null,
+        image_license: clean(body.image_license),
+        image_license_url: clean(body.image_license_url) || null,
+        image_attribution: clean(body.image_attribution) || null,
+        image_modified: clean(body.image_modified) || "Displayed with a circular crop",
+        image_status: "candidate",
+        image_approved: false,
+        image_last_verified_at: now
+      };
+      try {
+        rows = await api("album_credits", { method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(candidate) });
+      } catch (error) {
+        throw new Error(`This portrait candidate could not be saved: ${error.message}`);
+      }
+      if (!rows?.length) rows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(candidate.person_name)}&credit_type=eq.${encodeURIComponent(candidate.credit_type)}&select=id,image_source_url,image_license`);
+    }
+    if (!rows?.length) throw new Error("This portrait candidate could not be matched to a saved album credit. Refresh Details & Credits and try once more.");
     if (approved) {
       const portrait = rows?.[0] || {};
       if (!isAllowedCommonsLicense(portrait.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(portrait.image_source_url))) {
@@ -1589,6 +1637,7 @@ exports.handler = async function handler(event) {
       try {
         await cacheImportedInfo(result, Boolean(cached?.metadata));
         await Promise.all([attachStoredCreditIds(result), attachStoredLabelIds(result)]);
+        await persistAttachedPortraits(result);
       } catch (error) { console.warn("[Muze album info] cache write failed", error.message); }
     }
     await attachRecordLabelLogos(result, { persist: logoSchemaReady, force: input.refresh === "1" });
