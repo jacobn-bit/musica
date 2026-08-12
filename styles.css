@@ -16572,6 +16572,8 @@ body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson
 .infoPerson p{margin:0;overflow-wrap:anywhere}
 .infoPersonPrimary{margin-top:5px!important;color:rgba(255,255,255,.75)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:13px!important;font-weight:400!important;letter-spacing:0!important}
 .infoPersonSecondary{margin-top:4px!important;color:rgba(255,255,255,.48)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:12px!important;font-weight:400!important;letter-spacing:0!important}
+.infoRoleFacts{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;row-gap:2px}
+.infoRoleSeparator{color:var(--album-info-accent);font-size:.72em;line-height:1;opacity:.72}
 .infoPersonMore{margin-top:6px}
 .infoPersonMore summary{display:inline-flex;min-height:28px;align-items:center;color:var(--album-info-accent);font-size:11px;font-weight:750;cursor:pointer;list-style:none}
 .infoPersonMore summary::-webkit-details-marker{display:none}
@@ -16579,6 +16581,7 @@ body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson
 .infoSource{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:rgba(255,255,255,.35);font-size:10px;text-decoration:none}
 .infoSource:hover{color:var(--album-info-accent)}
 .infoSource .albumInfoIcon{width:11px;height:11px}
+.infoSource+.infoSource{margin-left:8px}
 .infoPortraitCredit{display:block;width:fit-content;max-width:100%;margin-top:7px;color:rgba(255,255,255,.48);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:9px;line-height:1.35;overflow-wrap:anywhere}
 .infoPortraitCredit a{color:inherit;text-decoration:none}
 .infoPortraitCredit a:hover{color:var(--album-info-accent)}
@@ -16602,8 +16605,28 @@ body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson
 .albumInfoLabelLogoFallback .albumInfoIcon{display:block}
 .albumInfoLabelLogo.isAppleMark{width:40px;height:40px;display:block;background:#fff}
 .albumInfoLabelLogo.isAppleMark img{width:auto;height:40px;max-width:none;object-fit:initial}
+.albumInfoLabelLogo.isReviewCandidate{box-shadow:0 0 0 2px rgba(255,213,31,.42);opacity:.82}
 .albumInfoLabels strong{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
 .albumInfoLabels span{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;line-height:1.35;letter-spacing:0}
+.albumInfoLogoCredit{display:inline-flex!important;align-items:center;gap:4px;margin-top:6px;color:rgba(255,255,255,.46);font-size:9px!important;line-height:1.35;text-decoration:none;text-transform:none!important}
+.albumInfoLogoCredit:hover{color:var(--album-info-accent)}
+.albumInfoLogoCredit .albumInfoIcon{width:10px;height:10px}
+.albumInfoLogoAudit{grid-column:1/-1;margin-top:13px;padding:11px;border:1px solid rgba(255,213,31,.24);border-radius:6px;background:rgba(255,213,31,.025)}
+.albumInfoLogoAudit>header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.albumInfoLogoAudit>header strong{color:var(--album-info-accent);font-size:11px;text-transform:uppercase}
+.albumInfoLogoAudit>header em{color:#ffb6a7;font-size:10px;font-style:normal}
+.albumInfoLogoAudit dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 16px;margin:0}
+.albumInfoLogoAudit dl>div{min-width:0}
+.albumInfoLogoAudit dt{color:rgba(255,255,255,.42);font-size:9px;text-transform:uppercase}
+.albumInfoLogoAudit dd{margin:2px 0 0;color:rgba(255,255,255,.72);font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.albumInfoLogoAudit>div{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.albumInfoLogoAudit a,.albumInfoLogoAudit button{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:5px 9px;border:1px solid rgba(255,255,255,.15);border-radius:5px;background:#0d0e0f;color:#f5f2e9;font-size:10px;text-decoration:none;cursor:pointer}
+.albumInfoLogoAudit a:hover,.albumInfoLogoAudit button:hover{border-color:var(--album-info-accent);color:var(--album-info-accent)}
+.albumInfoLogoAudit a .albumInfoIcon{width:10px;height:10px}
+.albumInfoLogoAudit.status-approved{border-color:rgba(102,213,143,.35)}
+.albumInfoLogoAudit.status-rejected{border-color:rgba(255,120,105,.28)}
+.albumInfoLogoAudit.isEmpty{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.albumInfoLogoAudit.isEmpty strong{font-size:11px}.albumInfoLogoAudit.isEmpty span{font-size:11px;color:rgba(255,255,255,.5)}
 .albumSales{max-width:560px;gap:6px;padding:2px 0 24px}
 .albumSales strong{color:var(--album-info-accent);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:26px;font-weight:600;line-height:1.2;letter-spacing:0}
 .albumSales>span{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0}
@@ -16622,6 +16645,7 @@ body.light .albumInfoPopupPanel,body.light .albumInfoPage{background:#f2f0e9}bod
 @media(max-width:1100px){.albumInfoPeople{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.albumInfoPage{padding:max(22px,env(safe-area-inset-top)) 26px 46px}.albumInfoHero{grid-template-columns:170px minmax(0,1fr);gap:25px;min-height:246px;padding:20px 56px 28px 0}.albumInfoHeroArt{width:170px}.albumInfoHero h2{font-size:37px}.albumInfoNav{margin:0 -26px;padding:9px 26px}.albumInfoPopup .albumOverviewClose{position:fixed!important;top:14px!important;right:14px!important}.albumDetailsBlock .albumInfoFacts{width:100%}.albumSnapshotGrid{grid-template-columns:1fr;gap:16px}.albumCertificationGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.albumInfoPage{padding:20px 18px 38px}.albumInfoHero{grid-template-columns:112px minmax(0,1fr);gap:18px;min-height:190px;padding:22px 44px 24px 0}.albumInfoHeroArt{width:112px}.albumInfoHero h2{font-size:28px}.albumInfoArtist{font-size:17px}.albumInfoHeroMeta{font-size:12px}.albumInfoHeroSignals{grid-column:1/-1;margin-top:15px}.albumInfoHeroSignals>div{min-width:130px;flex:1}.albumInfoNav{margin:0 -18px;padding:8px 18px}.albumInfoNav a{min-height:42px;padding:9px 10px}.albumInfoFacts{grid-template-columns:1fr}.albumInfoPeople,.albumInfoLabels{grid-template-columns:1fr}.albumInfoBlock{padding:36px 0 40px}.albumInfoHeading h3{font-size:22px}.albumCertificationGrid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:5px}.albumCertificationGrid>article{min-width:210px;scroll-snap-align:start}}
+@media(max-width:700px){.albumInfoLogoAudit dl{grid-template-columns:1fr}}
 @media(max-width:430px){.albumInfoHero{grid-template-columns:92px minmax(0,1fr);gap:14px}.albumInfoHeroArt{width:92px}.albumInfoHero h2{font-size:24px}.albumInfoEyebrow{margin-bottom:7px}.albumInfoHeroMeta span:nth-child(n+3){display:none}.albumInfoHeroSignals>div{min-width:100%}.albumInfoFacts{grid-template-columns:1fr}.albumInfoFacts>article{grid-template-columns:32px minmax(0,1fr);padding:10px 12px}.albumInfoFacts>article>div{grid-template-columns:minmax(82px,1fr) minmax(0,1.4fr);gap:10px}.albumInfoFacts strong{font-size:14px}.albumInformationCompact{grid-template-columns:repeat(2,minmax(0,1fr))}.albumInformationCompact>article{border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats{grid-template-columns:1fr}.albumGlanceStats>article,.albumGlanceStats>article:nth-child(odd){min-height:86px;padding:12px 0;border-right:0;border-bottom:1px solid rgba(255,255,255,.08)}.albumGlanceStats>article:last-child{border-bottom:0}.albumGlanceStats strong{font-size:15.39px}.infoPerson{grid-template-columns:48px minmax(0,1fr);min-height:104px;padding:13px}.infoPersonAvatar{width:44px;height:44px}.infoPerson .infoRowActions{grid-column:2}.albumInfoNav .albumInfoIcon{display:none}}
 @media(max-width:430px){.albumGlanceStats .albumGlanceFact-music strong{font-size:13.68px}}
 

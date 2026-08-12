@@ -1654,6 +1654,11 @@ function finishAdminUnlock(pin,message){
   sessionStorage.setItem("musicaAdminPin",String(pin||"").trim());
   syncAdminUnlockButton();
   setAdminInlineStatus(message||"Admin overview editing is unlocked for this browser tab.","success");
+  const album=typeof albumInfoCurrentAlbum==="function"?albumInfoCurrentAlbum():null;
+  if(album&&!document.querySelector("#albumInfoPopup.hidden")){
+    delete extras.albumInfo[albumRef(album.id)];
+    loadAlbumInfo(album).catch(error=>console.warn("Unable to reload album-info audit data",error.message||error));
+  }
 }
 window.unlockOverviewAdmin=async function(){
   const pin=normalizeAdminPinValue(prompt("Enter your Muze admin PIN:")||"");
@@ -4701,8 +4706,14 @@ function albumInfoSourceLink(row){
   if(!isAdminUnlocked())return "";
   const url=String(row?.source_url||"").trim();
   const source=String(row?.source||"").trim();
-  if(!url)return source?`<span class="infoSource">Source: ${escapeHtml(source)}</span>`:"";
-  return `<a class="infoSource" href="${escapeHtml(url)}" target="_blank" rel="noopener">Source: ${escapeHtml(source||"reference")}${albumInfoIcon("external")}</a>`;
+  const secondaryUrl=String(row?.source_secondary_url||"").trim();
+  const secondarySource=String(row?.source_secondary||"").trim();
+  const primary=!url?(source?`<span class="infoSource">Source: ${escapeHtml(source)}</span>`:""):`<a class="infoSource" href="${escapeHtml(url)}" target="_blank" rel="noopener">Source: ${escapeHtml(source||"reference")}${albumInfoIcon("external")}</a>`;
+  const secondary=!secondaryUrl?(secondarySource?`<span class="infoSource">Fallback: ${escapeHtml(secondarySource)}</span>`:""):`<a class="infoSource" href="${escapeHtml(secondaryUrl)}" target="_blank" rel="noopener">Fallback: ${escapeHtml(secondarySource||"reference")}${albumInfoIcon("external")}</a>`;
+  return primary+secondary;
+}
+function albumInfoRoleFactsHtml(items){
+  return items.map(escapeHtml).join('<span class="infoRoleSeparator" aria-hidden="true">&bull;</span>');
 }
 function albumInfoPersonCard(credit,admin){
   const name=String(credit.person_name||"Unknown");
@@ -4713,12 +4724,13 @@ function albumInfoPersonCard(credit,admin){
   const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("").toUpperCase();
   const avatar=image?`<img src="${escapeHtml(image)}" alt="" loading="lazy">`:`<span>${escapeHtml(initials||"M")}</span>`;
   const roles=albumInfoRoleList(credit),primary=roles.slice(0,2),secondary=roles.slice(2,4),remaining=roles.slice(4);
-  const more=remaining.length?`<details class="infoPersonMore"><summary>+ ${remaining.length} more role${remaining.length===1?"":"s"}</summary><p>${escapeHtml(remaining.join(", "))}</p></details>`:"";
+  const more=remaining.length?`<details class="infoPersonMore"><summary>+ ${remaining.length} more role${remaining.length===1?"":"s"}</summary><p class="infoRoleFacts">${albumInfoRoleFactsHtml(remaining)}</p></details>`:"";
   const portraitSource=String(credit.image_source_url||"").trim(),portraitAuthor=String(credit.image_author||"Wikimedia Commons contributor").trim(),portraitLicense=String(credit.image_license||"").trim(),portraitLicenseUrl=String(credit.image_license_url||"").trim();
-  const portraitCredit=image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` · <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} · circular crop</span>`:"";
-  const portraitActions=admin&&portraitStatus==="candidate"&&credit.id?`<button onclick="setAlbumInfoPortraitStatus('${escapeJsString(credit.id)}','approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus('${escapeJsString(credit.id)}','rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"&&credit.id?`<button onclick="setAlbumInfoPortraitStatus('${escapeJsString(credit.id)}','approved')" title="Approve licensed portrait">Approve photo</button>`:"";
+  const portraitCredit=image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` &middot; <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} &middot; circular crop</span>`:"";
+  const portraitTarget=`'${escapeJsString(credit.id||"")}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}'`;
+  const portraitActions=admin&&portraitStatus==="candidate"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button>`:"";
   const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
-  return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${escapeHtml(primary.join(" / ")||"Credit unavailable")}</p>${secondary.length?`<p class="infoPersonSecondary">${escapeHtml(secondary.join(", "))}</p>`:""}${more}${portraitCredit}${albumInfoSourceLink(credit)}</div>${controls}</article>`;
+  return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${primary.length?primary.map(escapeHtml).join(" / "):"Credit unavailable"}</p>${secondary.length?`<p class="infoPersonSecondary">${secondary.map(escapeHtml).join(", ")}</p>`:""}${more}${portraitCredit}${albumInfoSourceLink(credit)}</div>${controls}</article>`;
 }
 function albumInfoSection(id,title,icon,body,className=""){
   if(!body)return "";
@@ -4769,12 +4781,31 @@ function albumInfoAtAGlance(album,info={}){
   if(!facts.length)return "";
   return `<aside class="albumGlancePanel"><header><span>${albumInfoIcon("star")}</span><h4>At a Glance</h4></header><div class="albumGlanceStats">${facts.map(([label,value,icon])=>`<article class="albumGlanceFact albumGlanceFact-${icon}"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></article>`).join("")}</div></aside>`;
 }
-function albumInfoLabelCardLogo(label){
-  const image=String(label?.logo_url||"").trim();
+function albumInfoLabelCardLogo(label,admin=false){
+  const audit=label?.record_label_logo||{};
+  const image=String(label?.logo_url||(admin?audit.logo_url:"")||"").trim();
   const name=normalizeAlbumName(label?.label_name);
   const apple=name==="apple"||name==="apple records";
   if(!image)return `<span class="albumInfoLabelLogo albumInfoLabelLogoFallback">${albumInfoIcon("building")}</span>`;
-  return `<span class="albumInfoLabelLogo${apple?" isAppleMark":""}"><img src="${escapeHtml(image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon("building")}</span>`;
+  return `<span class="albumInfoLabelLogo${apple?" isAppleMark":""}${admin&&!label?.logo_url?" isReviewCandidate":""}"><img src="${escapeHtml(image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon("building")}</span>`;
+}
+function albumInfoLabelLogoCredit(label){
+  const logo=label?.record_label_logo||{};
+  if(!label?.logo_url||!logo.requires_attribution)return "";
+  const text=String(logo.attribution_text||"Logo source and licence").trim();
+  const url=String(logo.source_page_url||logo.license_url||"").trim();
+  return url?`<a class="albumInfoLogoCredit" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(text)}${albumInfoIcon("external")}</a>`:`<span class="albumInfoLogoCredit">${escapeHtml(text)}</span>`;
+}
+function albumInfoLabelLogoAudit(label){
+  const logo=label?.record_label_logo;
+  if(!isAdminUnlocked())return "";
+  if(!logo)return `<div class="albumInfoLogoAudit isEmpty"><strong>No reviewed logo source</strong><span>Text fallback is active.</span><button onclick="editAlbumInfoLabelLogo('${escapeJsString(label.id)}')">Add documented source</button></div>`;
+  const status=String(logo.review_status||"needs_review").replace(/_/g," ");
+  const details=[["Source",logo.source_type],["Licence / status",logo.license_name||logo.copyright_status],["Creator",logo.creator],["Attribution",logo.requires_attribution?(logo.attribution_text||"Required but missing"):"Not required by recorded licence"],["Trademark",logo.trademark_notice],["Review reason",logo.review_reason],["Last licence check",logo.last_license_check_at?new Date(logo.last_license_check_at).toLocaleDateString():""]].filter(([,value])=>String(value||"").trim());
+  const source=logo.source_page_url?`<a href="${escapeHtml(logo.source_page_url)}" target="_blank" rel="noopener">Open exact source page${albumInfoIcon("external")}</a>`:"";
+  const approve=logo.review_status!=="approved"?`<button onclick="setAlbumInfoLabelLogoStatus('${escapeJsString(logo.id)}','approved')">Approve</button>`:"";
+  const reject=logo.review_status!=="rejected"?`<button onclick="setAlbumInfoLabelLogoStatus('${escapeJsString(logo.id)}','rejected')">Reject</button>`:"";
+  return `<div class="albumInfoLogoAudit status-${escapeHtml(String(logo.review_status||"needs_review"))}"><header><strong>${escapeHtml(status)}</strong>${logo.license_status_changed?"<em>Licence metadata changed</em>":""}</header><dl>${details.map(([term,value])=>`<div><dt>${escapeHtml(term)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl><div>${source}${approve}${reject}<button onclick="editAlbumInfoLabelLogo('${escapeJsString(label.id)}')">Edit source</button></div></div>`;
 }
 function renderAlbumInfo(albumId=extras.currentAlbumId){
   const host=document.querySelector("#albumInfoPopup #albumInfoSection");
@@ -4811,12 +4842,12 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
   const groupedPerformers=[["Core artists / band members",performerGroups.core],["Additional musicians",performerGroups.additional],["Guest performers",performerGroups.guest],["Orchestra / ensemble",performerGroups.ensemble]].filter(([,items])=>items.length);
   const performerBody=groupedPerformers.length?groupedPerformers.map(([title,items])=>`<div class="albumInfoPeopleGroup"><h4>${escapeHtml(title)}</h4>${peopleGrid(items)}</div>`).join(""):'<p class="infoEmpty">Credits unavailable.</p>';
   const songwriterBody=songwriting.length?(songwriting.length>4?`<details class="albumSongwriting"><summary>View album songwriting credits</summary>${peopleGrid(songwriting)}</details>`:peopleGrid(songwriting)):"";
-  const labelBody=labels.length?`<div class="albumInfoLabels">${labels.map(label=>`<div><div class="albumInfoLabelIdentity">${albumInfoLabelCardLogo(label)}<div><strong>${escapeHtml(label.label_name)}</strong><span>${escapeHtml(label.is_original_label?"Original label":label.label_type||"Label")}${label.release_region?` · ${escapeHtml(label.release_region)}`:""}</span>${albumInfoSourceLink(label)}</div></div>${admin?`<div class="infoRowActions"><button onclick="editAlbumInfoLabel('${escapeJsString(label.id)}')">Edit</button><button onclick="deleteAlbumInfoLabel('${escapeJsString(label.id)}')">Delete</button></div>`:""}</div>`).join("")}</div>`:"";
+  const labelBody=labels.length?`<div class="albumInfoLabels">${labels.map(label=>`<div><div class="albumInfoLabelIdentity">${albumInfoLabelCardLogo(label,admin)}<div><strong>${escapeHtml(label.label_name)}</strong><span>${escapeHtml(label.is_original_label?"Original label":label.label_type||"Label")}${label.release_region?` · ${escapeHtml(label.release_region)}`:""}</span>${albumInfoLabelLogoCredit(label)}${albumInfoSourceLink(label)}</div></div>${admin?`<div class="infoRowActions"><button onclick="editAlbumInfoLabel('${escapeJsString(label.id)}')">Edit</button><button onclick="deleteAlbumInfoLabel('${escapeJsString(label.id)}')">Delete</button></div>${albumInfoLabelLogoAudit(label)}`:""}</div>`).join("")}</div>`:"";
   const sales=info.sales;
   const salesText=String(sales?.display_value||"").trim();
   const certHtml=certifications.length?`<div class="albumCertifications"><h4>Certifications</h4><div class="albumCertificationGrid">${certifications.map(cert=>`<article><span>${escapeHtml(cert.country)}</span><strong>${escapeHtml(cert.certification)}</strong>${cert.organization?`<em>${escapeHtml(cert.organization)}</em>`:""}${cert.certified_units?`<small>${escapeHtml(Number(cert.certified_units).toLocaleString())} certified units</small>`:""}${albumInfoSourceLink(cert)}${admin?`<div class="infoRowActions"><button onclick="editAlbumInfoCertification('${escapeJsString(cert.id)}')">Edit</button><button onclick="deleteAlbumInfoCertification('${escapeJsString(cert.id)}')">Delete</button></div>`:""}</article>`).join("")}</div></div>`:"";
   const commercialBody=`${salesText?`<div class="albumSales"><strong>${escapeHtml(salesText)}</strong><span>Estimated worldwide sales</span>${sales?.confidence?`<small>${escapeHtml(sales.confidence)}</small>`:""}${albumInfoSourceLink(sales)}</div>`:'<p class="infoEmpty">Worldwide sales are not reliably documented.</p>'}${certHtml}`;
-  const schemaNote=admin&&info.schema_ready===false?'<p class="albumInfoSchemaNote">Run supabase/album-info-schema.sql to enable caching and admin edits.</p>':"";
+  const schemaNote=admin&&info.schema_ready===false?'<p class="albumInfoSchemaNote">Run supabase/album-info-schema.sql to enable caching and admin edits.</p>':admin&&info.record_label_logo_schema_ready===false?'<p class="albumInfoSchemaNote">Run supabase/migrations/202608120003_record_label_logos.sql to enable conservative label-logo review and approvals.</p>':"";
   const sections=[["details","Album Snapshot","disc",detailHtml,"albumDetailsBlock"],["performers","Performing Artists","users",performerBody,"albumPerformersBlock"],["production","Production","sliders",production.length?peopleGrid(production):"","albumProductionBlock"],["writing","Songwriting","pen",songwriterBody,"albumWritingBlock"],["labels","Record Labels","building",labelBody,"albumLabelsBlock"],["commercial","Commercial Performance","award",commercialBody,"albumCommercialBlock"]].filter(([, , ,body])=>body);
   const navigation=`<nav class="albumInfoNav" aria-label="Album information sections">${sections.map(([id,title,icon])=>`<a href="#album-info-${id}">${albumInfoIcon(icon)}<span>${escapeHtml(title.replace("Album ",""))}</span></a>`).join("")}</nav>`;
   host.innerHTML=`${adminHead}${schemaNote}${navigation}${sections.map(([id,title,icon,body,className])=>albumInfoSection(id,title,icon,body,className)).join("")}`;
@@ -4836,7 +4867,8 @@ async function loadAlbumInfo(album,force=false,quiet=false){
   extras.albumInfoRequests[ref]=(async()=>{
     let changed=false;
     try{
-      const response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store"});
+      const adminPin=isAdminUnlocked()?normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||""):"";
+      const response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.error||data.message||"Album information could not be loaded.");
       changed=albumInfoContentSignature(previous)!==albumInfoContentSignature(data);
@@ -4898,10 +4930,10 @@ window.addAlbumInfoCredit=async function(existingId=""){
 }
 window.editAlbumInfoCredit=id=>window.addAlbumInfoCredit(id);
 window.deleteAlbumInfoCredit=async function(id){if(confirm("Delete this credit?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_credit"),id})}
-window.setAlbumInfoPortraitStatus=async function(id,status){
+window.setAlbumInfoPortraitStatus=async function(id,person_name,credit_type,status){
   const action=status==="approved"?"approve":"reject";
   if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this artist portrait?`))return;
-  await albumInfoAdminRequest({...albumInfoAdminBase("set_credit_image_status"),id,image_status:status});
+  await albumInfoAdminRequest({...albumInfoAdminBase("set_credit_image_status"),id,person_name,credit_type,image_status:status});
 }
 window.addAlbumInfoLabel=async function(existingId=""){
   const album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.labels||[]:[],row=items.find(item=>String(item.id)===String(existingId))||{};
@@ -4913,6 +4945,34 @@ window.addAlbumInfoLabel=async function(existingId=""){
 }
 window.editAlbumInfoLabel=id=>window.addAlbumInfoLabel(id);
 window.deleteAlbumInfoLabel=async function(id){if(confirm("Delete this label?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_label"),id})}
+window.editAlbumInfoLabelLogo=async function(labelId){
+  const album=albumInfoCurrentAlbum(),labels=album?extras.albumInfo[albumRef(album.id)]?.labels||[]:[],label=labels.find(item=>String(item.id)===String(labelId));
+  if(!label){alert("Save the record label before adding a logo source.");return}
+  const row=label.record_label_logo||{};
+  const source_type=promptNullable("Source type: Wikimedia Commons or Official brand assets",row.source_type||"Wikimedia Commons");if(!source_type)return;
+  const source_page_url=promptNullable("Exact source or brand-assets page URL",row.source_page_url||"");if(!source_page_url)return;
+  const logo_url=promptNullable("Display image URL from that documented source",row.logo_url||"");if(!logo_url)return;
+  const source_file_url=promptNullable("Original source file URL",row.source_file_url||logo_url);if(source_file_url===null)return;
+  const license_name=promptNullable("Licence name, or stated copyright status",row.license_name||"");if(license_name===null)return;
+  const license_url=promptNullable("Licence or usage-terms URL",row.license_url||"");if(license_url===null)return;
+  const copyright_status=promptNullable("Copyright status",row.copyright_status||"");if(copyright_status===null)return;
+  const creator=promptNullable("Creator / rights holder",row.creator||"");if(creator===null)return;
+  const requires_attribution=confirm("Does this source require attribution?");
+  const attribution_text=requires_attribution?promptNullable("Exact attribution text",row.attribution_text||""):"";if(attribution_text===null)return;
+  const trademark_notice=promptNullable("Trademark warning or usage limitation",row.trademark_notice||"Logo may be protected by trademark rights; identification use only.");if(trademark_notice===null)return;
+  const commercial_use_allowed=confirm("Do the recorded source terms clearly permit this intended commercial identification use? Choose Cancel when uncertain.");
+  const review_reason=promptNullable("Why is this source usable or uncertain?",row.review_reason||"");if(review_reason===null)return;
+  const notes=promptNullable("Internal review notes",row.notes||"");if(notes===null)return;
+  await albumInfoAdminRequest({...albumInfoAdminBase("save_label_logo"),label_id:label.id,label_name:label.label_name,logo_url,source_type,source_page_url,source_file_url,license_name,license_url,copyright_status,creator,requires_attribution,attribution_text,trademark_notice,commercial_use_allowed,review_reason,notes});
+}
+window.setAlbumInfoLabelLogoStatus=async function(id,status){
+  const approved=status==="approved";
+  if(!confirm(approved?"Approve this logo for label identification only? Confirm that you reviewed its source, reuse terms, attribution, and trademark warning.":"Reject this logo and keep the text fallback?"))return;
+  const approved_by=approved?promptNullable("Approved by",currentUsername?.()||"Muze admin"):"";if(approved&& !approved_by)return;
+  const approval_notes=promptNullable(approved?"Approval notes":"Rejection notes","");if(approval_notes===null)return;
+  if(approved&&!approval_notes){alert("Approval notes are required for the logo audit trail.");return}
+  await albumInfoAdminRequest({...albumInfoAdminBase("set_label_logo_status"),id,review_status:status,approved_by,approval_notes});
+}
 window.editAlbumInfoSales=async function(){
   const album=albumInfoCurrentAlbum(),row=album?extras.albumInfo[albumRef(album.id)]?.sales||{}:{};
   const display_value=promptNullable("Worldwide sales display (for example: More than 5 million copies worldwide)",row.display_value||"");if(display_value===null)return;
