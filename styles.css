@@ -16589,6 +16589,7 @@ body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson
 .infoPerson.hasPortraitCandidate{border-color:rgba(255,213,31,.42)}
 .infoPerson.hasPortraitCandidate .infoPersonAvatar{box-shadow:0 0 0 2px rgba(255,213,31,.2),0 6px 18px rgba(0,0,0,.3)}
 .infoPerson .infoRowActions{flex-wrap:wrap;justify-content:flex-end;max-width:150px}
+.infoPortraitApproved{display:inline-flex!important;align-items:center;min-height:28px;padding:5px 8px;border:1px solid rgba(91,202,129,.35);border-radius:5px;color:#8fdda9!important;background:rgba(91,202,129,.07);font-size:10px!important;font-weight:650!important;line-height:1;text-transform:none!important;white-space:nowrap}
 .albumProductionBlock .infoPerson{min-height:86px;grid-template-columns:44px minmax(0,1fr) auto;background:transparent}
 .albumProductionBlock .infoPersonAvatar{width:40px;height:40px;font-size:12px}
 .albumSongwriting{border:1px solid rgba(255,255,255,.1);border-radius:7px;background:#101113}
