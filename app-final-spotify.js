@@ -4740,7 +4740,7 @@ function albumInfoPersonCard(credit,admin){
   const portraitCredit=image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` &middot; <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} &middot; circular crop</span>`:"";
   const portraitTarget=`'${escapeJsString(credit.id||"")}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}'`;
   const portraitActions=admin&&portraitApproved?'<span class="infoPortraitApproved">Photo approved</span>':admin&&portraitStatus==="candidate"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button>`:"";
-  const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
+  const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
   return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${primary.length?primary.map(escapeHtml).join(" / "):"Credit unavailable"}</p>${secondary.length?`<p class="infoPersonSecondary">${secondary.map(escapeHtml).join(", ")}</p>`:""}${more}${portraitCredit}${albumInfoSourceLink(credit)}</div>${controls}</article>`;
 }
 function albumInfoSection(id,title,icon,body,className=""){
@@ -4878,9 +4878,16 @@ async function loadAlbumInfo(album,force=false,quiet=false){
     let changed=false;
     try{
       const adminPin=isAdminUnlocked()?normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||""):"";
-      const response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
-      const data=await response.json().catch(()=>({}));
+      let response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
+      let data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.message||data.error||"Album information could not be loaded.");
+      const hasNamedPerformers=payload=>Array.isArray(payload?.credits)&&payload.credits.some(row=>row?.credit_type==="performer"&&String(row?.person_name||"").trim());
+      if(!force&&data?.metadata&&!hasNamedPerformers(data)){
+        params.set("refresh","1");
+        response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
+        const refreshed=await response.json().catch(()=>({}));
+        if(response.ok&&hasNamedPerformers(refreshed))data=refreshed;
+      }
       changed=albumInfoContentSignature(previous)!==albumInfoContentSignature(data);
       extras.albumInfo[ref]=data;
     }catch(error){
@@ -4950,15 +4957,15 @@ window.closeAlbumInfoCreditEditor=function(){
   if(dialog.open)dialog.close();
   dialog.remove();
 }
-window.editAlbumInfoCredit=function(id){
+window.editAlbumInfoCredit=function(id,personName="",creditType=""){
   const album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.credits||[]:[];
-  const row=items.find(item=>String(item.id)===String(id));
+  const row=items.find(item=>(id&&String(item.id)===String(id))||(!id&&normalizeAlbumName(item.person_name)===normalizeAlbumName(personName)&&normalizeAlbumName(item.credit_type)===normalizeAlbumName(creditType)));
   if(!row){alert("This credit could not be found. Refresh Details & Credits and try again.");return}
   closeAlbumInfoCreditEditor();
   const dialog=document.createElement("dialog");
   dialog.id="albumInfoCreditEditor";
   dialog.className="albumInfoCreditEditor";
-  dialog.innerHTML=`<form method="dialog" onsubmit="saveAlbumInfoCreditEditor(event,'${escapeJsString(id)}')">
+  dialog.innerHTML=`<form method="dialog" onsubmit="saveAlbumInfoCreditEditor(event,'${escapeJsString(id)}')"><input type="hidden" name="original_person_name" value="${escapeHtml(row.person_name||"")}"><input type="hidden" name="original_credit_type" value="${escapeHtml(row.credit_type||"")}">
     <header><div><span>Admin credit editor</span><h3>Edit ${escapeHtml(row.person_name||"album credit")}</h3><p>All displayed credit text can be changed here.</p></div><button type="button" class="albumCreditEditorClose" onclick="closeAlbumInfoCreditEditor()" aria-label="Close">&times;</button></header>
     <div class="albumCreditEditorGrid">
       ${albumInfoCreditEditorField("Person or artist name","person_name",row.person_name)}
@@ -4985,14 +4992,15 @@ window.editAlbumInfoCredit=function(id){
 window.saveAlbumInfoCreditEditor=async function(event,id){
   event.preventDefault();
   const form=event.currentTarget,album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.credits||[]:[];
-  const row=items.find(item=>String(item.id)===String(id));
+  const data=new FormData(form),originalPersonName=String(data.get("original_person_name")||"").trim(),originalCreditType=String(data.get("original_credit_type")||"").trim();
+  const row=items.find(item=>(id&&String(item.id)===String(id))||(!id&&normalizeAlbumName(item.person_name)===normalizeAlbumName(originalPersonName)&&normalizeAlbumName(item.credit_type)===normalizeAlbumName(originalCreditType)));
   if(!row)return;
-  const data=new FormData(form),person_name=String(data.get("person_name")||"").trim();
+  const person_name=String(data.get("person_name")||"").trim();
   if(!person_name){form.querySelector('[name="person_name"]')?.focus();return}
   const submit=form.querySelector('button[type="submit"]');
   if(submit){submit.disabled=true;submit.textContent="Saving..."}
   const image_url=String(data.get("image_url")||"").trim();
-  const saved=await albumInfoAdminRequest({...albumInfoAdminBase("save_credit"),id,person_name,
+  const saved=await albumInfoAdminRequest({...albumInfoAdminBase("save_credit"),id:id||undefined,original_person_name:originalPersonName,original_credit_type:originalCreditType,person_name,
     credit_type:String(data.get("credit_type")||"performer").trim(),role:String(data.get("role")||"").trim(),instrument:String(data.get("instrument")||"").trim(),
     image_url,image_source_url:String(data.get("image_source_url")||"").trim(),image_author:String(data.get("image_author")||"").trim(),image_license:String(data.get("image_license")||"").trim(),image_license_url:String(data.get("image_license_url")||"").trim(),image_attribution:String(data.get("image_attribution")||"").trim(),
     image_modified:row.image_modified||(image_url?"Displayed with a circular crop":""),image_status:row.image_status||(image_url?"candidate":"unavailable"),image_approved:Boolean(row.image_approved),image_last_verified_at:row.image_last_verified_at||null,
@@ -5000,7 +5008,7 @@ window.saveAlbumInfoCreditEditor=async function(event,id){
   if(saved)closeAlbumInfoCreditEditor();
   else if(submit){submit.disabled=false;submit.textContent="Save all changes"}
 }
-window.deleteAlbumInfoCredit=async function(id){if(confirm("Delete this credit?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_credit"),id})}
+window.deleteAlbumInfoCredit=async function(id,person_name="",credit_type=""){if(confirm("Delete this credit?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_credit"),id:id||undefined,person_name,credit_type})}
 window.setAlbumInfoPortraitStatus=async function(id,person_name,credit_type,status){
   const action=status==="approved"?"approve":"reject";
   if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this artist portrait?`))return;
