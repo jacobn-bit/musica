@@ -120,7 +120,12 @@ async function api(path, options = {}) {
   }, 6000);
   const text = await response.text();
   if (!response.ok) {
-    const error = new Error(text || `Supabase request failed (${response.status}).`);
+    let message = text || `Supabase request failed (${response.status}).`;
+    try {
+      const details = JSON.parse(text);
+      message = clean(details.message || details.details || details.error || message);
+    } catch (_) {}
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }
@@ -1508,28 +1513,30 @@ async function adminAction(body) {
     }
     const originalPersonName = clean(body.original_person_name);
     const originalCreditType = normalize(body.original_credit_type);
-    let creditId = clean(body.id);
-    if (!creditId && originalPersonName && originalCreditType) {
-      const matches = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.original_person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.original_credit_type))}&select=id&limit=1`);
-      creditId = clean(matches?.[0]?.id);
-    }
+    const storedCredits = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,role,instrument,manually_verified`);
+    const requestedId = clean(body.id);
+    const samePersonAndType = (credit, personName, creditType) => normalize(credit?.person_name) === normalize(personName)
+      && normalize(credit?.credit_type) === normalize(creditType);
+    const sameIdentity = credit => samePersonAndType(credit, row.person_name, row.credit_type)
+      && normalize(credit?.role) === normalize(row.role)
+      && normalize(credit?.instrument) === normalize(row.instrument);
+    const collision = (storedCredits || []).find(sameIdentity);
+    const requested = (storedCredits || []).find(credit => clean(credit.id) === requestedId);
+    const original = (storedCredits || []).find(credit => samePersonAndType(credit, originalPersonName, originalCreditType));
+    let creditId = clean(collision?.id || requested?.id || original?.id);
     let saved = [];
     if (creditId) saved = await api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
-    if (!saved?.length && originalPersonName && originalCreditType) {
-      const matches = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(originalPersonName)}&credit_type=eq.${encodeURIComponent(originalCreditType)}&select=id&limit=1`);
-      creditId = clean(matches?.[0]?.id);
-      if (creditId) saved = await api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
-    }
     if (!saved?.length) saved = await api("album_credits", { method: "POST", headers: { "Prefer": "return=representation" }, body: JSON.stringify(row) });
     const savedId = clean(saved?.[0]?.id);
     if (savedId) {
-      const identities = new Map([
-        [`${normalize(row.person_name)}::${row.credit_type}`, [clean(row.person_name), row.credit_type]],
-        [`${normalize(originalPersonName)}::${originalCreditType}`, [originalPersonName, originalCreditType]]
-      ]);
-      await Promise.all([...identities.values()].filter(([name, type]) => name && type).map(([name, type]) =>
-        api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(name)}&credit_type=eq.${encodeURIComponent(type)}&manually_verified=eq.false&id=neq.${encodeURIComponent(savedId)}`, { method: "DELETE" })
-      ));
+      const supersededIds = [...new Set((storedCredits || [])
+        .filter(credit => clean(credit.id) !== savedId && (
+          samePersonAndType(credit, row.person_name, row.credit_type)
+          || samePersonAndType(credit, originalPersonName, originalCreditType)
+        ))
+        .map(credit => clean(credit.id))
+        .filter(Boolean))];
+      await Promise.all(supersededIds.map(id => api(`album_credits?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" })));
     }
     return saved;
   }
