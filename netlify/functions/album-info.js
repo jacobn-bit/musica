@@ -6,7 +6,7 @@ const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const USER_AGENT = "Muze/1.0 (https://themuze.app; factual album metadata and licensed artwork)";
-const ALBUM_INFO_IMPORT_VERSION = "structured-sources-v2-preserve-solo-primary";
+const ALBUM_INFO_IMPORT_VERSION = "structured-sources-v3-article-sales";
 const BESTSELLING_ALBUMS_ROOT = "https://bestsellingalbums.org";
 const WIKIPEDIA_BESTSELLERS_URL = "https://en.wikipedia.org/wiki/List_of_best-selling_albums";
 let wikipediaSalesHtmlCache = { html: "", expiresAt: 0 };
@@ -1132,6 +1132,42 @@ function parseWikipediaSalesHtml(html, input) {
   return null;
 }
 
+function parseWikipediaArticleSales(wikitext, input, sourceUrl) {
+  const prose = stripWikiMarkup(String(wikitext || "")
+    .split(/\r?\n/)
+    .filter(line => !/^\s*(?:\{|\||!)/.test(line))
+    .join(" "));
+  const number = "([0-9]+(?:\\.[0-9]+)?)";
+  const scale = "(thousand|million|billion)";
+  const qualifier = "(over|more than|at least|approximately|about|nearly|around)?";
+  const patterns = [
+    new RegExp(`\\b(?:has\\s+|had\\s+|have\\s+)?(?:sold|selling)\\s+${qualifier}\\s*${number}\\s*${scale}\\s+(?:copies|units)\\s+worldwide\\b`, "i"),
+    new RegExp(`\\bworldwide\\s+(?:sales|shipments)\\s+(?:of|total(?:led|ing)?|reached)?\\s*${qualifier}\\s*${number}\\s*${scale}\\s+(?:copies|units)?\\b`, "i"),
+    new RegExp(`\\b(?:sales|shipments)\\s+(?:of|total(?:led|ing)?|reached)\\s+${qualifier}\\s*${number}\\s*${scale}\\s+(?:copies|units)\\s+worldwide\\b`, "i")
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(prose);
+    if (!match) continue;
+    const qualifierValue = clean(match[1]).toLowerCase();
+    const amount = Number(match[2]);
+    const unit = clean(match[3]).toLowerCase();
+    const multiplier = unit === "billion" ? 1000000000 : unit === "million" ? 1000000 : 1000;
+    const value = amount * multiplier;
+    if (!Number.isFinite(value) || value <= 0) continue;
+    const isMinimum = /^(over|more than|at least)$/.test(qualifierValue);
+    const display = `${amount.toLocaleString("en-US", { maximumFractionDigits: 3 })} ${unit}${isMinimum ? "+" : ""}`;
+    return salesRow(input, value, {
+      min: isMinimum ? value : null,
+      max: isMinimum ? null : value,
+      display_value: display,
+      confidence: "reported worldwide sales",
+      source: "Wikipedia",
+      source_url: sourceUrl
+    });
+  }
+  return null;
+}
+
 function parseBestsellingSearchHtml(html, input) {
   const wantedTitle = normalize(canonicalAlbumTitle(input.title));
   const wantedArtist = normalize(input.artist);
@@ -1239,6 +1275,7 @@ async function wikipediaAlbumPageInfo(page, input) {
   if (!wikipediaAlbumMatches(wikitext, input)) return null;
   const sourceUrl = page.fullurl || `https://en.wikipedia.org/?curid=${page.pageid}`;
   const info = parseWikipediaAlbumInfo(wikitext, { album_ref: albumRef(input), album_id: clean(input.album_id) || null, artist: clean(input.artist), source_url: sourceUrl });
+  info.sales = parseWikipediaArticleSales(wikitext, input, sourceUrl);
   if (!info.metadata.country) {
     try { info.metadata.country = await fetchWikidataCountry(resolved?.pageprops?.wikibase_item); } catch (_) {}
   }
@@ -1388,7 +1425,7 @@ async function importAlbumInfo(input) {
   const wikipedia = await wikipediaPromise;
   if (!info && !wikipedia) return null;
   const merged = mergeWikipediaAlbumInfo(info || basicImportedInfo(input), wikipedia);
-  merged.sales = await salesPromise;
+  merged.sales = (await salesPromise) || wikipedia?.sales || merged.sales;
   return merged;
 }
 
@@ -1494,6 +1531,19 @@ function pick(source, fields) {
     if (Object.prototype.hasOwnProperty.call(source, field)) value[field] = source[field] === "" ? null : source[field];
   });
   return value;
+}
+
+function creditIdsForDeletion(storedCredits, request) {
+  const requestedId = clean(request?.id);
+  const personName = normalize(request?.person_name);
+  const creditType = normalize(request?.credit_type);
+  const credits = Array.isArray(storedCredits) ? storedCredits : [];
+  const representedRows = personName && creditType
+    ? credits.filter(row => normalize(row?.person_name) === personName && normalize(row?.credit_type) === creditType)
+    : [];
+  if (representedRows.length) return [...new Set(representedRows.map(row => clean(row?.id)).filter(Boolean))];
+  const requested = credits.find(row => clean(row?.id) === requestedId);
+  return requested?.id ? [clean(requested.id)] : [];
 }
 
 async function adminAction(body) {
@@ -1675,13 +1725,10 @@ async function adminAction(body) {
     })));
   }
   if (body.action === "delete_credit") {
-    let creditId = clean(body.id);
-    if (!creditId && clean(body.person_name) && clean(body.credit_type)) {
-      const matches = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&person_name=eq.${encodeURIComponent(clean(body.person_name))}&credit_type=eq.${encodeURIComponent(normalize(body.credit_type))}&select=id&limit=1`);
-      creditId = clean(matches?.[0]?.id);
-    }
-    if (!creditId) throw new Error("This credit could not be matched to a saved album credit.");
-    return api(`album_credits?id=eq.${encodeURIComponent(creditId)}`, { method: "DELETE" });
+    const storedCredits = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type`);
+    const creditIds = creditIdsForDeletion(storedCredits, body);
+    if (!creditIds.length) throw new Error("This credit could not be matched to a saved album credit. Refresh Details & Credits and try again.");
+    return Promise.all(creditIds.map(id => api(`album_credits?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" })));
   }
   if (body.action === "save_label") {
     const row = { ...base, ...pick(body, ["label_name", "label_type", "is_original_label", "release_region", "source", "source_url"]) };
@@ -1802,4 +1849,4 @@ exports.handler = async function handler(event) {
   }
 };
 
-exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
+exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, creditIdsForDeletion, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaArticleSales, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
