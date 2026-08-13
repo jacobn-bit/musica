@@ -4883,6 +4883,7 @@ async function loadAlbumInfo(album,force=false,quiet=false){
     let changed=false;
     try{
       const adminPin=isAdminUnlocked()?normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||""):"";
+      if(adminPin)params.set("admin_refresh",String(Date.now()));
       let response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
       let data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.message||data.error||"Album information could not be loaded.");
