@@ -16587,11 +16587,11 @@ body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson
 .albumInfoCountryFlag .albumInfoIcon{display:none;color:var(--album-info-accent)}
 .albumInformationPrimary span,.albumInformationCompact span,.albumGlanceStats span{display:block;color:rgba(255,255,255,.43);font-size:10px;font-weight:800;text-transform:uppercase}
 .albumInformationPrimary span,.albumInformationCompact span{color:rgba(255,255,255,.62);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13px;font-weight:400;line-height:1.35;text-transform:none;letter-spacing:0}
-.albumInformationPrimary strong{display:block;margin-top:3px;color:#f8f6ef;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:14.4px;font-weight:600;line-height:1.25;letter-spacing:0}
+.albumInformationPrimary strong{display:block;margin-top:3px;color:#f8f6ef;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13.25px;font-weight:600;line-height:1.25;letter-spacing:0}
 .albumInformationCompact{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));margin:0 15px 13px;border:1px solid rgba(255,213,31,.16);border-radius:6px;background:rgba(255,213,31,.025)}
 .albumInformationCompact>article{min-height:58px;display:flex;flex-direction:column;justify-content:center;padding:9px 11px;border-right:1px solid rgba(255,255,255,.08)}
 .albumInformationCompact>article:last-child{border-right:0}
-.albumInformationCompact strong{display:block;margin-top:3px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:14.4px;font-weight:600;line-height:1.25;letter-spacing:0;overflow-wrap:anywhere}
+.albumInformationCompact strong{display:block;margin-top:3px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:13.25px;font-weight:600;line-height:1.25;letter-spacing:0;overflow-wrap:anywhere}
 .albumGlancePanel{display:flex;flex-direction:column;border-color:rgba(255,213,31,.23);background:#0e0f10}
 .albumGlancePanel>header>span{color:#0b0b0b;background:var(--album-info-accent);border-color:var(--album-info-accent)}
 .albumGlancePanel>header h4{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;font-weight:600;letter-spacing:0}
@@ -16725,12 +16725,16 @@ body.light .albumInfoPopupPanel,body.light .albumInfoPage{background:#f2f0e9}bod
   .albumInfoHeroSignals>div:only-child{grid-column:1/-1}
   .albumInfoHeroSignals strong{font-size:18px}
   .albumInfoHeroSignals span{font-size:9px;line-height:1.35}
+  .albumInformationPanel>header{min-height:42px;padding:7px 12px}
   .albumInformationPanel>header h4{font-size:14.72px}
-  .albumInformationPrimary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .albumInformationPrimary{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px 12px 6px}
+  .albumInformationPrimary>article{min-height:52px;padding:3px 8px}
   .albumInformationPrimary>article>div{min-width:0}
   .albumInformationPrimary strong{overflow-wrap:anywhere}
   .albumInformationPrimary>.albumInformationDetail-label{padding-right:0;border-right:0}
-  .albumInformationPrimary>.albumInformationDetail-country{grid-column:1/-1;min-height:54px;margin-top:3px;padding:10px 0 0;border-top:1px solid rgba(255,255,255,.08);border-right:0}
+  .albumInformationPrimary>.albumInformationDetail-country{grid-column:1/-1;min-height:42px;margin-top:0;padding:6px 0 0;border-top:1px solid rgba(255,255,255,.08);border-right:0}
+  .albumInformationCompact{margin:0 12px 9px}
+  .albumInformationCompact>article{min-height:46px;padding:6px 9px}
   .albumInformationPrimary span,.albumInformationCompact span{font-size:11.96px}
   .albumInformationPrimary strong,.albumInformationCompact strong{font-size:11.9232px}
   .albumDetailsBlock{padding-top:18px;padding-bottom:14px}
