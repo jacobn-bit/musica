@@ -5092,7 +5092,6 @@ async function loadAlbumExtras(album){
   renderTrackList(album.id,tracks);
   renderAlbumOverviewMoments(album.id,tracks);
   if(!document.querySelector("#albumInfoPopup.hidden"))renderAlbumInfo(album.id);
-  ensureAiAlbumOverview(album,tracks);
 }
 window.setAlbumPopupTab=function(tab){
   if(tab==="overview"){
@@ -5234,7 +5233,6 @@ window.openAlbumOverviewPopup=function(){
   requestAnimationFrame(fitAlbumOverviewPopup);
   requestAnimationFrame(syncOverviewExpandableText);
   renderAlbumOverviewMoments(album.id,extras.tracks[albumRef(album.id)]||[]);
-  ensureAiAlbumOverview(album,extras.tracks[albumRef(album.id)]||[]);
 }
 window.closeAlbumOverviewPopup=function(){
   const popup=$("#albumOverviewPopup");
@@ -5478,8 +5476,7 @@ window.editAlbumOverview=function(albumId){
   const field=(id,label,value)=>`<label class="overviewEditorField"><span>${escapeHtml(label)}</span><textarea id="${id}" class="overviewEditorText">${escapeHtml(value||"")}</textarea></label>`;
   const shortField=(id,label,value)=>`<label class="overviewEditorField"><span>${escapeHtml(label)}</span><input id="${id}" class="overviewEditorInput" value="${escapeHtml(value ?? "")}"></label>`;
   section.classList.add("editing");
-  section.innerHTML=`<p class="eyebrow">Admin overview editor</p><h3>Edit album overview</h3><textarea id="overviewEditorText" class="overviewEditorText">${escapeHtml(current)}</textarea><div class="overviewEditorGrid">${field("overviewIntroEditor","Short intro summary",structured.intro_summary)}${field("overviewSoundEditor","The Sound",structured.sound_summary)}${field("overviewImpactEditor","The Impact",structured.impact_summary)}${field("overviewLegacyEditor","The Legacy",structured.legacy_summary)}${field("overviewQuoteEditor","Quote-style headline",structured.quote_headline)}${field("overviewTracksEditor","Defining tracks",structured.defining_tracks.join("\n"))}</div><div class="reviewEditorBlock"><p class="eyebrow">Manual Muze Review</p><div class="overviewEditorGrid">${field("reviewOverviewEditor","Overview",review.overview)}${field("reviewSoundEditor","The Sound",review.sound)}${field("reviewImpactEditor","The Impact",review.impact)}${field("reviewLegacyEditor","The Legacy",review.legacy)}${field("reviewTaglineEditor","Tagline",review.tagline)}${field("reviewAlternativeTaglinesEditor","Alternative Taglines",review.alternativeTaglines.join("\n"))}${field("reviewDefiningMomentsEditor","Defining Moments",review.definingMoments.join("\n"))}${shortField("reviewMuzeScoreEditor","Muze Score",review.muzeScore ?? "")}${shortField("reviewMinimumRatersEditor","Minimum Raters",review.minimumRaters ?? "")}${field("reviewClosingVerdictEditor","Closing Verdict",review.closingVerdict)}${shortField("reviewMellowIntenseScoreEditor","Mellow ↔ Intense",review.mellowIntenseScore ?? "")}${field("reviewMellowIntenseExplanationEditor","Mellow ↔ Intense Explanation",review.mellowIntenseExplanation)}</div></div><div class="overviewEditorActions"><button onclick="saveAlbumOverview('${escapeJsString(albumId)}')">Save overview</button><button onclick="openAlbumOverviewPopup()">Cancel</button><button class="danger" onclick="deleteAlbumOverview('${escapeJsString(albumId)}')">Clear custom overview</button></div><p class="overviewAdminHint">Generated drafts stay private until Approve and Publish. Manual review text remains available.</p>`;
-  mountEditorialWorkflow(album);
+  section.innerHTML=`<p class="eyebrow">Admin overview editor</p><h3>Edit album overview</h3><textarea id="overviewEditorText" class="overviewEditorText">${escapeHtml(current)}</textarea><div class="overviewEditorGrid">${field("overviewIntroEditor","Short intro summary",structured.intro_summary)}${field("overviewSoundEditor","The Sound",structured.sound_summary)}${field("overviewImpactEditor","The Impact",structured.impact_summary)}${field("overviewLegacyEditor","The Legacy",structured.legacy_summary)}${field("overviewQuoteEditor","Quote-style headline",structured.quote_headline)}${field("overviewTracksEditor","Defining tracks",structured.defining_tracks.join("\n"))}</div><div class="reviewEditorBlock"><p class="eyebrow">Manual Muze Review</p><div class="overviewEditorGrid">${field("reviewOverviewEditor","Overview",review.overview)}${field("reviewSoundEditor","The Sound",review.sound)}${field("reviewImpactEditor","The Impact",review.impact)}${field("reviewLegacyEditor","The Legacy",review.legacy)}${field("reviewTaglineEditor","Tagline",review.tagline)}${field("reviewAlternativeTaglinesEditor","Alternative Taglines",review.alternativeTaglines.join("\n"))}${field("reviewDefiningMomentsEditor","Defining Moments",review.definingMoments.join("\n"))}${shortField("reviewMostPopularTrackEditor","Most Popular Track",review.mostPopularTrack?.title||"")}${field("reviewMostPopularExplanationEditor","Most Popular Track Explanation",review.mostPopularTrack?.explanation||"")}${shortField("reviewMuzeScoreEditor","Muze Score",review.muzeScore ?? "")}${shortField("reviewMinimumRatersEditor","Minimum Raters",review.minimumRaters ?? "")}${field("reviewClosingVerdictEditor","Closing Verdict",review.closingVerdict)}${shortField("reviewMellowIntenseScoreEditor","Mellow ↔ Intense",review.mellowIntenseScore ?? "")}${field("reviewMellowIntenseExplanationEditor","Mellow ↔ Intense Explanation",review.mellowIntenseExplanation)}${field("reviewFactualWarningsEditor","Factual Warnings (one per line)",(review.factualWarnings||[]).join("\n"))}</div></div><div class="overviewEditorActions"><button onclick="saveAlbumOverview('${escapeJsString(albumId)}')">Save overview</button><button onclick="openAlbumOverviewPopup()">Cancel</button><button class="danger" onclick="deleteAlbumOverview('${escapeJsString(albumId)}')">Clear custom overview</button></div><p class="overviewAdminHint">All overview and review fields are entered and saved manually.</p>`;
 }
 window.saveAlbumOverview=async function(albumId){
   const album=state.albums.find(x=>String(x.id)===String(albumId));
@@ -5494,8 +5491,7 @@ window.saveAlbumOverview=async function(albumId){
   const quote_headline=readEditorValue("#overviewQuoteEditor");
   const defining_tracks=readEditorValue("#overviewTracksEditor").split(/\n|,/).map(item=>item.trim()).filter(Boolean);
   const overview=textarea.value.trim()||[intro_summary,sound_summary,impact_summary,legacy_summary].filter(Boolean).join(" ");
-  const editorialDraft=extras.editorialDrafts?.[String(album.id)];
-  const reviewPayload=editorialDraft&&editorialDraft.status!=="approved"?{}:albumReviewPayloadFromEditor();
+  const reviewPayload=albumReviewPayloadFromEditor();
   const payload={...adminAlbumPayload(album,"save"),overview,intro_summary,sound_summary,impact_summary,legacy_summary,quote_headline,defining_tracks,...reviewPayload};
   if(button){button.disabled=true;button.textContent="Saving..."}
   const data=await adminOverviewRequest(payload);
