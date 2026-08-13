@@ -1009,6 +1009,29 @@ async function fetchCommonsPortrait(itemId, personName, excludedUrls = [], findA
 }
 
 const portraitFields = ["person_wikidata_id", "image_url", "image_source_url", "image_author", "image_license", "image_license_url", "image_attribution", "image_modified", "image_status", "image_approved", "image_last_verified_at", "image_rejected_urls"];
+const sharedPortraitFields = portraitFields.filter(field => field !== "image_rejected_urls");
+
+function applySharedApprovedPortraits(credits, approvedRows) {
+  const approved = (Array.isArray(approvedRows) ? approvedRows : []).filter(row => row?.image_approved && clean(row?.image_url));
+  const byItemId = new Map();
+  const byName = new Map();
+  approved.forEach(row => {
+    const itemId = clean(row.person_wikidata_id);
+    const name = normalize(row.person_name);
+    if (itemId && !byItemId.has(itemId)) byItemId.set(itemId, row);
+    if (name && !byName.has(name)) byName.set(name, row);
+  });
+  (Array.isArray(credits) ? credits : []).forEach(credit => {
+    if (credit?.image_approved) return;
+    const itemId = clean(credit?.person_wikidata_id);
+    const match = (itemId && byItemId.get(itemId)) || byName.get(normalize(credit?.person_name));
+    if (!match) return;
+    sharedPortraitFields.forEach(field => {
+      if (Object.prototype.hasOwnProperty.call(match, field)) credit[field] = match[field];
+    });
+  });
+  return credits;
+}
 
 async function portraitForCredit(credit) {
   const key = clean(credit?.person_id) || normalize(credit?.person_name);
@@ -1027,6 +1050,15 @@ async function portraitForCredit(credit) {
 
 async function attachArtistPortraits(info) {
   const credits = Array.isArray(info?.credits) ? info.credits : [];
+  if (credits.some(row => ["performer", "production"].includes(row.credit_type) && !row.image_approved)) {
+    try {
+      const fields = ["person_name", ...sharedPortraitFields].join(",");
+      const approvedRows = await api(`album_credits?image_approved=eq.true&image_url=not.is.null&select=${fields}&limit=1000`);
+      applySharedApprovedPortraits(credits, approvedRows);
+    } catch (error) {
+      console.warn("[Muze album info] shared artist portraits unavailable", error.message);
+    }
+  }
   const candidates = credits.filter(row => ["performer", "production"].includes(row.credit_type) && !row.image_approved
     && (!row.image_status || (row.image_status === "candidate" && (!row.image_url || !stringArray(row.image_rejected_urls).length)))).slice(0, 8);
   await Promise.all(candidates.map(async credit => {
@@ -1646,6 +1678,17 @@ async function adminAction(body) {
       }
     }
     if (!approved && rows?.length) {
+      try {
+        const globalApproved = await api("album_credits?image_approved=eq.true&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license,image_rejected_urls&limit=1000");
+        const itemId = clean(body.person_wikidata_id || rows.find(row => row.person_wikidata_id)?.person_wikidata_id);
+        const personName = normalize(body.person_name || rows[0]?.person_name);
+        const samePerson = (globalApproved || []).filter(row => (itemId && clean(row.person_wikidata_id) === itemId)
+          || (!itemId && personName && normalize(row.person_name) === personName));
+        const byId = new Map([...rows, ...samePerson].filter(row => row?.id).map(row => [clean(row.id), row]));
+        rows = [...byId.values()];
+      } catch (error) {
+        console.warn("[Muze album info] global portrait replacement unavailable", error.message);
+      }
       const rejectedUrls = [...new Set(rows.flatMap(row => stringArray(row.image_rejected_urls))
         .concat(rows.flatMap(row => [row.image_url, row.image_source_url])).concat([body.image_url, body.image_source_url]).map(clean).filter(Boolean))];
       const itemId = clean(body.person_wikidata_id || rows.find(row => row.person_wikidata_id)?.person_wikidata_id);
@@ -1829,7 +1872,7 @@ exports.handler = async function handler(event) {
     if (!imported) {
       const fallback = applyVerifiedAlbumOverrides(cached || { metadata: null, credits: [], labels: [], sales: null, certifications: [] }, input);
       await Promise.all([attachRecordLabelLogos(fallback, { persist: logoSchemaReady, force: input.refresh === "1" }), attachArtistPortraits(fallback)]);
-      return json(200, albumInfoResponseView({ ...fallback, cached: Boolean(cached?.metadata), unavailable: true, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), 300);
+      return json(200, albumInfoResponseView({ ...fallback, cached: Boolean(cached?.metadata), unavailable: true, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), input.refresh === "1" ? 0 : 300);
     }
     const result = preserveManualCachedInfo(imported, cached);
     applyVerifiedAlbumOverrides(result, input);
@@ -1842,7 +1885,7 @@ exports.handler = async function handler(event) {
       } catch (error) { console.warn("[Muze album info] cache write failed", error.message); }
     }
     await attachRecordLabelLogos(result, { persist: logoSchemaReady, force: input.refresh === "1" });
-    return json(200, albumInfoResponseView({ ...result, cached: false, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), 86400);
+    return json(200, albumInfoResponseView({ ...result, cached: false, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), input.refresh === "1" ? 0 : 86400);
   } catch (error) {
     const isAdminRequest = event.httpMethod === "POST";
     return json(500, {
@@ -1852,4 +1895,4 @@ exports.handler = async function handler(event) {
   }
 };
 
-exports._test = { aggregateCredits, albumInfoResponseView, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, creditIdsForDeletion, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaArticleSales, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
+exports._test = { aggregateCredits, albumInfoResponseView, applySharedApprovedPortraits, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, creditIdsForDeletion, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaArticleSales, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
