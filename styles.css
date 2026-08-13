@@ -16633,10 +16633,10 @@ body.light .albumInfoFacts,body.light .albumInfoFacts>div,body.light .infoPerson
 .infoRoleFacts{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
 .infoRolePill{display:inline-flex;align-items:center;min-height:27px;max-width:100%;padding:4px 9px;border:1px solid rgba(255,255,255,.17);border-radius:999px;background:rgba(255,255,255,.018);color:rgba(255,255,255,.72);font-size:11px;line-height:1.3;overflow-wrap:anywhere}
 .infoRoleSeparator{color:var(--album-info-accent);font-size:10px;line-height:1;font-style:normal;opacity:.78}
-.infoPersonMore{margin-top:6px}
+.infoPersonMore{grid-column:1/-1;width:100%;min-width:0;margin-top:6px}
 .infoPersonMore summary{display:inline-flex;min-height:28px;align-items:center;color:var(--album-info-accent);font-size:11px;font-weight:750;cursor:pointer;list-style:none}
 .infoPersonMore summary::-webkit-details-marker{display:none}
-.infoPersonMore p{padding:7px 0 2px;color:rgba(255,255,255,.55);font-size:12px;line-height:1.45}
+.infoPersonMore p{width:100%;padding:7px 0 2px;color:rgba(255,255,255,.55);font-size:12px;line-height:1.45}
 .infoSource{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:rgba(255,255,255,.35);font-size:10px;text-decoration:none}
 .infoSource:hover{color:var(--album-info-accent)}
 .infoSource .albumInfoIcon{width:11px;height:11px}
@@ -16790,6 +16790,9 @@ body.light .albumInfoPopupPanel,body.light .albumInfoPage{background:#f2f0e9}bod
 }
 
 @media(max-width:850px){
+  #albumInfoPopup .albumCommercialBlock{
+    display:none!important;
+  }
   #albumModal .linerTabs{
     display:flex!important;
     justify-content:flex-start!important;
