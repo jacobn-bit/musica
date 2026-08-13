@@ -6,7 +6,7 @@ const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const USER_AGENT = "Muze/1.0 (https://themuze.app; factual album metadata and licensed artwork)";
-const ALBUM_INFO_IMPORT_VERSION = "structured-sources-v3-article-sales";
+const ALBUM_INFO_IMPORT_VERSION = "structured-sources-v4-retry-failed-sales";
 const BESTSELLING_ALBUMS_ROOT = "https://bestsellingalbums.org";
 const WIKIPEDIA_BESTSELLERS_URL = "https://en.wikipedia.org/wiki/List_of_best-selling_albums";
 let wikipediaSalesHtmlCache = { html: "", expiresAt: 0 };
@@ -1387,7 +1387,9 @@ function basicImportedInfo(input) {
 }
 
 async function importAlbumInfo(input) {
+  let wikipediaLookupSucceeded = true;
   const wikipediaPromise = fetchWikipediaInfo(input).catch(error => {
+    wikipediaLookupSucceeded = false;
     console.warn("[Muze album info] Wikipedia information unavailable", error.message);
     return null;
   });
@@ -1426,6 +1428,7 @@ async function importAlbumInfo(input) {
   if (!info && !wikipedia) return null;
   const merged = mergeWikipediaAlbumInfo(info || basicImportedInfo(input), wikipedia);
   merged.sales = (await salesPromise) || wikipedia?.sales || merged.sales;
+  if (!wikipediaLookupSucceeded && !merged.sales) merged.metadata.source_confidence = "sales-lookup-pending";
   return merged;
 }
 
