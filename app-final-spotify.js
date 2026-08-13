@@ -4739,7 +4739,7 @@ function albumInfoPersonCard(credit,admin){
   const portraitSource=String(credit.image_source_url||"").trim(),portraitAuthor=String(credit.image_author||"Wikimedia Commons contributor").trim(),portraitLicense=String(credit.image_license||"").trim(),portraitLicenseUrl=String(credit.image_license_url||"").trim();
   const portraitCredit=image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` &middot; <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} &middot; circular crop</span>`:"";
   const portraitTarget=`'${escapeJsString(credit.id||"")}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}'`;
-  const portraitActions=admin&&portraitApproved?'<span class="infoPortraitApproved">Photo approved</span>':admin&&portraitStatus==="candidate"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button>`:"";
+  const portraitActions=admin&&portraitApproved?`<span class="infoPortraitApproved">Photo approved</span><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Find a different licensed portrait or use initials">Change photo</button>`:admin&&portraitStatus==="candidate"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button>`:"";
   const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
   return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${primary.length?primary.map(escapeHtml).join(" / "):"Credit unavailable"}</p>${secondary.length?`<p class="infoPersonSecondary">${secondary.map(escapeHtml).join(", ")}</p>`:""}${portraitCredit}${albumInfoSourceLink(credit)}</div>${controls}${more}</article>`;
 }
@@ -4767,11 +4767,17 @@ function albumInfoGroupPerformers(items,album){
 function albumInfoHeroHtml(album,info={}){
   const metadata=info.metadata||{},labels=Array.isArray(info.labels)?info.labels:[],sales=info.sales||{};
   const originalLabel=labels.find(label=>label.is_original_label)||labels[0];
-  const coverUrl=albumCoverUrl(album),rating=score(album),raters=count(album),genre=albumGenreLabel(album);
-  const meta=[metadata.release_year||album.year,genre&&genre!=="Album"?genre:"",albumInfoRuntime(metadata.total_runtime_ms),originalLabel?.label_name].filter(Boolean);
+  const coverUrl=albumCoverUrl(album),rating=score(album),raters=count(album);
+  const country=albumInfoCountry(metadata.country),countryFlag=albumInfoCountryFlag(country);
+  const meta=[
+    [albumInfoDate(metadata.original_release_date)||(metadata.release_year||album.year),"calendar", ""],
+    [albumInfoRuntime(metadata.total_runtime_ms),"clock", ""],
+    [originalLabel?.label_name,"disc", ""],
+    [country,"",countryFlag]
+  ].filter(([value])=>value);
   const rank=muzeTop250Rank(album);
   const signals=[rating>0?`<div><strong>${escapeHtml(rating.toFixed(1))}</strong><span>Muze score${raters?` / ${escapeHtml(raters.toLocaleString())} rater${raters===1?"":"s"}`:""}</span></div>`:"",rank?`<div><strong>#${escapeHtml(rank)}</strong><span>Muze ranking</span></div>`:""].filter(Boolean).join("");
-  return `<header id="albumInfoHero" class="albumInfoHero"><div class="albumInfoHeroArt">${coverUrl?`<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(album.title)} cover">`:`<div class="albumInfoCoverFallback">${escapeHtml(coverText(album))}</div>`}</div><div class="albumInfoHeroCopy"><span class="albumInfoEyebrow">Album information</span><h2>${escapeHtml(album.title)}</h2><p class="albumInfoArtist">${escapeHtml(album.artist)}</p>${meta.length?`<p class="albumInfoHeroMeta">${meta.map(value=>`<span>${escapeHtml(value)}</span>`).join("")}</p>`:""}${signals?`<div class="albumInfoHeroSignals">${signals}</div>`:""}</div></header>`;
+  return `<header id="albumInfoHero" class="albumInfoHero"><div class="albumInfoHeroArt">${coverUrl?`<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(album.title)} cover">`:`<div class="albumInfoCoverFallback">${escapeHtml(coverText(album))}</div>`}</div><div class="albumInfoHeroCopy"><span class="albumInfoEyebrow">Album information</span><h2>${escapeHtml(album.title)}</h2><p class="albumInfoArtist">${escapeHtml(album.artist)}</p>${meta.length?`<p class="albumInfoHeroMeta">${meta.map(([value,icon,flag])=>`<span>${flag?`<img class="albumInfoHeroFlag" src="${escapeHtml(flag)}" alt="">`:`<i>${albumInfoIcon(icon)}</i>`}${escapeHtml(value)}</span>`).join("")}</p>`:""}${signals?`<div class="albumInfoHeroSignals">${signals}</div>`:""}</div></header>`;
 }
 function albumMostPopularTrackTitle(album,overview=albumOverviewRowReadOnly(album)){
   const review=albumReviewData(overview,album);
@@ -4783,14 +4789,15 @@ function albumInfoAtAGlance(album,info={}){
   const sales=info.sales||{},overview=albumOverviewRowReadOnly(album);
   const rating=score(album),rank=muzeTop250Rank(album);
   const popularTitle=albumMostPopularTrackTitle(album,overview);
+  const salesValue=String(sales.display_value||"").trim();
   const facts=[
     ["Muze Score",rating>0?rating.toFixed(1):"","star"],
     ["Muze All-Time",rank?`#${rank}`:"","trophy"],
-    ["Worldwide Sales",String(sales.display_value||"").trim(),"globe"],
+    ["Worldwide Sales",salesValue||(isAdminUnlocked()?"Add sales":""),salesValue?"globe":"globe-add"],
     ["Most Popular Track",popularTitle,"music"]
   ].filter(([,value])=>value);
   if(!facts.length)return "";
-  return `<aside class="albumGlancePanel"><header><span>${albumInfoIcon("star")}</span><h4>At a Glance</h4></header><div class="albumGlanceStats">${facts.map(([label,value,icon])=>icon==="music"?`<button type="button" class="albumGlanceFact albumGlanceFact-music" onclick="playOverviewMomentPreview('${escapeJsString(album.id)}','${escapeJsString(value)}',this)" aria-label="Play ${escapeHtml(value)}" title="Play"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div><b class="albumGlancePlayCue" aria-hidden="true"></b></button>`:`<article class="albumGlanceFact albumGlanceFact-${icon}"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></article>`).join("")}</div></aside>`;
+  return `<aside class="albumGlancePanel"><header><span>${albumInfoIcon("star")}</span><h4>At a Glance</h4></header><div class="albumGlanceStats">${facts.map(([label,value,icon])=>icon==="music"?`<button type="button" class="albumGlanceFact albumGlanceFact-music" onclick="playOverviewMomentPreview('${escapeJsString(album.id)}','${escapeJsString(value)}',this)" aria-label="Play ${escapeHtml(value)}" title="Play"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div><b class="albumGlancePlayCue" aria-hidden="true"></b></button>`:icon==="globe-add"?`<button type="button" class="albumGlanceFact albumGlanceFact-globe albumGlanceFact-addSales" onclick="editAlbumInfoSales()"><i>${albumInfoIcon("globe")}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></button>`:`<article class="albumGlanceFact albumGlanceFact-${icon}"><i>${albumInfoIcon(icon)}</i><div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div></article>`).join("")}</div></aside>`;
 }
 function albumInfoLabelCardLogo(label,admin=false){
   const audit=label?.record_label_logo||{};
@@ -4842,7 +4849,7 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
   const primaryDetails=[["Released",albumInfoDate(metadata.original_release_date),"calendar","","","","released"] ,["Label",originalLabel?.label_name,"building",originalLabel?.logo_url,"",appleLogoOnly?"appleOnly":"","label"],["Country",countryValue,"map","",countryFlag,"","country"]].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
   const compactDetails=[["Tracks",metadata.track_count],...runtimeDetails.map(([label,value])=>[label,value])].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
   const admin=isAdminUnlocked();
-  const adminHead=admin?`<div class="albumInfoAdminBar"><span>Admin editing</span><button onclick="editAlbumInfoMetadata()">Edit details</button><button onclick="addAlbumInfoCredit()">Add credit</button><button onclick="addAlbumInfoLabel()">Add label</button><button onclick="editAlbumInfoSales()">Edit sales</button><button onclick="addAlbumInfoCertification()">Add certification</button></div>`:"";
+  const adminHead=admin?`<div class="albumInfoAdminBar"><span>Admin editing</span><button onclick="editAlbumInfoMetadata()">Edit details</button><button onclick="addAlbumInfoCredit()">Add credit</button><button onclick="addAlbumInfoLabel()">Add label</button><button onclick="editAlbumInfoSales()">${info.sales?.display_value?"Edit":"Add"} worldwide sales</button><button onclick="addAlbumInfoCertification()">Add certification</button></div>`:"";
   const spotifySource=!albumRuntime&&spotifyRuntime&&album.spotify_url?albumInfoSourceLink({source:"Spotify",source_url:album.spotify_url}):"";
   const informationPanel=`<section class="albumInformationPanel"><header><h4>Album Information</h4></header><div class="albumInformationPrimary">${primaryDetails.map(([label,value,icon,image,mark,variant,kind])=>{const classes=[image?"hasOrganizationMark":"",image&&variant?"hasCompactOrganizationMark":"",`albumInformationDetail-${kind}`].filter(Boolean).join(" ");return `<article class="${classes}"><i>${image?`<span class="albumInfoOrganizationMark${variant?" isAppleMark":""}"><img src="${escapeHtml(image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon(icon)}</span>`:mark?`<span class="albumInfoCountryFlag"><img src="${escapeHtml(mark)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon(icon)}</span>`:albumInfoIcon(icon)}</i><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div></article>`}).join("")}</div><div class="albumInformationCompact">${compactDetails.map(([label,value])=>`<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</div></section>`;
   const detailHtml=`<div class="albumSnapshotGrid">${informationPanel}${albumInfoAtAGlance(album,info)}</div><div class="albumInfoDetailSources">${albumInfoSourceLink(metadata)}${spotifySource}</div>`;
@@ -4854,7 +4861,7 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
   const sales=info.sales;
   const salesText=String(sales?.display_value||"").trim();
   const certHtml=certifications.length?`<div class="albumCertifications"><h4>Certifications</h4><div class="albumCertificationGrid">${certifications.map(cert=>`<article><span>${escapeHtml(cert.country)}</span><strong>${escapeHtml(cert.certification)}</strong>${cert.organization?`<em>${escapeHtml(cert.organization)}</em>`:""}${cert.certified_units?`<small>${escapeHtml(Number(cert.certified_units).toLocaleString())} certified units</small>`:""}${albumInfoSourceLink(cert)}${admin?`<div class="infoRowActions"><button onclick="editAlbumInfoCertification('${escapeJsString(cert.id)}')">Edit</button><button onclick="deleteAlbumInfoCertification('${escapeJsString(cert.id)}')">Delete</button></div>`:""}</article>`).join("")}</div></div>`:"";
-  const commercialBody=`${salesText?`<div class="albumSales"><strong>${escapeHtml(salesText)}</strong><span>Estimated worldwide sales</span>${sales?.confidence?`<small>${escapeHtml(sales.confidence)}</small>`:""}${albumInfoSourceLink(sales)}</div>`:'<p class="infoEmpty">Worldwide sales are not reliably documented.</p>'}${certHtml}`;
+  const commercialBody=salesText||certHtml?`${salesText?`<div class="albumSales"><strong>${escapeHtml(salesText)}</strong><span>Estimated worldwide sales</span>${sales?.confidence?`<small>${escapeHtml(sales.confidence)}</small>`:""}${albumInfoSourceLink(sales)}</div>`:""}${certHtml}`:"";
   const schemaNote=admin&&info.schema_ready===false?'<p class="albumInfoSchemaNote">Run supabase/album-info-schema.sql to enable caching and admin edits.</p>':admin&&info.record_label_logo_schema_ready===false?'<p class="albumInfoSchemaNote">Run supabase/migrations/202608120003_record_label_logos.sql to enable conservative label-logo review and approvals.</p>':"";
   const sections=[["details","Album Snapshot","disc",detailHtml,"albumDetailsBlock"],["performers","Performing Artists","users",performerBody,"albumPerformersBlock"],["production","Production","sliders",production.length?peopleGrid(production):"","albumProductionBlock"],["writing","Songwriting","pen",songwriterBody,"albumWritingBlock"],["commercial","Commercial Performance","award",commercialBody,"albumCommercialBlock"]].filter(([, , ,body])=>body);
   const navigation=`<nav class="albumInfoNav" aria-label="Album information sections">${sections.map(([id,title,icon])=>`<a href="#album-info-${id}">${albumInfoIcon(icon)}<span>${escapeHtml(title.replace("Album ",""))}</span></a>`).join("")}</nav>`;
@@ -4871,7 +4878,7 @@ async function loadAlbumInfo(album,force=false,quiet=false){
   const previous=extras.albumInfo[ref];
   if(!quiet)renderAlbumInfo(ref);
   const params=new URLSearchParams({album_ref:ref,album_id:String(album.id||""),title:album.title||"",artist:album.artist||"",year:String(album.year||"")});
-  if(force)params.set("refresh","1");
+  if(force){params.set("refresh","1");params.set("updated",String(Date.now()))}
   extras.albumInfoRequests[ref]=(async()=>{
     let changed=false;
     try{
@@ -4907,7 +4914,7 @@ async function albumInfoAdminRequest(payload){
   const data=await response.json().catch(()=>({}));
   if(!response.ok){alert(data.message||data.error||"Album info could not be saved.");return null}
   const album=albumInfoCurrentAlbum();
-  if(album){delete extras.albumInfo[albumRef(album.id)];await loadAlbumInfo(album)}
+  if(album){delete extras.albumInfo[albumRef(album.id)];await loadAlbumInfo(album,true)}
   return data;
 }
 function albumInfoAdminBase(action){const album=albumInfoCurrentAlbum();return album?{action,album_ref:albumRef(album.id),album_id:String(album.id||""),title:album.title||"",artist:album.artist||""}:null}
@@ -5008,8 +5015,8 @@ window.saveAlbumInfoCreditEditor=async function(event,id){
 }
 window.deleteAlbumInfoCredit=async function(id,person_name="",credit_type=""){if(confirm("Delete this credit?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_credit"),id:id||undefined,person_name,credit_type})}
 window.setAlbumInfoPortraitStatus=async function(id,person_name,credit_type,status){
-  const action=status==="approved"?"approve":"reject";
-  if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this artist portrait?`))return;
+  const question=status==="approved"?"Approve this artist portrait?":"Replace this portrait with another licensed option, or use initials if none is available?";
+  if(!confirm(question))return;
   const album=albumInfoCurrentAlbum(),credits=album?extras.albumInfo[albumRef(album.id)]?.credits||[]:[];
   const row=credits.find(item=>(id&&String(item.id)===String(id))||(!id&&String(item.person_name)===String(person_name)&&String(item.credit_type)===String(credit_type)))||{};
   const saved=await albumInfoAdminRequest({...albumInfoAdminBase("set_credit_image_status"),id,person_name,credit_type,image_status:status,person_id:row.person_id||"",person_wikidata_id:row.person_wikidata_id||"",role:row.role||"",instrument:row.instrument||"",sort_order:row.sort_order||0,source:row.source||"",source_url:row.source_url||"",image_url:row.image_url||"",image_source_url:row.image_source_url||"",image_author:row.image_author||"",image_license:row.image_license||"",image_license_url:row.image_license_url||"",image_attribution:row.image_attribution||"",image_modified:row.image_modified||""});
@@ -5065,10 +5072,10 @@ window.setAlbumInfoLabelLogoStatus=async function(id,status){
 }
 window.editAlbumInfoSales=async function(){
   const album=albumInfoCurrentAlbum(),row=album?extras.albumInfo[albumRef(album.id)]?.sales||{}:{};
-  const display_value=promptNullable("Worldwide sales display (for example: More than 5 million copies worldwide)",row.display_value||"");if(display_value===null)return;
+  const display_value=promptNullable("Reported worldwide sales (for example: 30 million or More than 5 million)",row.display_value||"");if(display_value===null)return;
+  if(!display_value){alert("Enter the reported worldwide-sales figure.");return}
   const source_url=promptNullable("Supporting source URL",row.source_url||"");if(source_url===null)return;
-  const confidence=promptNullable("Confidence: high, medium, or low",row.confidence||"high");if(confidence===null)return;
-  await albumInfoAdminRequest({...albumInfoAdminBase("save_sales"),display_value,confidence,source:"Admin verified",source_url,manually_verified:true});
+  await albumInfoAdminRequest({...albumInfoAdminBase("save_sales"),display_value,confidence:"Reported Worldwide Sales",source:"Admin verified",source_url,manually_verified:true});
 }
 window.addAlbumInfoCertification=async function(existingId=""){
   const album=albumInfoCurrentAlbum(),items=album?extras.albumInfo[albumRef(album.id)]?.certifications||[]:[],row=items.find(item=>String(item.id)===String(existingId))||{};
