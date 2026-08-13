@@ -1581,6 +1581,17 @@ function creditIdsForDeletion(storedCredits, request) {
   return requested?.id ? [clean(requested.id)] : [];
 }
 
+async function storedCreditsForPerson(request, fields) {
+  const itemId = clean(request?.person_wikidata_id);
+  const personName = clean(request?.person_name);
+  const requests = [];
+  if (itemId) requests.push(api(`album_credits?person_wikidata_id=eq.${encodeURIComponent(itemId)}&select=${fields}`));
+  if (personName) requests.push(api(`album_credits?person_name=eq.${encodeURIComponent(personName)}&select=${fields}`));
+  const results = await Promise.allSettled(requests);
+  const rows = results.filter(result => result.status === "fulfilled").flatMap(result => result.value || []);
+  return [...new Map(rows.filter(row => row?.id).map(row => [clean(row.id), row])).values()];
+}
+
 async function adminAction(body) {
   const ref = albumRef(body);
   if (!ref) throw new Error("Album reference is required.");
@@ -1627,6 +1638,7 @@ async function adminAction(body) {
   }
   if (body.action === "set_credit_image_status") {
     const approved = body.image_status === "approved";
+    let portraitRejectionHistoryReady = true;
     let rows;
     try {
       const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license,image_rejected_urls`);
@@ -1634,7 +1646,7 @@ async function adminAction(body) {
         || (normalize(row.person_name) === normalize(body.person_name) && normalize(row.credit_type) === normalize(body.credit_type)));
     } catch (error) {
       if (/image_rejected_urls/i.test(error.message || "")) {
-        if (!approved) throw new Error("Alternate portrait suggestions are not enabled in the live database. Run supabase/migrations/202608120004_artist_portrait_rejections.sql in the Supabase SQL Editor, then try Reject photo again.");
+        portraitRejectionHistoryReady = false;
         const albumRows = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license`);
         rows = (albumRows || []).filter(row => (body.id && String(row.id) === String(body.id))
           || (normalize(row.person_name) === normalize(body.person_name) && normalize(row.credit_type) === normalize(body.credit_type)));
@@ -1643,6 +1655,16 @@ async function adminAction(body) {
           throw new Error("Artist portrait approval is not enabled in the live database. Run supabase/migrations/202608120001_artist_portraits.sql in the Supabase SQL Editor, then reopen Details & Credits.");
         }
         throw error;
+      }
+    }
+    if (rows?.length) {
+      const itemId = clean(body.person_wikidata_id || rows.find(row => row.person_wikidata_id)?.person_wikidata_id);
+      const fields = `id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license${portraitRejectionHistoryReady ? ",image_rejected_urls" : ""}`;
+      try {
+        const personRows = await storedCreditsForPerson({ person_name: body.person_name || rows[0]?.person_name, person_wikidata_id: itemId }, fields);
+        rows = [...new Map([...rows, ...personRows].filter(row => row?.id).map(row => [clean(row.id), row])).values()];
+      } catch (error) {
+        console.warn("[Muze album info] person-wide portrait update unavailable", error.message);
       }
     }
     if (!rows?.length && !approved && clean(body.image_url)) {
@@ -1679,11 +1701,12 @@ async function adminAction(body) {
     }
     if (!approved && rows?.length) {
       try {
-        const globalApproved = await api("album_credits?image_approved=eq.true&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license,image_rejected_urls&limit=1000");
+        const rejectionField = portraitRejectionHistoryReady ? ",image_rejected_urls" : "";
+        const globalApproved = await api(`album_credits?image_approved=eq.true&select=id,person_name,credit_type,person_wikidata_id,image_url,image_source_url,image_license${rejectionField}&limit=1000`);
         const itemId = clean(body.person_wikidata_id || rows.find(row => row.person_wikidata_id)?.person_wikidata_id);
         const personName = normalize(body.person_name || rows[0]?.person_name);
         const samePerson = (globalApproved || []).filter(row => (itemId && clean(row.person_wikidata_id) === itemId)
-          || (!itemId && personName && normalize(row.person_name) === personName));
+          || (personName && normalize(row.person_name) === personName));
         const byId = new Map([...rows, ...samePerson].filter(row => row?.id).map(row => [clean(row.id), row]));
         rows = [...byId.values()];
       } catch (error) {
@@ -1699,11 +1722,13 @@ async function adminAction(body) {
         console.warn("[Muze album info] alternate portrait unavailable", body.person_name, error.message);
       }
       const update = alternative
-        ? { ...alternative, image_rejected_urls: rejectedUrls, updated_at: now }
-        : { image_url: null, image_source_url: null, image_author: null, image_license: null, image_license_url: null, image_attribution: null, image_modified: null, image_status: "rejected", image_approved: false, image_last_verified_at: now, image_rejected_urls: rejectedUrls, updated_at: now };
-      return Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
+        ? { ...alternative, ...(portraitRejectionHistoryReady ? { image_rejected_urls: rejectedUrls } : {}), updated_at: now }
+        : { image_url: null, image_source_url: null, image_author: null, image_license: null, image_license_url: null, image_attribution: null, image_modified: null, image_status: "rejected", image_approved: false, image_last_verified_at: now, ...(portraitRejectionHistoryReady ? { image_rejected_urls: rejectedUrls } : {}), updated_at: now };
+      const saved = await Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
         method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(update)
       })));
+      [clean(body.person_id), normalize(body.person_name)].filter(Boolean).forEach(key => artistPortraitCache.delete(key));
+      return saved;
     }
     if (approved && clean(body.image_url)) {
       if (!isAllowedCommonsLicense(body.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(body.image_source_url))) {
@@ -1766,9 +1791,11 @@ async function adminAction(body) {
       }
     }
     const update = { image_status: approved ? "approved" : "rejected", image_approved: approved, image_last_verified_at: now, updated_at: now };
-    return Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
+    const saved = await Promise.all(rows.map(row => api(`album_credits?id=eq.${encodeURIComponent(row.id)}`, {
       method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify(update)
     })));
+    [clean(body.person_id), normalize(body.person_name)].filter(Boolean).forEach(key => artistPortraitCache.delete(key));
+    return saved;
   }
   if (body.action === "delete_credit") {
     const storedCredits = await api(`album_credits?album_ref=eq.${encodeURIComponent(ref)}&select=id,person_name,credit_type`);
@@ -1866,13 +1893,13 @@ exports.handler = async function handler(event) {
     if (cached?.metadata && input.refresh !== "1" && currentImportCache) {
       applyVerifiedAlbumOverrides(cached, input);
       await Promise.all([attachRecordLabelLogos(cached, { persist: logoSchemaReady }), attachArtistPortraits(cached)]);
-      return json(200, albumInfoResponseView({ ...cached, cached: true }, includeLogoAudit), 300);
+      return json(200, albumInfoResponseView({ ...cached, cached: true }, includeLogoAudit), includeLogoAudit ? 0 : 300);
     }
     const imported = await importAlbumInfo(input);
     if (!imported) {
       const fallback = applyVerifiedAlbumOverrides(cached || { metadata: null, credits: [], labels: [], sales: null, certifications: [] }, input);
       await Promise.all([attachRecordLabelLogos(fallback, { persist: logoSchemaReady, force: input.refresh === "1" }), attachArtistPortraits(fallback)]);
-      return json(200, albumInfoResponseView({ ...fallback, cached: Boolean(cached?.metadata), unavailable: true, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), input.refresh === "1" ? 0 : 300);
+      return json(200, albumInfoResponseView({ ...fallback, cached: Boolean(cached?.metadata), unavailable: true, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), includeLogoAudit || input.refresh === "1" ? 0 : 300);
     }
     const result = preserveManualCachedInfo(imported, cached);
     applyVerifiedAlbumOverrides(result, input);
@@ -1885,7 +1912,7 @@ exports.handler = async function handler(event) {
       } catch (error) { console.warn("[Muze album info] cache write failed", error.message); }
     }
     await attachRecordLabelLogos(result, { persist: logoSchemaReady, force: input.refresh === "1" });
-    return json(200, albumInfoResponseView({ ...result, cached: false, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), input.refresh === "1" ? 0 : 86400);
+    return json(200, albumInfoResponseView({ ...result, cached: false, schema_ready: schemaReady, record_label_logo_schema_ready: logoSchemaReady }, includeLogoAudit), includeLogoAudit || input.refresh === "1" ? 0 : 86400);
   } catch (error) {
     const isAdminRequest = event.httpMethod === "POST";
     return json(500, {
