@@ -4864,7 +4864,7 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
   const primaryDetails=[["Released",albumInfoReleaseDate(album,metadata),"calendar","","","","released"] ,["Label",originalLabel?.label_name,"building",originalLabel?.logo_url,"",appleLogoOnly?"appleOnly":"","label"],["Country",countryValue,"map","",countryFlag,"","country"]].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
   const compactDetails=[["Tracks",metadata.track_count],...runtimeDetails.map(([label,value])=>[label,value])].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
   const admin=isAdminUnlocked();
-  const adminHead=admin?`<div class="albumInfoAdminBar"><span>Admin editing</span><button onclick="editAlbumInfoMetadata()">Edit details</button><button onclick="addAlbumInfoCredit()">Add credit</button><button onclick="addAlbumInfoLabel()">Add label</button><button onclick="editAlbumInfoSales()">${info.sales?.display_value?"Edit":"Add"} worldwide sales</button><button onclick="reloadAlbumInfoData()">Reload data</button></div>`:"";
+  const adminHead=admin?`<div class="albumInfoAdminBar"><span>Admin editing</span><button onclick="editAlbumInfoMetadata()">Edit details</button><button onclick="editAlbumInfoCountry()">${countryValue?"Edit":"Add"} country</button><button onclick="addAlbumInfoCredit()">Add credit</button><button onclick="addAlbumInfoLabel()">Add label</button><button onclick="editAlbumInfoSales()">${info.sales?.display_value?"Edit":"Add"} worldwide sales</button><button onclick="reloadAlbumInfoData()">Reload data</button></div>`:"";
   const spotifySource=!albumRuntime&&spotifyRuntime&&album.spotify_url?albumInfoSourceLink({source:"Spotify",source_url:album.spotify_url}):"";
   const informationPanel=`<section class="albumInformationPanel"><header><h4>Album Information</h4></header><div class="albumInformationPrimary">${primaryDetails.map(([label,value,icon,image,mark,variant,kind])=>{const classes=[image?"hasOrganizationMark":"",image&&variant?"hasCompactOrganizationMark":"",`albumInformationDetail-${kind}`].filter(Boolean).join(" ");return `<article class="${classes}"><i>${image?`<span class="albumInfoOrganizationMark${variant?" isAppleMark":""}"><img src="${escapeHtml(image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon(icon)}</span>`:mark?`<span class="albumInfoCountryFlag"><img src="${escapeHtml(mark)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">${albumInfoIcon(icon)}</span>`:albumInfoIcon(icon)}</i><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div></article>`}).join("")}</div><div class="albumInformationCompact">${compactDetails.map(([label,value])=>`<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</div></section>`;
   const detailHtml=`<div class="albumSnapshotGrid">${informationPanel}${albumInfoAtAGlance(album,info)}</div><div class="albumInfoDetailSources">${albumInfoSourceLink(metadata)}${spotifySource}</div>`;
@@ -4939,6 +4939,23 @@ window.reloadAlbumInfoData=async function(){
   await loadAlbumInfo(album,true);
 }
 function promptNullable(label,current=""){const value=prompt(label,current??"");return value===null?null:value.trim()}
+function albumInfoManualCountry(value){
+  const text=String(value||"").trim();
+  const code=text.toUpperCase();
+  if(!/^[A-Z]{2}$/.test(code))return text;
+  const aliases={US:"United States",GB:"United Kingdom",CA:"Canada",AU:"Australia",NZ:"New Zealand"};
+  if(aliases[code])return aliases[code];
+  try{return new Intl.DisplayNames(["en"],{type:"region"}).of(code)||text}catch(error){return text}
+}
+window.editAlbumInfoCountry=async function(){
+  const album=albumInfoCurrentAlbum(),info=album&&extras.albumInfo[albumRef(album.id)],row=info?.metadata||{};
+  if(!album)return;
+  const entered=promptNullable("Country of original release (full name or two-letter code)",albumInfoCountry(row.country)||row.country||"");
+  if(entered===null)return;
+  const country=albumInfoManualCountry(entered);
+  if(!country){alert("Enter a country before saving.");return}
+  await albumInfoAdminRequest({...albumInfoAdminBase("save_metadata"),original_release_date:row.original_release_date||"",release_year:Number(row.release_year||albumReleaseYear(album))||null,country,album_type:row.album_type||"Album",total_runtime_ms:row.total_runtime_ms||null,track_count:row.track_count||null,source:"Admin verified",source_url:row.source_url||"",source_confidence:"verified",manually_verified:true});
+}
 window.editAlbumInfoMetadata=async function(){
   const album=albumInfoCurrentAlbum(),info=album&&extras.albumInfo[albumRef(album.id)],row=info?.metadata||{};
   if(!album)return;
