@@ -63,7 +63,7 @@ function clearLocalOverviewOverride(key){
     }
   }catch(error){}
 }
-const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
+const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
 let homeSearchRenderTimer=0;
@@ -8065,10 +8065,12 @@ if(state.view==="rankings"){
 }
 if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
 if(state.view==="artists"){content.innerHTML=artistPage()}
+if(state.view==="artist-profile"){content.innerHTML=artistProfilePage()}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
 if(state.view==="libraries"){librariesView()}
 if(state.view==="chat"){chatView(content)}
 document.body.classList.toggle("chatView",state.view==="chat");
+document.body.classList.toggle("artistProfileView",state.view==="artist-profile");
 const chatPanel=$("#topbarChatPanel");
 const chatOpen=state.view==="chat"||(chatPanel&&!chatPanel.classList.contains("hidden"));
 const chatButton=$("#topbarChatButton");if(chatButton){chatButton.classList.toggle("active",chatOpen);chatButton.setAttribute("aria-expanded",chatOpen?"true":"false")}
@@ -8249,7 +8251,140 @@ function renderArtistResults(){let artists=artistNames();let grid=$("#artistResu
 function artistPage(){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=artistGenres();let artists=artistNames();let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${artists.length} artist${artists.length===1?"":"s"}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div><div id="artistResults" class="artistGrid">${artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>'}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;render()}
 window.setArtistGenre=function(genre){state.artistGenre=genre==="Popular"?"All":genre;render()}
 window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults()}
-function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let genres=[...new Set(d.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);let hero=d.find(a=>a.cover_url)||d[0]||{};let totalRatings=d.reduce((sum,a)=>sum+count(a),0);let featured=d.slice(0,4);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(hero.cover_url||"")}')"><div><h3>${escapeHtml(name)}</h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${d.length} album${d.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${artistScoreLabel(d)}${totalRatings?`<span>${totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${featured.map(artistAlbumRow).join("")}</div></section>`}
+function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let genres=[...new Set(d.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);let hero=d.find(a=>a.cover_url)||d[0]||{};let totalRatings=d.reduce((sum,a)=>sum+count(a),0);let featured=d.slice(0,4);let slug=artistSlugForName(name);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(hero.cover_url||"")}')"><div><h3><button class="artistDiscoveryLink" onclick="openArtistPage('${escapeJsString(slug)}')">${escapeHtml(name)}</button></h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${d.length} album${d.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${artistScoreLabel(d)}${totalRatings?`<span>${totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${featured.map(artistAlbumRow).join("")}</div></section>`}
+
+function artistSlugForName(value){
+  return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")
+}
+function artistSlugFromPath(){
+  const match=String(location.pathname||"").match(/\/artist\/([^/?#]+)/i);
+  if(!match)return "";
+  try{return artistSlugForName(decodeURIComponent(match[1]))}catch(error){return artistSlugForName(match[1])}
+}
+function artistFallbackRecord(slug){
+  const name=artistNames().find(item=>artistSlugForName(item)===slug)||"";
+  if(!name)return null;
+  const albums=state.albums.filter(album=>artistSlugForName(album.artist)===slug);
+  return {id:null,name,slug,image_url:"",bio:"",bio_sources:[],bio_generated_at:null,bio_generation_model:"",country:"",artist_type:"",genres:[...new Set(albums.map(albumGenreLabel).filter(label=>label&&label!=="Album"))],formed_year:null,disbanded_year:null,birth_date:null,death_date:null}
+}
+function artistProfileMeta(profile){
+  const parts=[];
+  if(profile.country)parts.push(profile.country);
+  if(profile.artist_type)parts.push(profile.artist_type);
+  (Array.isArray(profile.genres)?profile.genres:[]).slice(0,3).forEach(genre=>{if(genre&&!parts.includes(genre))parts.push(genre)});
+  return parts
+}
+function artistProfileAlbumCard(album){
+  const image=albumCoverUrl(album);
+  const rating=score(album)>0?`<span class="muzeArtistAlbumScore">&#9733; ${displayScore(album)}</span>`:"";
+  return `<article class="muzeArtistAlbumCard" role="button" tabindex="0" onclick="openAlbum('${escapeJsString(album.id)}')" onkeydown="if(event.key==='Enter'||event.key===' ')openAlbum('${escapeJsString(album.id)}')"><div class="muzeArtistAlbumCover">${image?`<img src="${escapeHtml(image)}" alt="${escapeHtml(album.title||"Album")} cover">`:`<span>${escapeHtml(String(album.title||"A").slice(0,1))}</span>`}</div><div><strong>${escapeHtml(album.title||"Untitled album")}</strong><p>${escapeHtml(album.year||"")}</p>${rating}</div></article>`
+}
+function artistEditField(id,label,value,type="text"){
+  const clean=value??"";
+  if(type==="textarea")return `<label>${escapeHtml(label)}<textarea id="${id}" rows="6">${escapeHtml(clean)}</textarea></label>`;
+  return `<label>${escapeHtml(label)}<input id="${id}" type="${type}" value="${escapeHtml(clean)}"></label>`
+}
+function artistBioSources(value){
+  let rows=value;
+  if(typeof rows==="string"){try{rows=JSON.parse(rows)}catch(error){rows=[]}}
+  return (Array.isArray(rows)?rows:[]).map(row=>({name:String(row?.name||"Source").trim(),url:String(row?.url||"").trim(),kind:String(row?.kind||"").trim(),accessed_at:String(row?.accessed_at||"").trim()})).filter(row=>/^https:\/\//i.test(row.url))
+}
+function artistBioSourcesMarkup(value){
+  const rows=artistBioSources(value);
+  if(!rows.length)return '<p class="muzeArtistBioNoSources">No research sources are attached to this biography yet.</p>';
+  return `<ul>${rows.map(row=>`<li><a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.name)}</a>${row.kind?`<span>${escapeHtml(row.kind)}</span>`:""}</li>`).join("")}</ul>`
+}
+function artistAdminEditor(profile){
+  if(!isAdminUnlocked()||!state.artistEditing)return "";
+  const sources=state.artistBioDraftSources.length?state.artistBioDraftSources:artistBioSources(profile.bio_sources);
+  return `<section class="muzeArtistAdmin"><header><div><span>Admin editing</span><h2>Edit artist</h2></div><button type="button" onclick="cancelArtistEdit()">Cancel</button></header><div class="muzeArtistAdminGrid">${artistEditField("artistEditName","Artist name",profile.name)}${artistEditField("artistEditImage","Artist image URL",profile.image_url)}${artistEditField("artistEditCountry","Country",profile.country)}${artistEditField("artistEditType","Artist type",profile.artist_type)}${artistEditField("artistEditGenres","Genres (comma separated)",(profile.genres||[]).join(", "))}${artistEditField("artistEditFormed","Formed year",profile.formed_year,"number")}${artistEditField("artistEditDisbanded","Disbanded year",profile.disbanded_year,"number")}${artistEditField("artistEditBirth","Birth date",profile.birth_date,"date")}${artistEditField("artistEditDeath","Death date",profile.death_date,"date")}<div class="muzeArtistAdminBio">${artistEditField("artistEditBio","Muze biography",profile.bio,"textarea")}<div class="muzeArtistBioTools"><button id="artistBioDraftButton" type="button" onclick="generateArtistBioDraft()">Generate Bio Draft</button><span id="artistBioDraftStatus">Researches structured facts and returns an unpublished draft.</span></div><div class="muzeArtistBioSources"><strong>Sources consulted</strong><div id="artistBioSourcesList">${artistBioSourcesMarkup(sources)}</div></div></div></div><button class="muzeArtistAdminSave" type="button" onclick="saveArtistProfile()">Save artist</button></section>`
+}
+function artistProfilePage(){
+  if(state.artistProfileLoading)return `<section class="muzeArtistState"><span class="muzeArtistLoader" aria-hidden="true"></span><h2>Loading artist</h2></section>`;
+  const profile=state.artistProfile;
+  if(!profile)return `<section class="muzeArtistState"><p class="eyebrow">Muze artists</p><h2>Artist not found</h2><p>${escapeHtml(state.artistProfileError||"This artist does not have a Muze page yet.")}</p><button onclick="navigateToView('artists')">Back to Muze artists</button></section>`;
+  const albums=(state.artistProfileAlbums||[]).slice().sort((a,b)=>(Number(b.year)||0)-(Number(a.year)||0)||String(a.title||"").localeCompare(String(b.title||"")));
+  const meta=artistProfileMeta(profile);
+  const image=profile.image_url?`<div class="muzeArtistPortrait"><img src="${escapeHtml(profile.image_url)}" alt="${escapeHtml(profile.name)}"></div>`:"";
+  const adminButton=isAdminUnlocked()?`<button class="muzeArtistEditButton" onclick="editArtistProfile()">Edit Artist</button>`:"";
+  const about=profile.bio?`<section class="muzeArtistAbout"><div>${formatParagraphText(profile.bio)}</div></section>`:isAdminUnlocked()?`<section class="muzeArtistAbout muzeArtistAboutEmpty"><p>No Muze biography has been written yet.</p></section>`:"";
+  return `<div class="muzeArtistPage${profile.bio?"":" noBiography"}"><section class="muzeArtistProfileHero${image?"":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Muze artist</p><h1>${escapeHtml(profile.name)}</h1>${meta.length?`<p>${meta.map(escapeHtml).join(" &middot; ")}</p>`:""}${profile.formed_year?`<span>Formed ${escapeHtml(profile.formed_year)}</span>`:profile.birth_date?`<span>Born ${escapeHtml(profile.birth_date)}</span>`:""}${adminButton}</div></section>${artistAdminEditor(profile)}${about}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"} on Muze</span></header><div class="muzeArtistAlbumGrid">${albums.length?albums.map(artistProfileAlbumCard).join(""):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
+}
+async function loadArtistProfile(slug){
+  const cleanSlug=artistSlugForName(slug);
+  state.artistProfileLoading=true;state.artistProfileError="";state.artistProfile=null;state.artistProfileAlbums=[];state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render();
+  let profile=null;let albums=[];
+  if(db&&cleanSlug){
+    try{
+      const profileResult=await db.from("artists").select("*").eq("slug",cleanSlug).maybeSingle();
+      if(profileResult.error)throw profileResult.error;
+      profile=profileResult.data||null;
+      if(profile?.id){
+        const linksResult=await db.from("album_artists").select("album_id,role,sort_order").eq("artist_id",profile.id).order("sort_order",{ascending:true});
+        if(linksResult.error)throw linksResult.error;
+        const ids=[...new Set((linksResult.data||[]).map(row=>row.album_id).filter(Boolean))];
+        if(ids.length){
+          let albumsResult=await db.from("album_scores").select("*").in("id",ids);
+          if(albumsResult.error)albumsResult=await db.from("albums").select("id,title,artist,year,genre,cover_url,spotify_url,summary,spotify_id,wikipedia_url,source_url").in("id",ids);
+          if(albumsResult.error)throw albumsResult.error;
+          albums=albumsResult.data||[];
+          const overviewResult=await db.from("album_overviews").select("*").in("album_id",ids);
+          if(!overviewResult.error&&(overviewResult.data||[]).length){
+            overviewResult.data.forEach(row=>{if(row?.album_key)extras.overviews[row.album_key]=row});
+            indexOverviewRows();
+          }
+        }
+      }
+    }catch(error){
+      if(!/artists|album_artists|schema cache|PGRST205|42P01/i.test(error.message||""))console.warn("Muze artist page query failed",error);
+    }
+  }
+  if(!profile)profile=artistFallbackRecord(cleanSlug);
+  if(profile&&!albums.length)albums=state.albums.filter(album=>artistSlugForName(album.artist)===cleanSlug);
+  if(albums.length)state.albums=mergeAlbumSources(state.albums,albums);
+  state.artistProfile=profile;state.artistProfileAlbums=albums;state.artistProfileLoading=false;
+  if(!profile)state.artistProfileError="Check the artist name or return to the Muze artist directory.";
+  render();window.scrollTo({top:0,behavior:"auto"});return {profile,usedDatabase:Boolean(profile?.id)}
+}
+async function navigateToArtist(slug,{replace=false}={}){
+  const cleanSlug=artistSlugForName(slug);if(!cleanSlug)return;
+  const albumOpen=!$("#albumModal")?.classList.contains("hidden");
+  if(!replace){
+    history.replaceState({...history.state,musica:"inside",view:state.view,albumId:albumOpen?extras.currentAlbumId:null},"",location.href);
+    history.pushState({musica:"artist",artistSlug:cleanSlug},"",`/artist/${encodeURIComponent(cleanSlug)}`);
+  }else history.replaceState({musica:"artist",artistSlug:cleanSlug},"",location.href);
+  closeAlbumPopup();state.view="artist-profile";document.querySelectorAll(".tab,.navItem[data-view]").forEach(item=>item.classList.remove("active"));
+  await loadArtistProfile(cleanSlug)
+}
+window.openArtistPage=function(slug){return navigateToArtist(slug)};
+window.editArtistProfile=function(){if(!isAdminUnlocked())return;state.artistBioDraftSources=artistBioSources(state.artistProfile?.bio_sources);state.artistBioDraftModel=String(state.artistProfile?.bio_generation_model||"");state.artistBioDraftedAt=String(state.artistProfile?.bio_generated_at||"");state.artistEditing=true;render()};
+window.cancelArtistEdit=function(){state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render()};
+window.generateArtistBioDraft=async function(){
+  if(!isAdminUnlocked()||!state.artistProfile)return;
+  const pin=normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||"");
+  const name=String($("#artistEditName")?.value||state.artistProfile.name||"").trim();
+  const button=$("#artistBioDraftButton");const status=$("#artistBioDraftStatus");
+  if(button){button.disabled=true;button.textContent="Researching..."}if(status)status.textContent="Checking structured data, official sources, reference sites, and reputable music reporting.";
+  try{
+    const albums=(state.artistProfileAlbums||[]).map(album=>({title:album.title,year:albumReleaseYear(album)||album.year||""}));
+    const response=await fetch("/.netlify/functions/artist-bio-draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pin,name,albums})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||"Biography research failed.");
+    const editor=$("#artistEditBio");if(editor)editor.value=data.bio||"";
+    state.artistBioDraftSources=artistBioSources(data.sources);state.artistBioDraftModel=String(data.generation_model||"");state.artistBioDraftedAt=String(data.generated_at||new Date().toISOString());
+    const sourceHost=$("#artistBioSourcesList");if(sourceHost)sourceHost.innerHTML=artistBioSourcesMarkup(state.artistBioDraftSources);
+    if(status)status.textContent="Draft ready. Review and edit it, then Save Artist to publish.";
+  }catch(error){if(status)status.textContent=error.message||"Biography research failed."}
+  finally{if(button){button.disabled=false;button.textContent="Generate Bio Draft"}}
+};
+window.saveArtistProfile=async function(){
+  if(!isAdminUnlocked()||!state.artistProfile)return;
+  const value=id=>String($(id)?.value||"").trim();
+  const payload={action:"save_artist",slug:state.artistProfile.slug,name:value("#artistEditName"),image_url:value("#artistEditImage"),country:value("#artistEditCountry"),artist_type:value("#artistEditType"),genres:value("#artistEditGenres").split(",").map(item=>item.trim()).filter(Boolean),formed_year:value("#artistEditFormed"),disbanded_year:value("#artistEditDisbanded"),birth_date:value("#artistEditBirth"),death_date:value("#artistEditDeath"),bio:value("#artistEditBio"),bio_sources:state.artistBioDraftSources.length?state.artistBioDraftSources:artistBioSources(state.artistProfile.bio_sources),bio_generated_at:state.artistBioDraftedAt||state.artistProfile.bio_generated_at||null,bio_generation_model:state.artistBioDraftModel||state.artistProfile.bio_generation_model||""};
+  const result=await adminOverviewRequest(payload);if(!result?.ok)return;
+  if((result.stripped_columns||[]).some(column=>column.startsWith("bio_")))alert("The biography was saved, but its research provenance could not be stored because the live artists table needs supabase/migrations/202608150002_artist_biography_sources.sql.");
+  state.artistProfile={...state.artistProfile,...result.row};state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render()
+};
 
 window.openAlbum=async function(id){
   let a=state.albums.find(x=>String(x.id)===String(id));
@@ -8306,6 +8441,8 @@ window.openAlbum=async function(id){
   const soundInfluenceHint=soundInfluenceHasMore?`<span class="influenceExpandHint"><b>Read more</b><b>Show less</b></span>`:"";
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${formatParagraphText(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood" style="--mood-score:${moodScore}%;--mood-start:${moodStart};--mood-end:${moodEnd};--mood-glow:${moodGlow}"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${albumVibeTags(a).slice(0,3).map(escapeHtml).join(" &middot; ")}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence${soundInfluenceHasMore?" is-collapsible":""}"${soundInfluenceAttrs}><h4><span>&#9733;</span>Sound & Influence</h4><p class="influencePreview">${formatParagraphText(compactPreviewText(soundInfluenceText))}</p><p class="influenceFull">${formatParagraphText(soundInfluenceText)}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div>${soundInfluenceHint}</div></aside>`;
   $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${formatParagraphText(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="window.scrollAlbumSeeMore()">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${formatParagraphText(returnHeadline)}</h3></div><p>${formatParagraphText(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
+  const artistHeading=$("#albumModalContent .linerHeroCopy h3");
+  if(artistHeading)artistHeading.innerHTML=`<button type="button" class="linerArtistLink" onclick="event.stopPropagation();openArtistPage('${escapeJsString(artistSlugForName(a.artist))}')">${escapeHtml(a.artist)}</button> <span>&#9679;</span>`;
   const albumTabs=$("#albumModalContent .linerTabs");
   const ratingsTab=albumTabs?.querySelector('[data-album-tab="ratings"]');
   if(ratingsTab)ratingsTab.insertAdjacentHTML("beforebegin",'<button data-album-tab="info" onclick="setAlbumPopupTab(\'info\')">Details &amp; Credits</button>');
@@ -8337,6 +8474,8 @@ function scrollToSharedTrack(trackKeyValue){
   target.scrollIntoView({block:"center",behavior:"smooth"});
 }
 function handleMuzeDeepLink(){
+  const artistSlug=artistSlugFromPath();
+  if(artistSlug){navigateToArtist(artistSlug,{replace:true});return}
   const params=new URLSearchParams(location.search);
   const albumId=params.get("album");
   const track=params.get("track");
@@ -8449,6 +8588,13 @@ function showSavedAlbumImmediately(album){
 async function loadData(){
   state.dataReady=false;
   render();
+  const directArtistSlug=artistSlugFromPath();
+  if(db&&directArtistSlug){
+    state.dataReady=true;state.view="artist-profile";
+    const directArtistResult=await loadArtistProfile(directArtistSlug);
+    if(directArtistResult?.usedDatabase){deepLinkHandled=true;return}
+    state.dataReady=false;state.view="rankings";render();
+  }
   if(!db){
     $("#setupWarning").classList.remove("hidden");
     const localOnly=isLocalRuntime();
@@ -8619,14 +8765,16 @@ document.querySelectorAll("[data-avatar-type]").forEach(button=>button.onclick=(
 $("#avatarType")?.addEventListener("change",e=>applyAvatarType(e.target.value));
 $("#authLogout")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();logoutAuth()});
 function closeAlbumPopup(){stopTrackPreview();$("#albumModal").classList.add("hidden")}$("#closeAlbumModal").onclick=closeAlbumPopup;$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#closeAuthModal").onclick=closeAuthModal;$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")closeAlbumPopup()};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};$("#authModal").onclick=e=>{if(e.target.id==="authModal")closeAuthModal()};
-function goHome(){state.view="rankings";document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
+function goHome(){state.view="rankings";state.artistProfile=null;state.artistProfileAlbums=[];document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
 async function navigateToView(view){
   if(view==="libraries"&&!loggedInUser()){
     openLibrariesAuthPrompt();
     closeNav();
     return;
   }
+  if(artistSlugFromPath())history.pushState({musica:"inside",view},"","/");
   state.view=view;
+  state.artistProfile=null;state.artistProfileAlbums=[];state.artistEditing=false;
   if(state.view==="libraries"||state.view==="chat"){
     try{await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence()])}
     catch(error){console.warn("Unable to load libraries",error);extras.libraries=localLibraries();renderNotifications()}
@@ -8635,11 +8783,22 @@ async function navigateToView(view){
   render();
   closeNav();
 }
-function rememberSiteState(){if(!history.state||!history.state.musica)history.replaceState({musica:"home"},"");history.pushState({musica:"inside"},"")}
+function rememberSiteState(){const slug=artistSlugFromPath();if(slug){history.replaceState({musica:"artist",artistSlug:slug},"",location.href);return}if(!history.state||!history.state.musica)history.replaceState({musica:"home"},"");history.pushState({musica:"inside",view:state.view},"")}
 rememberSiteState();
 window.addEventListener("resize",()=>requestAnimationFrame(updateAlbumSeeMorePlacement));
 $("#albumModal")?.addEventListener("scroll",()=>requestAnimationFrame(updateAlbumSeeMorePlacement),{passive:true});
-window.addEventListener("popstate",()=>{if(!$("#authModal").classList.contains("hidden")){closeAuthModal();history.pushState({musica:"inside"},"");return}if(!$("#albumModal").classList.contains("hidden")){closeAlbumPopup();history.pushState({musica:"inside"},"");return}if(!$("#addModal").classList.contains("hidden")){$("#addModal").classList.add("hidden");history.pushState({musica:"inside"},"");return}goHome();history.pushState({musica:"inside"},"")});
+window.addEventListener("popstate",event=>{
+  const slug=artistSlugFromPath();
+  if(slug){state.view="artist-profile";loadArtistProfile(slug);return}
+  if(!$("#authModal").classList.contains("hidden")){closeAuthModal();return}
+  if(!$("#albumModal").classList.contains("hidden")){closeAlbumPopup();return}
+  if(!$("#addModal").classList.contains("hidden")){$("#addModal").classList.add("hidden");return}
+  const returnView=event.state?.view||"rankings";
+  state.view=returnView;state.artistProfile=null;state.artistProfileAlbums=[];
+  document.querySelectorAll(".tab,.navItem[data-view]").forEach(item=>item.classList.toggle("active",item.dataset.view===returnView));
+  render();
+  if(event.state?.albumId)setTimeout(()=>openAlbum(event.state.albumId),0);
+});
 let navViewPointerAt=0;
 function handleNavViewAction(event){
   const target=event?.currentTarget;
@@ -8657,7 +8816,12 @@ $("#searchInput").oninput=e=>{state.search=e.target.value;scheduleHomeSearchRend
 document.addEventListener("visibilitychange",()=>{if(document.hidden)updateOwnPresence(false);else startPresenceHeartbeat()});
 window.addEventListener("pagehide",()=>updateOwnPresence(false));
 initAuth();
-loadData();
+loadData().catch(error=>{
+  console.error("Muze data initialization failed",error);
+  state.dataReady=true;
+  state.artistProfileError="Muze could not finish loading artist data.";
+  render();
+});
 
 
 
