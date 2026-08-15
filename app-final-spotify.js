@@ -117,16 +117,58 @@ function firstParagraphText(value){
 function artistBiographyMarkup(value){
   const paragraphs=paragraphChunks(value);
   if(!paragraphs.length)return "";
-  const remaining=paragraphs.slice(3).map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
-  const visible=paragraphs.slice(0,3).map((part,index)=>{
-    const toggle=remaining&&index===Math.min(paragraphs.length,3)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>':"";
+  const fullMarkup=paragraphs.map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
+  if(window.matchMedia?.("(max-width: 560px)").matches)return `<div class="muzeArtistHeroBio muzeArtistHeroBioMobile">${fullMarkup}</div>`;
+  const previewCount=3;
+  const remaining=paragraphs.slice(previewCount).map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
+  const visible=paragraphs.slice(0,previewCount).map((part,index)=>{
+    const toggle=remaining&&index===Math.min(paragraphs.length,previewCount)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>':"";
     return `<p>${formatParagraphText(part)}${toggle}</p>`;
   }).join("");
   if(!remaining)return `<div class="muzeArtistHeroBio">${visible}</div>`;
   return `<div class="muzeArtistHeroBio"><div class="muzeArtistBioPreview">${visible}</div><div class="muzeArtistBioRemainder" hidden>${remaining}</div></div>`;
 }
+function syncMobileArtistBiography(){
+  const biography=document.querySelector(".muzeArtistHeroBioMobile");
+  if(!biography||!window.matchMedia("(max-width: 560px)").matches)return;
+  const fullHtml=biography._fullBiographyHtml||biography.innerHTML;
+  const fullText=biography._fullBiographyText||biography.textContent.replace(/\s+/g," ").trim();
+  biography._fullBiographyHtml=fullHtml;
+  biography._fullBiographyText=fullText;
+  const toggle='<button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>';
+  biography.classList.remove("is-expanded");
+  biography.innerHTML=`<p>${escapeHtml(fullText)} ${toggle}</p>`;
+  const lineHeight=parseFloat(getComputedStyle(biography).lineHeight)||23;
+  const maxHeight=lineHeight*8+.5;
+  if(biography.scrollHeight<=maxHeight){
+    biography.innerHTML=fullHtml;
+    return;
+  }
+  let low=0,high=fullText.length;
+  while(low<high){
+    const mid=Math.ceil((low+high)/2);
+    biography.innerHTML=`<p>${escapeHtml(fullText.slice(0,mid).trimEnd())}&hellip; ${toggle}</p>`;
+    if(biography.scrollHeight<=maxHeight)low=mid;else high=mid-1;
+  }
+  let end=low;
+  const wordBreak=fullText.lastIndexOf(" ",end);
+  if(wordBreak>Math.max(0,end-24))end=wordBreak;
+  biography.innerHTML=`<p>${escapeHtml(fullText.slice(0,end).trimEnd())}&hellip; ${toggle}</p>`;
+}
 window.toggleArtistBiography=function(button){
   const biography=button?.closest(".muzeArtistHeroBio");
+  if(biography?.classList.contains("muzeArtistHeroBioMobile")){
+    const expanded=button.getAttribute("aria-expanded")==="true";
+    if(expanded){
+      syncMobileArtistBiography();
+    }else{
+      biography.classList.add("is-expanded");
+      biography.innerHTML=biography._fullBiographyHtml;
+      const destination=biography.lastElementChild||biography;
+      destination.insertAdjacentHTML("beforeend",' <button type="button" class="muzeArtistBioToggle" aria-expanded="true" onclick="toggleArtistBiography(this)">Show less <span aria-hidden="true">&uarr;</span></button>');
+    }
+    return;
+  }
   const preview=biography?.querySelector(".muzeArtistBioPreview");
   const remainder=biography?.querySelector(".muzeArtistBioRemainder");
   if(!remainder)return;
@@ -4776,7 +4818,7 @@ function albumInfoPersonCard(credit,admin){
   const roles=albumInfoRoleList(credit),primary=roles.slice(0,2),secondary=roles.slice(2,4),remaining=roles.slice(4);
   const more=remaining.length?`<details class="infoPersonMore"><summary>+ ${remaining.length} more role${remaining.length===1?"":"s"}</summary><p class="infoRoleFacts">${albumInfoRoleFactsHtml(remaining)}</p></details>`:"";
   const portraitSource=String(credit.image_source_url||"").trim(),portraitAuthor=String(credit.image_author||"Wikimedia Commons contributor").trim(),portraitLicense=String(credit.image_license||"").trim(),portraitLicenseUrl=String(credit.image_license_url||"").trim();
-  const portraitCredit=image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` &middot; <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} &middot; circular crop</span>`:"";
+  const portraitCredit=admin&&image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` &middot; <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} &middot; circular crop</span>`:"";
   const portraitTarget=`'${escapeJsString(credit.id||"")}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}'`;
   const portraitActions=admin&&portraitApproved?`<span class="infoPortraitApproved">Photo approved</span><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Find a different licensed portrait or use initials">Change photo</button>`:admin&&portraitStatus==="candidate"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button>`:"";
   const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
@@ -8094,6 +8136,7 @@ if(state.view==="libraries"){librariesView()}
 if(state.view==="chat"){chatView(content)}
 document.body.classList.toggle("chatView",state.view==="chat");
 document.body.classList.toggle("artistProfileView",state.view==="artist-profile");
+if(state.view==="artist-profile")requestAnimationFrame(syncMobileArtistBiography);
 const chatPanel=$("#topbarChatPanel");
 const chatOpen=state.view==="chat"||(chatPanel&&!chatPanel.classList.contains("hidden"));
 const chatButton=$("#topbarChatButton");if(chatButton){chatButton.classList.toggle("active",chatOpen);chatButton.setAttribute("aria-expanded",chatOpen?"true":"false")}
@@ -8380,7 +8423,7 @@ function artistProfilePage(){
   const activeRange=profile.formed_year?`${profile.formed_year} - ${profile.disbanded_year||"Present"}`:"";
   const heroMeta=[profile.country,(profile.genres||[])[0],activeRange?`Active ${activeRange}`:""].filter(Boolean);
   const biography=profile.bio?artistBiographyMarkup(profile.bio):isAdminUnlocked()?`<p class="muzeArtistHeroBioEmpty">No Muze biography has been written yet.</p>`:"";
-  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${adminButton}</div></section>${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"} on Muze</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
+  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${adminButton}</div></section>${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"}</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
 }
 async function loadArtistProfile(slug){
   const cleanSlug=artistSlugForName(slug);
@@ -8513,6 +8556,12 @@ window.openAlbum=async function(id){
   const soundInfluenceHint=soundInfluenceHasMore?`<span class="influenceExpandHint"><b>Read more</b><b>Show less</b></span>`:"";
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${formatParagraphText(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood" style="--mood-score:${moodScore}%;--mood-start:${moodStart};--mood-end:${moodEnd};--mood-glow:${moodGlow}"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${albumVibeTags(a).slice(0,3).map(escapeHtml).join(" &middot; ")}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence${soundInfluenceHasMore?" is-collapsible":""}"${soundInfluenceAttrs}><h4><span>&#9733;</span>Sound & Influence</h4><p class="influencePreview">${formatParagraphText(compactPreviewText(soundInfluenceText))}</p><p class="influenceFull">${formatParagraphText(soundInfluenceText)}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div>${soundInfluenceHint}</div></aside>`;
   $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${formatParagraphText(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="window.scrollAlbumSeeMore()">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${formatParagraphText(returnHeadline)}</h3></div><p>${formatParagraphText(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
+  const heroDescription=$("#albumModalContent .linerHeroCopy > p:not(.eyebrow)");
+  if(heroDescription){
+    heroDescription.classList.add("albumHeroDescription");
+    heroDescription._fullDescriptionHtml=heroDescription.innerHTML;
+    heroDescription._fullDescriptionText=heroDescription.textContent.replace(/\s+/g," ").trim();
+  }
   const artistHeading=$("#albumModalContent .linerHeroCopy h3");
   if(artistHeading)artistHeading.innerHTML=`<button type="button" class="linerArtistLink" onclick="event.stopPropagation();openArtistPage('${escapeJsString(artistSlugForName(a.artist))}')">${escapeHtml(a.artist)}</button> <span>&#9679;</span>`;
   const albumTabs=$("#albumModalContent .linerTabs");
@@ -8526,8 +8575,8 @@ window.openAlbum=async function(id){
   if(flip)flip.dataset.flipped="0";
   $("#albumModal").classList.remove("hidden");
   applyBackCoverHero(a);
-  requestAnimationFrame(()=>updateAlbumSeeMorePlacement());
-  setTimeout(updateAlbumSeeMorePlacement,180);
+  requestAnimationFrame(()=>{updateAlbumSeeMorePlacement();syncAlbumHeroDescriptionToggle()});
+  setTimeout(()=>{updateAlbumSeeMorePlacement();syncAlbumHeroDescriptionToggle()},180);
   loadAlbumExtras(a);
 }
 window.toggleHeroInfluenceCard=function(card,event){
@@ -8535,6 +8584,49 @@ window.toggleHeroInfluenceCard=function(card,event){
   if(!card||!card.classList.contains("is-collapsible"))return;
   const expanded=card.classList.toggle("is-expanded");
   card.setAttribute("aria-expanded",expanded?"true":"false");
+};
+function syncAlbumHeroDescriptionToggle(){
+  const description=document.querySelector("#albumModal .albumHeroDescription");
+  if(!description)return;
+  const fullHtml=description._fullDescriptionHtml||description.innerHTML;
+  const fullText=description._fullDescriptionText||description.textContent.replace(/\s+/g," ").trim();
+  description._fullDescriptionHtml=fullHtml;
+  description._fullDescriptionText=fullText;
+  if(!window.matchMedia("(max-width: 850px)").matches){
+    description.classList.remove("is-expanded");
+    description.innerHTML=fullHtml;
+    return;
+  }
+  const toggle='<button type="button" class="albumHeroDescriptionToggle" aria-expanded="false" onclick="toggleAlbumHeroDescription(this)">See more <span aria-hidden="true">&rarr;</span></button>';
+  description.classList.remove("is-expanded");
+  description.innerHTML=`${escapeHtml(fullText)} ${toggle}`;
+  const lineHeight=parseFloat(getComputedStyle(description).lineHeight)||24;
+  const maxHeight=lineHeight*4+.5;
+  if(description.scrollHeight<=maxHeight){
+    description.innerHTML=fullHtml;
+    return;
+  }
+  let low=0,high=fullText.length;
+  while(low<high){
+    const mid=Math.ceil((low+high)/2);
+    description.innerHTML=`${escapeHtml(fullText.slice(0,mid).trimEnd())}&hellip; ${toggle}`;
+    if(description.scrollHeight<=maxHeight)low=mid;else high=mid-1;
+  }
+  let end=low;
+  const wordBreak=fullText.lastIndexOf(" ",end);
+  if(wordBreak>Math.max(0,end-24))end=wordBreak;
+  description.innerHTML=`${escapeHtml(fullText.slice(0,end).trimEnd())}&hellip; ${toggle}`;
+}
+window.toggleAlbumHeroDescription=function(button){
+  const description=button?.closest(".albumHeroDescription");
+  if(!description?.classList.contains("albumHeroDescription"))return;
+  const expanded=button.getAttribute("aria-expanded")!=="true";
+  if(expanded){
+    description.classList.add("is-expanded");
+    description.innerHTML=`${description._fullDescriptionHtml} <button type="button" class="albumHeroDescriptionToggle" aria-expanded="true" onclick="toggleAlbumHeroDescription(this)">See less <span aria-hidden="true">&uarr;</span></button>`;
+  }else{
+    syncAlbumHeroDescriptionToggle();
+  }
 };
 function scrollToSharedTrack(trackKeyValue){
   const key=String(trackKeyValue||"");
