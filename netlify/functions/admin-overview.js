@@ -176,6 +176,76 @@ exports.handler = async function(event) {
       return patch;
     };
 
+    if (action === "save_artist") {
+      const artistName = cleanText(body.name).slice(0, 180);
+      const slugify = value => cleanText(value)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const artistSlug = slugify(body.slug || artistName);
+      const artistKey = artistSlug.replace(/-/g, "");
+      const cleanYear = value => {
+        if (value === "" || value === null || value === undefined) return null;
+        const year = Math.round(Number(value));
+        return Number.isFinite(year) && year >= 1000 && year <= 9999 ? year : null;
+      };
+      const cleanDate = value => /^\d{4}-\d{2}-\d{2}$/.test(cleanText(value)) ? cleanText(value) : null;
+      const cleanSourceRows = value => (Array.isArray(value) ? value : []).slice(0, 12).map(row => ({
+        name: cleanText(row?.name).slice(0, 120),
+        url: cleanText(row?.url).slice(0, 800),
+        kind: cleanText(row?.kind).slice(0, 120),
+        accessed_at: cleanText(row?.accessed_at).slice(0, 40)
+      })).filter(row => row.name && /^https:\/\//i.test(row.url));
+      const cleanTimestamp = value => {
+        if (!value) return null;
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
+      };
+      if (!artistName || !artistSlug || !artistKey) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Artist name and slug are required." }) };
+      }
+      const artistPayload = {
+        name: artistName,
+        name_key: artistKey,
+        slug: artistSlug,
+        image_url: cleanText(body.image_url) || null,
+        bio: cleanParagraphText(body.bio) || null,
+        bio_sources: cleanSourceRows(body.bio_sources),
+        bio_generated_at: cleanTimestamp(body.bio_generated_at),
+        bio_generation_model: cleanText(body.bio_generation_model).slice(0, 120) || null,
+        country: cleanText(body.country) || null,
+        formed_year: cleanYear(body.formed_year),
+        disbanded_year: cleanYear(body.disbanded_year),
+        birth_date: cleanDate(body.birth_date),
+        death_date: cleanDate(body.death_date),
+        artist_type: cleanText(body.artist_type) || null,
+        genres: cleanTextList(body.genres),
+        updated_at: new Date().toISOString()
+      };
+      const strippedColumns = [];
+      let nextPayload = { ...artistPayload };
+      let rows = null;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          rows = await api("artists?on_conflict=slug", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+            body: JSON.stringify(nextPayload)
+          });
+          break;
+        } catch (error) {
+          const missingColumn = missingColumnFromError(error);
+          if (!missingColumn || !Object.prototype.hasOwnProperty.call(nextPayload, missingColumn)) throw error;
+          strippedColumns.push(missingColumn);
+          delete nextPayload[missingColumn];
+        }
+      }
+      if (!rows) throw new Error("Could not save the artist after checking the live artist schema.");
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows?.[0] || nextPayload, stripped_columns: strippedColumns }) };
+    }
+
     if (action === "save") {
       const overview = String(body.overview || "").trim();
       if (!album_key || !title) {
