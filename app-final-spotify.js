@@ -117,9 +117,9 @@ function firstParagraphText(value){
 function artistBiographyMarkup(value){
   const paragraphs=paragraphChunks(value);
   if(!paragraphs.length)return "";
-  const remaining=paragraphs.slice(2).map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
-  const visible=paragraphs.slice(0,2).map((part,index)=>{
-    const toggle=remaining&&index===Math.min(paragraphs.length,2)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>':"";
+  const remaining=paragraphs.slice(3).map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
+  const visible=paragraphs.slice(0,3).map((part,index)=>{
+    const toggle=remaining&&index===Math.min(paragraphs.length,3)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>':"";
     return `<p>${formatParagraphText(part)}${toggle}</p>`;
   }).join("");
   if(!remaining)return `<div class="muzeArtistHeroBio">${visible}</div>`;
@@ -8380,14 +8380,7 @@ function artistProfilePage(){
   const activeRange=profile.formed_year?`${profile.formed_year} - ${profile.disbanded_year||"Present"}`:"";
   const heroMeta=[profile.country,(profile.genres||[])[0],activeRange?`Active ${activeRange}`:""].filter(Boolean);
   const biography=profile.bio?artistBiographyMarkup(profile.bio):isAdminUnlocked()?`<p class="muzeArtistHeroBioEmpty">No Muze biography has been written yet.</p>`:"";
-  const facts=[
-    profile.formed_year?{label:"Formed",value:profile.formed_year}:profile.birth_date?{label:"Born",value:profile.birth_date}:null,
-    (profile.genres||[]).length?{label:"Genre",value:(profile.genres||[]).slice(0,2).join(" / ")}:null,
-    profile.country?{label:"Country",value:profile.country}:null,
-    {label:"On Muze",value:`${albums.length} album${albums.length===1?"":"s"}`}
-  ].filter(Boolean);
-  const factsHtml=facts.length?`<section class="muzeArtistFacts">${facts.map(fact=>`<div><span>${escapeHtml(fact.label)}</span><strong>${escapeHtml(fact.value)}</strong></div>`).join("")}</section>`:"";
-  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Muze artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${adminButton}</div></section>${factsHtml}${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"} on Muze</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
+  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${adminButton}</div></section>${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"} on Muze</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
 }
 async function loadArtistProfile(slug){
   const cleanSlug=artistSlugForName(slug);

@@ -12122,6 +12122,7 @@ body.artistProfileView #content{margin-top:26px}
 .muzeArtistAboutEmpty p{color:rgba(255,255,255,.48)}
 .muzeArtistPage.noBiography .muzeArtistAboutEmpty{border-bottom:0}
 .muzeArtistDiscography>header{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:22px}
+@media(min-width:561px){.muzeArtistDiscography>header,.muzeArtistDiscography>.muzeArtistAlbumGrid{position:relative;left:calc(0px - clamp(28px,5vw,72px))}}
 .muzeArtistDiscography>header p,.muzeArtistDiscography>header h2{margin-bottom:0}
 .muzeArtistDiscography>header>span{color:rgba(255,255,255,.48);font-size:13px}
 .muzeArtistAlbumGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}
