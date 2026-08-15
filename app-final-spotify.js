@@ -114,6 +114,29 @@ function paragraphChunks(value){
 function firstParagraphText(value){
   return paragraphChunks(value)[0]||String(value||"").trim();
 }
+function artistBiographyMarkup(value){
+  const paragraphs=paragraphChunks(value);
+  if(!paragraphs.length)return "";
+  const remaining=paragraphs.slice(2).map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
+  const visible=paragraphs.slice(0,2).map((part,index)=>{
+    const toggle=remaining&&index===Math.min(paragraphs.length,2)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>':"";
+    return `<p>${formatParagraphText(part)}${toggle}</p>`;
+  }).join("");
+  if(!remaining)return `<div class="muzeArtistHeroBio">${visible}</div>`;
+  return `<div class="muzeArtistHeroBio"><div class="muzeArtistBioPreview">${visible}</div><div class="muzeArtistBioRemainder" hidden>${remaining}</div></div>`;
+}
+window.toggleArtistBiography=function(button){
+  const biography=button?.closest(".muzeArtistHeroBio");
+  const preview=biography?.querySelector(".muzeArtistBioPreview");
+  const remainder=biography?.querySelector(".muzeArtistBioRemainder");
+  if(!remainder)return;
+  const expanded=button.getAttribute("aria-expanded")==="true";
+  remainder.hidden=expanded;
+  button.setAttribute("aria-expanded",String(!expanded));
+  const destination=expanded?preview?.lastElementChild:remainder.lastElementChild;
+  if(destination){destination.append(document.createTextNode(" "),button)}
+  button.innerHTML=expanded?'See more <span aria-hidden="true">&rarr;</span>':'Show less <span aria-hidden="true">&uarr;</span>';
+};
 function compactPreviewText(value){
   const chunks=paragraphChunks(value);
   if(chunks.length>1)return chunks[0];
@@ -8279,6 +8302,53 @@ function artistProfileAlbumCard(album){
   const rating=score(album)>0?`<span class="muzeArtistAlbumScore">&#9733; ${displayScore(album)}</span>`:"";
   return `<article class="muzeArtistAlbumCard" role="button" tabindex="0" onclick="openAlbum('${escapeJsString(album.id)}')" onkeydown="if(event.key==='Enter'||event.key===' ')openAlbum('${escapeJsString(album.id)}')"><div class="muzeArtistAlbumCover">${image?`<img src="${escapeHtml(image)}" alt="${escapeHtml(album.title||"Album")} cover">`:`<span>${escapeHtml(String(album.title||"A").slice(0,1))}</span>`}</div><div><strong>${escapeHtml(album.title||"Untitled album")}</strong><p>${escapeHtml(album.year||"")}</p>${rating}</div></article>`
 }
+const artistDiscographyYearSensitiveTitles=new Set([
+  "fleetwood mac::fleetwood mac",
+  "peter gabriel::peter gabriel",
+  "seal::seal",
+  "duran duran::duran duran",
+  "killing joke::killing joke"
+]);
+function artistDiscographyDisplayKey(album){
+  const titleIdentity=albumIdentityTitleKey(album);
+  if(!titleIdentity)return "";
+  const identity=albumIdentityKey(album);
+  if(!artistDiscographyYearSensitiveTitles.has(identity))return titleIdentity;
+  const year=albumReleaseYear(album)||String(album?.release_date||"").slice(0,4)||"unknown";
+  return `${titleIdentity}::${year}`;
+}
+function dedupeArtistDiscography(albums=[]){
+  const rows=[];
+  const byRelease=new Map();
+  albums.forEach(album=>{
+    const identity=albumIdentityKey(album);
+    const year=albumReleaseYear(album)||String(album?.release_date||"").slice(0,4)||"unknown";
+    const key=artistDiscographyDisplayKey(album);
+    if(!key){rows.push(album);return}
+    const existingIndex=byRelease.get(key);
+    if(existingIndex===undefined){
+      byRelease.set(key,rows.length);
+      rows.push(album);
+      return;
+    }
+    const current=rows[existingIndex];
+    const currentYear=Number(albumReleaseYear(current)||String(current?.release_date||"").slice(0,4));
+    const incomingYear=Number(year);
+    const earliestYear=[currentYear,incomingYear].filter(Number.isFinite).filter(value=>value>0).sort((a,b)=>a-b)[0]||"";
+    const preferred=albumRecordQuality(album)>albumRecordQuality(current)?{...current,...album}:current;
+    rows[existingIndex]=earliestYear&&!artistDiscographyYearSensitiveTitles.has(identity)?{...preferred,year:earliestYear}:preferred;
+  });
+  return rows;
+}
+function artistDiscographyCards(albums=[]){
+  const rendered=new Set();
+  return albums.map(album=>{
+    const key=artistDiscographyDisplayKey(album);
+    if(key&&rendered.has(key))return "";
+    if(key)rendered.add(key);
+    return artistProfileAlbumCard(album);
+  }).join("");
+}
 function artistEditField(id,label,value,type="text"){
   const clean=value??"";
   if(type==="textarea")return `<label>${escapeHtml(label)}<textarea id="${id}" rows="6">${escapeHtml(clean)}</textarea></label>`;
@@ -8303,12 +8373,21 @@ function artistProfilePage(){
   if(state.artistProfileLoading)return `<section class="muzeArtistState"><span class="muzeArtistLoader" aria-hidden="true"></span><h2>Loading artist</h2></section>`;
   const profile=state.artistProfile;
   if(!profile)return `<section class="muzeArtistState"><p class="eyebrow">Muze artists</p><h2>Artist not found</h2><p>${escapeHtml(state.artistProfileError||"This artist does not have a Muze page yet.")}</p><button onclick="navigateToView('artists')">Back to Muze artists</button></section>`;
-  const albums=(state.artistProfileAlbums||[]).slice().sort((a,b)=>(Number(b.year)||0)-(Number(a.year)||0)||String(a.title||"").localeCompare(String(b.title||"")));
+  const albums=dedupeArtistDiscography(state.artistProfileAlbums||[]).sort((a,b)=>(Number(b.year)||0)-(Number(a.year)||0)||String(a.title||"").localeCompare(String(b.title||"")));
   const meta=artistProfileMeta(profile);
   const image=profile.image_url?`<div class="muzeArtistPortrait"><img src="${escapeHtml(profile.image_url)}" alt="${escapeHtml(profile.name)}"></div>`:"";
   const adminButton=isAdminUnlocked()?`<button class="muzeArtistEditButton" onclick="editArtistProfile()">Edit Artist</button>`:"";
-  const about=profile.bio?`<section class="muzeArtistAbout"><div>${formatParagraphText(profile.bio)}</div></section>`:isAdminUnlocked()?`<section class="muzeArtistAbout muzeArtistAboutEmpty"><p>No Muze biography has been written yet.</p></section>`:"";
-  return `<div class="muzeArtistPage${profile.bio?"":" noBiography"}"><section class="muzeArtistProfileHero${image?"":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Muze artist</p><h1>${escapeHtml(profile.name)}</h1>${meta.length?`<p>${meta.map(escapeHtml).join(" &middot; ")}</p>`:""}${profile.formed_year?`<span>Formed ${escapeHtml(profile.formed_year)}</span>`:profile.birth_date?`<span>Born ${escapeHtml(profile.birth_date)}</span>`:""}${adminButton}</div></section>${artistAdminEditor(profile)}${about}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"} on Muze</span></header><div class="muzeArtistAlbumGrid">${albums.length?albums.map(artistProfileAlbumCard).join(""):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
+  const activeRange=profile.formed_year?`${profile.formed_year} - ${profile.disbanded_year||"Present"}`:"";
+  const heroMeta=[profile.country,(profile.genres||[])[0],activeRange?`Active ${activeRange}`:""].filter(Boolean);
+  const biography=profile.bio?artistBiographyMarkup(profile.bio):isAdminUnlocked()?`<p class="muzeArtistHeroBioEmpty">No Muze biography has been written yet.</p>`:"";
+  const facts=[
+    profile.formed_year?{label:"Formed",value:profile.formed_year}:profile.birth_date?{label:"Born",value:profile.birth_date}:null,
+    (profile.genres||[]).length?{label:"Genre",value:(profile.genres||[]).slice(0,2).join(" / ")}:null,
+    profile.country?{label:"Country",value:profile.country}:null,
+    {label:"On Muze",value:`${albums.length} album${albums.length===1?"":"s"}`}
+  ].filter(Boolean);
+  const factsHtml=facts.length?`<section class="muzeArtistFacts">${facts.map(fact=>`<div><span>${escapeHtml(fact.label)}</span><strong>${escapeHtml(fact.value)}</strong></div>`).join("")}</section>`:"";
+  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Muze artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${adminButton}</div></section>${factsHtml}${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"} on Muze</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
 }
 async function loadArtistProfile(slug){
   const cleanSlug=artistSlugForName(slug);
@@ -8342,7 +8421,7 @@ async function loadArtistProfile(slug){
   if(!profile)profile=artistFallbackRecord(cleanSlug);
   if(profile&&!albums.length)albums=state.albums.filter(album=>artistSlugForName(album.artist)===cleanSlug);
   if(albums.length)state.albums=mergeAlbumSources(state.albums,albums);
-  state.artistProfile=profile;state.artistProfileAlbums=albums;state.artistProfileLoading=false;
+  state.artistProfile=profile;state.artistProfileAlbums=dedupeArtistDiscography(albums);state.artistProfileLoading=false;
   if(!profile)state.artistProfileError="Check the artist name or return to the Muze artist directory.";
   render();window.scrollTo({top:0,behavior:"auto"});return {profile,usedDatabase:Boolean(profile?.id)}
 }
