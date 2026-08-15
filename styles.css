@@ -17091,6 +17091,19 @@ body.light .albumInfoPopupPanel,body.light .albumInfoPage{background:#f2f0e9}bod
   }
 }
 
+@media(max-width:850px){
+  #albumInfoPopup .albumGlanceFact-music{
+    pointer-events:none;
+    cursor:default;
+  }
+  #albumInfoPopup .albumGlancePlayCue{
+    display:none!important;
+  }
+  #albumInfoPopup .albumGlanceFact-music>div{
+    padding-right:0;
+  }
+}
+
 /* Tighten the vertical transitions between mobile info sections. */
 @media(max-width:700px){
   .albumInfoHero{

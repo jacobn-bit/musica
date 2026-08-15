@@ -1721,7 +1721,9 @@ function finishAdminUnlock(pin,message){
   setAdminInlineStatus(message||"Admin overview editing is unlocked for this browser tab.","success");
   const album=typeof albumInfoCurrentAlbum==="function"?albumInfoCurrentAlbum():null;
   if(album&&!document.querySelector("#albumInfoPopup.hidden")){
-    renderAlbumInfo(album.id);
+    const info=extras.albumInfo[albumRef(album.id)];
+    if(info?.metadata&&!albumInfoHasNamedPerformers(info))loadAlbumInfo(album,true);
+    else renderAlbumInfo(album.id);
   }
 }
 window.unlockOverviewAdmin=async function(){
@@ -4790,10 +4792,32 @@ function albumInfoIcon(name){
   return `<svg class="albumInfoIcon" viewBox="0 0 24 24" aria-hidden="true">${paths[name]||paths.disc}</svg>`;
 }
 function albumInfoRoleList(credit){
-  return [...new Set([credit?.role,credit?.instrument].filter(Boolean).flatMap(value=>String(value).split(/[,;]+/)).map(value=>value.trim()).filter(Boolean))]
+  return [...new Set([credit?.role,credit?.instrument].filter(Boolean).flatMap(value=>String(value).split(/[,;]+|\s+\/\s+/)).map(value=>value.trim()).filter(Boolean))]
     .map(value=>value.charAt(0).toUpperCase()+value.slice(1));
 }
 function albumInfoRoles(credit){return albumInfoRoleList(credit).join(", ")}
+function albumInfoIsVocalRole(value){
+  return /\b(vocals?|vocalisations?|vocalizations?|singers?|singing|rappers?|rapping|spoken word)\b/i.test(String(value||""));
+}
+function albumInfoPresentationCredits(items=[]){
+  const rows=[];
+  items.forEach(item=>{
+    if(item?.credit_type!=="production"){rows.push(item);return}
+    const roles=albumInfoRoleList(item),vocalRoles=roles.filter(albumInfoIsVocalRole),productionRoles=roles.filter(role=>!albumInfoIsVocalRole(role));
+    if(vocalRoles.length)rows.push({...item,credit_type:"performer",role:vocalRoles.join(", "),instrument:vocalRoles.join(", "),_source_credit_type:item.credit_type});
+    if(productionRoles.length)rows.push({...item,role:productionRoles.join(", "),instrument:""});
+  });
+  const merged=new Map();
+  rows.forEach(row=>{
+    const key=`${normalizeAlbumName(row.person_name)}::${row.credit_type}`;
+    const current=merged.get(key);
+    if(!current){merged.set(key,{...row});return}
+    const roles=[...new Set([...albumInfoRoleList(current),...albumInfoRoleList(row)])];
+    current.role=roles.join(", ");
+    current.instrument=row.credit_type==="performer"?roles.join(", "):"";
+  });
+  return [...merged.values()];
+}
 function albumInfoSourceLink(row){
   if(!isAdminUnlocked())return "";
   const url=String(row?.source_url||"").trim();
@@ -4819,9 +4843,10 @@ function albumInfoPersonCard(credit,admin){
   const more=remaining.length?`<details class="infoPersonMore"><summary>+ ${remaining.length} more role${remaining.length===1?"":"s"}</summary><p class="infoRoleFacts">${albumInfoRoleFactsHtml(remaining)}</p></details>`:"";
   const portraitSource=String(credit.image_source_url||"").trim(),portraitAuthor=String(credit.image_author||"Wikimedia Commons contributor").trim(),portraitLicense=String(credit.image_license||"").trim(),portraitLicenseUrl=String(credit.image_license_url||"").trim();
   const portraitCredit=admin&&image&&portraitSource?`<span class="infoPortraitCredit${candidateVisible?" isCandidate":""}"><a href="${escapeHtml(portraitSource)}" target="_blank" rel="noopener">${candidateVisible?"Candidate photo":"Photo"}: ${escapeHtml(portraitAuthor)}</a>${portraitLicense?` &middot; <a href="${escapeHtml(portraitLicenseUrl||portraitSource)}" target="_blank" rel="noopener">${escapeHtml(portraitLicense)}</a>`:""} &middot; circular crop</span>`:"";
-  const portraitTarget=`'${escapeJsString(credit.id||"")}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}'`;
+  const sourceCreditType=credit._source_credit_type||credit.credit_type||"";
+  const portraitTarget=`'${escapeJsString(credit.id||"")}','${escapeJsString(name)}','${escapeJsString(sourceCreditType)}'`;
   const portraitActions=admin&&portraitApproved?`<span class="infoPortraitApproved">Photo approved</span><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Find a different licensed portrait or use initials">Change photo</button>`:admin&&portraitStatus==="candidate"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button><button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'rejected')" title="Reject portrait">Reject photo</button>`:admin&&portraitStatus==="rejected"?`<button onclick="setAlbumInfoPortraitStatus(${portraitTarget},'approved')" title="Approve licensed portrait">Approve photo</button>`:"";
-  const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(credit.credit_type||"")}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
+  const controls=admin?`<div class="infoRowActions">${portraitActions}<button onclick="editAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(sourceCreditType)}')" title="Edit credit" aria-label="Edit ${escapeHtml(name)}">Edit</button><button onclick="deleteAlbumInfoCredit('${escapeJsString(credit.id)}','${escapeJsString(name)}','${escapeJsString(sourceCreditType)}')" title="Delete credit" aria-label="Delete ${escapeHtml(name)}">Delete</button></div>`:"";
   return `<article class="infoPerson${candidateVisible?" hasPortraitCandidate":""}"><div class="infoPersonAvatar">${avatar}</div><div class="infoPersonCopy"><strong>${escapeHtml(name)}</strong><p class="infoPersonPrimary">${primary.length?primary.map(escapeHtml).join(" / "):"Credit unavailable"}</p>${secondary.length?`<p class="infoPersonSecondary">${secondary.map(escapeHtml).join(", ")}</p>`:""}${portraitCredit}${albumInfoSourceLink(credit)}</div>${controls}${more}</article>`;
 }
 function albumInfoSection(id,title,icon,body,className=""){
@@ -4915,7 +4940,7 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
   if(info.error){host.innerHTML=`<div class="albumInfoUnavailable"><h3>Album information unavailable</h3><p>${escapeHtml(info.error)}</p></div>`;return}
   const metadata=info.metadata||{};
   const labels=Array.isArray(info.labels)?info.labels:[];
-  const credits=Array.isArray(info.credits)?info.credits:[];
+  const credits=albumInfoPresentationCredits(Array.isArray(info.credits)?info.credits:[]);
   const performers=credits.filter(item=>item.credit_type==="performer");
   const production=credits.filter(item=>item.credit_type==="production");
   const songwriting=credits.filter(item=>item.credit_type==="songwriting");
@@ -4946,6 +4971,9 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
 function albumInfoContentSignature(info){
   return JSON.stringify(info,(key,value)=>key==="cached"?undefined:value);
 }
+function albumInfoHasNamedPerformers(payload){
+  return Array.isArray(payload?.credits)&&payload.credits.some(row=>row?.credit_type==="performer"&&String(row?.person_name||"").trim());
+}
 async function loadAlbumInfo(album,force=false,quiet=false){
   const ref=albumRef(album?.id);
   if(!album||!ref)return null;
@@ -4963,12 +4991,11 @@ async function loadAlbumInfo(album,force=false,quiet=false){
       let response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
       let data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.message||data.error||"Album information could not be loaded.");
-      const hasNamedPerformers=payload=>Array.isArray(payload?.credits)&&payload.credits.some(row=>row?.credit_type==="performer"&&String(row?.person_name||"").trim());
-      if(!force&&data?.metadata&&!hasNamedPerformers(data)){
+      if(!force&&adminPin&&data?.metadata&&!albumInfoHasNamedPerformers(data)){
         params.set("refresh","1");
         response=await fetch(`/.netlify/functions/album-info?${params.toString()}`,{cache:"no-store",headers:adminPin?{"X-Muze-Admin-Pin":adminPin}:{}});
         const refreshed=await response.json().catch(()=>({}));
-        if(response.ok&&hasNamedPerformers(refreshed))data=refreshed;
+        if(response.ok&&albumInfoHasNamedPerformers(refreshed))data=refreshed;
       }
       changed=albumInfoContentSignature(previous)!==albumInfoContentSignature(data);
       extras.albumInfo[ref]=data;
@@ -5345,10 +5372,13 @@ window.closeAlbumOverviewPopup=function(){
   const popup=$("#albumOverviewPopup");
   if(popup)popup.classList.add("hidden");
 }
-window.openAlbumInfoPopup=function(){
+window.openAlbumInfoPopup=async function(){
   const album=albumInfoCurrentAlbum();
   if(!album)return;
   const ref=albumRef(album.id);
+  const savedInfo=extras.albumInfo[ref];
+  if(isAdminUnlocked()&&savedInfo?.metadata&&!albumInfoHasNamedPerformers(savedInfo)&&!extras.albumInfoRequests[ref])await loadAlbumInfo(album,true,true);
+  if(!isAdminUnlocked()&&!extras.albumInfo[ref]&&!extras.albumInfoRequests[ref])await loadAlbumInfo(album,false,true);
   let popup=$("#albumInfoPopup");
   if(!popup){
     popup=document.createElement("div");
