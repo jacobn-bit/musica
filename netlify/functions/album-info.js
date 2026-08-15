@@ -1553,6 +1553,54 @@ function applyVerifiedAlbumOverrides(info, input) {
   return info;
 }
 
+function normalizeImportedCreditRows(rows = []) {
+  const now = new Date().toISOString();
+  return rows.map(row => ({
+    album_ref: clean(row.album_ref),
+    album_id: clean(row.album_id) || null,
+    person_name: clean(row.person_name),
+    person_id: clean(row.person_id) || null,
+    person_wikidata_id: clean(row.person_wikidata_id) || null,
+    image_url: clean(row.image_url) || null,
+    image_source_url: clean(row.image_source_url) || null,
+    image_author: clean(row.image_author) || null,
+    image_license: clean(row.image_license) || null,
+    image_license_url: clean(row.image_license_url) || null,
+    image_attribution: clean(row.image_attribution) || null,
+    image_modified: clean(row.image_modified) || null,
+    image_status: clean(row.image_status) || "candidate",
+    image_approved: row.image_approved === true,
+    image_last_verified_at: clean(row.image_last_verified_at) || null,
+    image_rejected_urls: stringArray(row.image_rejected_urls),
+    credit_type: normalize(row.credit_type),
+    role: clean(row.role) || null,
+    instrument: clean(row.instrument) || null,
+    sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0,
+    source: clean(row.source) || null,
+    source_url: clean(row.source_url) || null,
+    source_secondary: clean(row.source_secondary) || null,
+    source_secondary_url: clean(row.source_secondary_url) || null,
+    manually_verified: row.manually_verified === true,
+    updated_at: clean(row.updated_at) || now
+  }));
+}
+
+function normalizeImportedLabelRows(rows = []) {
+  const now = new Date().toISOString();
+  return rows.map(row => ({
+    album_ref: clean(row.album_ref),
+    album_id: clean(row.album_id) || null,
+    label_name: clean(row.label_name),
+    label_type: clean(row.label_type) || "label",
+    is_original_label: row.is_original_label === true,
+    release_region: clean(row.release_region) || null,
+    source: clean(row.source) || null,
+    source_url: clean(row.source_url) || null,
+    manually_verified: row.manually_verified === true,
+    updated_at: clean(row.updated_at) || now
+  }));
+}
+
 async function cacheImportedInfo(info, replaceNonManual = false) {
   const ref = encodeURIComponent(info.metadata.album_ref);
   if (replaceNonManual) {
@@ -1567,10 +1615,10 @@ async function cacheImportedInfo(info, replaceNonManual = false) {
     body: JSON.stringify(info.metadata)
   });
   if (info.credits.length) await api("album_credits", {
-    method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(info.credits)
+    method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(normalizeImportedCreditRows(info.credits))
   });
   if (info.labels.length) await api("album_labels", {
-    method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(info.labels)
+    method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(normalizeImportedLabelRows(info.labels))
   });
   if (info.sales) await api("album_sales", {
     method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(info.sales)
@@ -1988,4 +2036,4 @@ exports.handler = async function handler(event) {
   }
 };
 
-exports._test = { aggregateCredits, albumInfoResponseView, applySharedApprovedPortraits, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, creditIdsForDeletion, hasCompleteAlbumInfoCache, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaArticleSales, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
+exports._test = { aggregateCredits, albumInfoResponseView, applySharedApprovedPortraits, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, creditIdsForDeletion, hasCompleteAlbumInfoCache, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, normalizeImportedCreditRows, normalizeImportedLabelRows, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaArticleSales, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
