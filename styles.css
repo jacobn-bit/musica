@@ -17212,3 +17212,31 @@ body.light .muzeArtistImageTools button{border-color:rgba(20,20,20,.15);backgrou
 body.light .muzeArtistImageTools span,body.light .muzeArtistImageCredit{color:rgba(20,20,20,.56)}
 body.light .muzeArtistImageCreditFields{border-color:rgba(20,20,20,.12);background:rgba(255,255,255,.42)}
 body.light .muzeArtistImageCredit a{color:#8a6b00}
+
+@media(max-width:850px){
+  .controls{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .controls #searchInput{
+    grid-column:1 / -1!important;
+    grid-row:2!important;
+  }
+  .controls #genreFilter,
+  .controls #sortSelect{
+    min-height:38px!important;
+    padding:12px!important;
+    border-radius:13px!important;
+    font-size:13px!important;
+  }
+  .controls #genreFilter{
+    grid-column:1!important;
+    grid-row:1!important;
+  }
+  .controls #sortSelect{
+    grid-column:2!important;
+    grid-row:1!important;
+  }
+}
+
+.heroCard[role="button"]{cursor:pointer}
+.heroCard[role="button"]:focus-visible{outline:2px solid #ffd51f;outline-offset:4px}
