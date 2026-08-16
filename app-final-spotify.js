@@ -63,7 +63,7 @@ function clearLocalOverviewOverride(key){
     }
   }catch(error){}
 }
-const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
+const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
 let homeSearchRenderTimer=0;
@@ -4941,7 +4941,7 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
   const metadata=info.metadata||{};
   const labels=Array.isArray(info.labels)?info.labels:[];
   const credits=albumInfoPresentationCredits(Array.isArray(info.credits)?info.credits:[]);
-  const performers=credits.filter(item=>item.credit_type==="performer");
+  const performers=credits.filter(item=>item.credit_type==="performer"&&!albumInfoIsGenericArtistCredit(item,album));
   const production=credits.filter(item=>item.credit_type==="production");
   const songwriting=credits.filter(item=>item.credit_type==="songwriting");
   const originalLabel=labels.find(label=>label.is_original_label)||labels[0];
@@ -4972,7 +4972,17 @@ function albumInfoContentSignature(info){
   return JSON.stringify(info,(key,value)=>key==="cached"?undefined:value);
 }
 function albumInfoHasNamedPerformers(payload){
-  return Array.isArray(payload?.credits)&&payload.credits.some(row=>row?.credit_type==="performer"&&String(row?.person_name||"").trim());
+  const albumArtist=normalizeAlbumName(payload?.metadata?.artist);
+  return Array.isArray(payload?.credits)&&payload.credits.some(row=>{
+    if(row?.credit_type!=="performer"||!String(row?.person_name||"").trim())return false;
+    const role=normalizeAlbumName([row?.role,row?.instrument].filter(Boolean).join(" "));
+    return !(albumArtist&&normalizeAlbumName(row.person_name)===albumArtist&&(!role||["artist","performer","primary artist"].includes(role)));
+  });
+}
+function albumInfoIsGenericArtistCredit(row,album){
+  if(row?.credit_type!=="performer"||normalizeAlbumName(row?.person_name)!==normalizeAlbumName(album?.artist))return false;
+  const role=normalizeAlbumName([row?.role,row?.instrument].filter(Boolean).join(" "));
+  return !role||["artist","performer","primary artist"].includes(role);
 }
 async function loadAlbumInfo(album,force=false,quiet=false){
   const ref=albumRef(album?.id);
@@ -8361,7 +8371,7 @@ function artistFallbackRecord(slug){
   const name=artistNames().find(item=>artistSlugForName(item)===slug)||"";
   if(!name)return null;
   const albums=state.albums.filter(album=>artistSlugForName(album.artist)===slug);
-  return {id:null,name,slug,image_url:"",bio:"",bio_sources:[],bio_generated_at:null,bio_generation_model:"",country:"",artist_type:"",genres:[...new Set(albums.map(albumGenreLabel).filter(label=>label&&label!=="Album"))],formed_year:null,disbanded_year:null,birth_date:null,death_date:null}
+  return {id:null,name,slug,image_url:"",image_source_url:"",image_author:"",image_license:"",image_license_url:"",image_attribution:"",bio:"",bio_sources:[],bio_generated_at:null,bio_generation_model:"",country:"",artist_type:"",genres:[...new Set(albums.map(albumGenreLabel).filter(label=>label&&label!=="Album"))],formed_year:null,disbanded_year:null,birth_date:null,death_date:null}
 }
 function artistProfileMeta(profile){
   const parts=[];
@@ -8369,6 +8379,50 @@ function artistProfileMeta(profile){
   if(profile.artist_type)parts.push(profile.artist_type);
   (Array.isArray(profile.genres)?profile.genres:[]).slice(0,3).forEach(genre=>{if(genre&&!parts.includes(genre))parts.push(genre)});
   return parts
+}
+function artistRejectedImageUrls(profile){
+  const value=profile?.image_rejected_urls;
+  if(Array.isArray(value))return value.map(item=>String(item||"").trim()).filter(Boolean);
+  try{const parsed=JSON.parse(String(value||"[]"));return Array.isArray(parsed)?parsed.map(item=>String(item||"").trim()).filter(Boolean):[]}catch(error){return []}
+}
+function artistProfileApprovedPortraits(rows=[],rejectedUrls=[]){
+  const seen=new Set();
+  const rejected=new Set((rejectedUrls||[]).map(item=>String(item||"").trim()).filter(Boolean));
+  return rows.filter(row=>row?.image_approved===true&&String(row?.image_status||"").toLowerCase()==="approved"&&String(row?.image_url||"").trim()).filter(row=>!rejected.has(String(row.image_url||"").trim())&&!rejected.has(String(row.image_source_url||"").trim())).filter(row=>normalizeAlbumName(row.person_name)!=="prince"||String(row.person_wikidata_id||"").toUpperCase()==="Q7542").filter(row=>{
+    const key=String(row.person_wikidata_id||row.person_name||row.image_url||"").trim().toLowerCase();
+    if(!key||seen.has(key))return false;
+    seen.add(key);return true
+  }).sort((left,right)=>(Number(left.sort_order)||99999)-(Number(right.sort_order)||99999));
+}
+function artistProfilePortraitSource(profile){
+  const rejected=artistRejectedImageUrls(profile);
+  const approved=artistProfileApprovedPortraits(state.artistProfilePortraits||[],rejected);
+  const exact=approved.find(row=>normalizeAlbumName(row.person_name)===normalizeAlbumName(profile.name));
+  if(exact)return {type:"credit",image_url:String(exact.image_url||""),portraits:[exact]};
+  if(profile.image_url&&normalizeAlbumName(profile.name)!=="prince"&&!rejected.includes(String(profile.image_url||"").trim()))return {type:"profile",image_url:String(profile.image_url||""),portraits:[],credit:profile};
+  const portraits=exact?[exact]:approved.slice(0,4);
+  if(!portraits.length||(!exact&&portraits.length<2))return null;
+  return {type:portraits.length>1?"collage":"credit",image_url:String(portraits[0]?.image_url||""),portraits};
+}
+function artistImageCreditMarkup(source){
+  const credit=source?.credit||source?.portraits?.[0]||{};
+  const attribution=String(credit.image_attribution||"").trim();
+  const author=String(credit.image_author||"").trim();
+  const license=String(credit.image_license||"").trim();
+  const sourceUrl=String(credit.image_source_url||"").trim();
+  const licenseUrl=String(credit.image_license_url||"").trim();
+  if(!attribution&&!author&&!license&&!sourceUrl)return "";
+  const label=attribution||["Photo",author].filter(Boolean).join(": ")||"Image source";
+  const sourceLink=sourceUrl?`<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`:escapeHtml(label);
+  const licenseLink=license?` <span>&middot;</span> ${licenseUrl?`<a href="${escapeHtml(licenseUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(license)}</a>`:escapeHtml(license)}`:"";
+  return `<p class="muzeArtistImageCredit">${sourceLink}${licenseLink}</p>`
+}
+function artistProfilePortraitMarkup(profile){
+  const source=artistProfilePortraitSource(profile);
+  if(!source)return "";
+  if(source.type==="profile")return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait"><img src="${escapeHtml(source.image_url)}" alt="${escapeHtml(profile.name)}"></div>${artistImageCreditMarkup(source)}</figure>`;
+  const collage=source.portraits.length>1;
+  return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait isCreditPortrait${collage?` isMemberCollage count-${source.portraits.length}`:""}">${source.portraits.map(row=>`<img src="${escapeHtml(row.image_url)}" alt="${escapeHtml(collage?row.person_name:profile.name)}" loading="lazy">`).join("")}</div>${artistImageCreditMarkup(source)}</figure>`;
 }
 function artistProfileAlbumCard(album){
   const image=albumCoverUrl(album);
@@ -8440,7 +8494,9 @@ function artistBioSourcesMarkup(value){
 function artistAdminEditor(profile){
   if(!isAdminUnlocked()||!state.artistEditing)return "";
   const sources=state.artistBioDraftSources.length?state.artistBioDraftSources:artistBioSources(profile.bio_sources);
-  return `<section class="muzeArtistAdmin"><header><div><span>Admin editing</span><h2>Edit artist</h2></div><button type="button" onclick="cancelArtistEdit()">Cancel</button></header><div class="muzeArtistAdminGrid">${artistEditField("artistEditName","Artist name",profile.name)}${artistEditField("artistEditImage","Artist image URL",profile.image_url)}${artistEditField("artistEditCountry","Country",profile.country)}${artistEditField("artistEditType","Artist type",profile.artist_type)}${artistEditField("artistEditGenres","Genres (comma separated)",(profile.genres||[]).join(", "))}${artistEditField("artistEditFormed","Formed year",profile.formed_year,"number")}${artistEditField("artistEditDisbanded","Disbanded year",profile.disbanded_year,"number")}${artistEditField("artistEditBirth","Birth date",profile.birth_date,"date")}${artistEditField("artistEditDeath","Death date",profile.death_date,"date")}<div class="muzeArtistAdminBio">${artistEditField("artistEditBio","Muze biography",profile.bio,"textarea")}<div class="muzeArtistBioTools"><button id="artistBioDraftButton" type="button" onclick="generateArtistBioDraft()">Generate Bio Draft</button><span id="artistBioDraftStatus">Researches structured facts and returns an unpublished draft.</span></div><div class="muzeArtistBioSources"><strong>Sources consulted</strong><div id="artistBioSourcesList">${artistBioSourcesMarkup(sources)}</div></div></div></div><button class="muzeArtistAdminSave" type="button" onclick="saveArtistProfile()">Save artist</button></section>`
+  const imageSource=artistProfilePortraitSource(profile);
+  const imageActions=imageSource?.image_url?`<div class="muzeArtistImageTools"><button type="button" onclick="rejectArtistProfileImage()">Reject current image</button><span id="artistImageStatus">Looks for the next approved linked portrait.</span></div>`:`<div class="muzeArtistImageTools"><span id="artistImageStatus">No artist image is active.</span></div>`;
+  return `<section class="muzeArtistAdmin"><header><div><span>Admin editing</span><h2>Edit artist</h2></div><button type="button" onclick="cancelArtistEdit()">Cancel</button></header><div class="muzeArtistAdminGrid">${artistEditField("artistEditName","Artist name",profile.name)}<div class="muzeArtistImageField">${artistEditField("artistEditImage","Artist image URL",profile.image_url)}${imageActions}</div>${artistEditField("artistEditCountry","Country",profile.country)}${artistEditField("artistEditType","Artist type",profile.artist_type)}${artistEditField("artistEditGenres","Genres (comma separated)",(profile.genres||[]).join(", "))}<div class="muzeArtistImageCreditFields">${artistEditField("artistImageSource","Image source page URL",profile.image_source_url,"url")}${artistEditField("artistImageAuthor","Image author / credit",profile.image_author)}${artistEditField("artistImageLicense","Image license",profile.image_license)}${artistEditField("artistImageLicenseUrl","Image license URL",profile.image_license_url,"url")}${artistEditField("artistImageAttribution","Image attribution text",profile.image_attribution)}</div>${artistEditField("artistEditFormed","Formed year",profile.formed_year,"number")}${artistEditField("artistEditDisbanded","Disbanded year",profile.disbanded_year,"number")}${artistEditField("artistEditBirth","Birth date",profile.birth_date,"date")}${artistEditField("artistEditDeath","Death date",profile.death_date,"date")}<div class="muzeArtistAdminBio">${artistEditField("artistEditBio","Muze biography",profile.bio,"textarea")}<div class="muzeArtistBioTools"><button id="artistBioDraftButton" type="button" onclick="generateArtistBioDraft()">Generate Bio Draft</button><span id="artistBioDraftStatus">Researches structured facts and returns an unpublished draft.</span></div><div class="muzeArtistBioSources"><strong>Sources consulted</strong><div id="artistBioSourcesList">${artistBioSourcesMarkup(sources)}</div></div></div></div><button class="muzeArtistAdminSave" type="button" onclick="saveArtistProfile()">Save artist</button></section>`
 }
 function artistProfilePage(){
   if(state.artistProfileLoading)return `<section class="muzeArtistState"><span class="muzeArtistLoader" aria-hidden="true"></span><h2>Loading artist</h2></section>`;
@@ -8448,7 +8504,7 @@ function artistProfilePage(){
   if(!profile)return `<section class="muzeArtistState"><p class="eyebrow">Muze artists</p><h2>Artist not found</h2><p>${escapeHtml(state.artistProfileError||"This artist does not have a Muze page yet.")}</p><button onclick="navigateToView('artists')">Back to Muze artists</button></section>`;
   const albums=dedupeArtistDiscography(state.artistProfileAlbums||[]).sort((a,b)=>(Number(b.year)||0)-(Number(a.year)||0)||String(a.title||"").localeCompare(String(b.title||"")));
   const meta=artistProfileMeta(profile);
-  const image=profile.image_url?`<div class="muzeArtistPortrait"><img src="${escapeHtml(profile.image_url)}" alt="${escapeHtml(profile.name)}"></div>`:"";
+  const image=artistProfilePortraitMarkup(profile);
   const adminButton=isAdminUnlocked()?`<button class="muzeArtistEditButton" onclick="editArtistProfile()">Edit Artist</button>`:"";
   const activeRange=profile.formed_year?`${profile.formed_year} - ${profile.disbanded_year||"Present"}`:"";
   const heroMeta=[profile.country,(profile.genres||[])[0],activeRange?`Active ${activeRange}`:""].filter(Boolean);
@@ -8457,7 +8513,7 @@ function artistProfilePage(){
 }
 async function loadArtistProfile(slug){
   const cleanSlug=artistSlugForName(slug);
-  state.artistProfileLoading=true;state.artistProfileError="";state.artistProfile=null;state.artistProfileAlbums=[];state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render();
+  state.artistProfileLoading=true;state.artistProfileError="";state.artistProfile=null;state.artistProfileAlbums=[];state.artistProfilePortraits=[];state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render();
   let profile=null;let albums=[];
   if(db&&cleanSlug){
     try{
@@ -8478,6 +8534,8 @@ async function loadArtistProfile(slug){
             overviewResult.data.forEach(row=>{if(row?.album_key)extras.overviews[row.album_key]=row});
             indexOverviewRows();
           }
+          const portraitsResult=await db.from("album_credits").select("album_id,person_name,person_wikidata_id,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_status,image_approved,credit_type,role,sort_order").in("album_id",ids).eq("credit_type","performer").eq("image_approved",true).not("image_url","is",null);
+          if(!portraitsResult.error)state.artistProfilePortraits=portraitsResult.data||[];
         }
       }
     }catch(error){
@@ -8504,6 +8562,25 @@ async function navigateToArtist(slug,{replace=false}={}){
 window.openArtistPage=function(slug){return navigateToArtist(slug)};
 window.editArtistProfile=function(){if(!isAdminUnlocked())return;state.artistBioDraftSources=artistBioSources(state.artistProfile?.bio_sources);state.artistBioDraftModel=String(state.artistProfile?.bio_generation_model||"");state.artistBioDraftedAt=String(state.artistProfile?.bio_generated_at||"");state.artistEditing=true;render()};
 window.cancelArtistEdit=function(){state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render()};
+window.rejectArtistProfileImage=async function(){
+  if(!isAdminUnlocked()||!state.artistProfile)return;
+  const source=artistProfilePortraitSource(state.artistProfile);
+  if(!source?.image_url){const status=$("#artistImageStatus");if(status)status.textContent="No artist image is active.";return}
+  if(!confirm("Reject this artist image and replace it with the next approved linked portrait if one is available?"))return;
+  const button=document.querySelector(".muzeArtistImageTools button");const status=$("#artistImageStatus");
+  if(button){button.disabled=true;button.textContent="Replacing..."}if(status)status.textContent="Checking approved linked portraits.";
+  try{
+    const result=await adminOverviewRequest({action:"reject_artist_image",slug:state.artistProfile.slug,name:state.artistProfile.name,image_url:source.image_url});
+    if(!result?.ok)return;
+    state.artistProfile={...state.artistProfile,...result.row};
+    const editor=$("#artistEditImage");if(editor)editor.value=state.artistProfile.image_url||"";
+    [["#artistImageSource","image_source_url"],["#artistImageAuthor","image_author"],["#artistImageLicense","image_license"],["#artistImageLicenseUrl","image_license_url"],["#artistImageAttribution","image_attribution"]].forEach(([id,field])=>{const input=$(id);if(input)input.value=state.artistProfile[field]||""});
+    if((result.stripped_columns||[]).includes("image_rejected_urls"))alert("The image was replaced, but rejection history could not be stored because the live artists table needs the artist image rejection migration.");
+    if(status)status.textContent=result.replacement?"Image replaced with the next approved portrait.":"Image rejected. No replacement portrait is available yet.";
+    render();
+  }catch(error){if(status)status.textContent=error.message||"Artist image could not be rejected."}
+  finally{if(button){button.disabled=false;button.textContent="Reject current image"}}
+};
 window.generateArtistBioDraft=async function(){
   if(!isAdminUnlocked()||!state.artistProfile)return;
   const pin=normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||"");
@@ -8525,9 +8602,10 @@ window.generateArtistBioDraft=async function(){
 window.saveArtistProfile=async function(){
   if(!isAdminUnlocked()||!state.artistProfile)return;
   const value=id=>String($(id)?.value||"").trim();
-  const payload={action:"save_artist",slug:state.artistProfile.slug,name:value("#artistEditName"),image_url:value("#artistEditImage"),country:value("#artistEditCountry"),artist_type:value("#artistEditType"),genres:value("#artistEditGenres").split(",").map(item=>item.trim()).filter(Boolean),formed_year:value("#artistEditFormed"),disbanded_year:value("#artistEditDisbanded"),birth_date:value("#artistEditBirth"),death_date:value("#artistEditDeath"),bio:value("#artistEditBio"),bio_sources:state.artistBioDraftSources.length?state.artistBioDraftSources:artistBioSources(state.artistProfile.bio_sources),bio_generated_at:state.artistBioDraftedAt||state.artistProfile.bio_generated_at||null,bio_generation_model:state.artistBioDraftModel||state.artistProfile.bio_generation_model||""};
+  const payload={action:"save_artist",slug:state.artistProfile.slug,name:value("#artistEditName"),image_url:value("#artistEditImage"),image_source_url:value("#artistImageSource"),image_author:value("#artistImageAuthor"),image_license:value("#artistImageLicense"),image_license_url:value("#artistImageLicenseUrl"),image_attribution:value("#artistImageAttribution"),country:value("#artistEditCountry"),artist_type:value("#artistEditType"),genres:value("#artistEditGenres").split(",").map(item=>item.trim()).filter(Boolean),formed_year:value("#artistEditFormed"),disbanded_year:value("#artistEditDisbanded"),birth_date:value("#artistEditBirth"),death_date:value("#artistEditDeath"),bio:value("#artistEditBio"),bio_sources:state.artistBioDraftSources.length?state.artistBioDraftSources:artistBioSources(state.artistProfile.bio_sources),bio_generated_at:state.artistBioDraftedAt||state.artistProfile.bio_generated_at||null,bio_generation_model:state.artistBioDraftModel||state.artistProfile.bio_generation_model||""};
   const result=await adminOverviewRequest(payload);if(!result?.ok)return;
   if((result.stripped_columns||[]).some(column=>column.startsWith("bio_")))alert("The biography was saved, but its research provenance could not be stored because the live artists table needs supabase/migrations/202608150002_artist_biography_sources.sql.");
+  if((result.stripped_columns||[]).some(column=>column.startsWith("image_")&&column!=="image_url"))alert("The artist was saved, but image credit details could not be stored because the live artists table needs the artist image attribution migration.");
   state.artistProfile={...state.artistProfile,...result.row};state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render()
 };
 
