@@ -142,6 +142,30 @@ exports.handler = async function(event) {
       if (Array.isArray(value)) return value.map(item => cleanText(item)).filter(Boolean);
       return String(value || "").split(/\n|,/).map(item => cleanText(item)).filter(Boolean);
     };
+    const stringArray = value => {
+      if (Array.isArray(value)) return value.map(cleanText).filter(Boolean);
+      try {
+        const parsed = JSON.parse(String(value || "[]"));
+        return Array.isArray(parsed) ? parsed.map(cleanText).filter(Boolean) : [];
+      } catch (_) { return []; }
+    };
+    const portraitIdentityIsAllowed = row => cleanText(row?.person_name).toLowerCase() !== "prince"
+      || cleanText(row?.person_wikidata_id).toUpperCase() === "Q7542";
+    const artistImageCandidate = (rows, rejectedUrls) => {
+      const rejected = new Set((rejectedUrls || []).map(cleanText).filter(Boolean));
+      const seen = new Set();
+      return (Array.isArray(rows) ? rows : [])
+        .filter(row => row?.image_approved === true && cleanText(row?.image_url) && String(row?.image_status || "").toLowerCase() === "approved")
+        .filter(portraitIdentityIsAllowed)
+        .filter(row => !rejected.has(cleanText(row.image_url)) && !rejected.has(cleanText(row.image_source_url)))
+        .filter(row => {
+          const key = cleanText(row.person_wikidata_id || row.person_name || row.image_url).toLowerCase();
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .sort((left, right) => (Number(left.sort_order) || 99999) - (Number(right.sort_order) || 99999))[0] || null;
+    };
     const overviewFieldPayload = () => {
       const fields = {};
       ["intro_summary", "sound_summary", "impact_summary", "legacy_summary", "quote_headline"].forEach(key => {
@@ -210,7 +234,12 @@ exports.handler = async function(event) {
         name: artistName,
         name_key: artistKey,
         slug: artistSlug,
-        image_url: cleanText(body.image_url) || null,
+        image_url: artistKey === "prince" ? null : cleanText(body.image_url) || null,
+        image_source_url: cleanText(body.image_source_url) || null,
+        image_author: cleanText(body.image_author) || null,
+        image_license: cleanText(body.image_license) || null,
+        image_license_url: cleanText(body.image_license_url) || null,
+        image_attribution: cleanText(body.image_attribution) || null,
         bio: cleanParagraphText(body.bio) || null,
         bio_sources: cleanSourceRows(body.bio_sources),
         bio_generated_at: cleanTimestamp(body.bio_generated_at),
@@ -227,7 +256,8 @@ exports.handler = async function(event) {
       const strippedColumns = [];
       let nextPayload = { ...artistPayload };
       let rows = null;
-      for (let attempt = 0; attempt < 4; attempt += 1) {
+      const maximumAttempts = Object.keys(nextPayload).length + 1;
+      for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
         try {
           rows = await api("artists?on_conflict=slug", {
             method: "POST",
@@ -244,6 +274,71 @@ exports.handler = async function(event) {
       }
       if (!rows) throw new Error("Could not save the artist after checking the live artist schema.");
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows?.[0] || nextPayload, stripped_columns: strippedColumns }) };
+    }
+
+    if (action === "reject_artist_image") {
+      const slugify = value => cleanText(value)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const artistSlug = slugify(body.slug || body.name);
+      const artistName = cleanText(body.name).slice(0, 180);
+      if (!artistSlug && !artistName) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Artist name or slug is required." }) };
+      }
+      const artistRows = await api(`artists?${artistSlug ? `slug=eq.${encodeURIComponent(artistSlug)}` : `name=eq.${encodeURIComponent(artistName)}`}&select=*`);
+      const artistRow = artistRows?.[0] || null;
+      if (!artistRow) return { statusCode: 404, headers, body: JSON.stringify({ error: "Artist profile was not found." }) };
+      const rejectedUrls = [...new Set(stringArray(artistRow.image_rejected_urls).concat([body.image_url, artistRow.image_url]).map(cleanText).filter(Boolean))];
+      let albumIds = [];
+      try {
+        const links = await api(`album_artists?artist_id=eq.${encodeURIComponent(artistRow.id)}&select=album_id`);
+        albumIds = [...new Set((links || []).map(row => cleanText(row.album_id)).filter(Boolean))];
+      } catch (error) {
+        console.warn("[Muze admin] artist album links unavailable for image replacement", error.message);
+      }
+      let portraitRows = [];
+      if (albumIds.length) {
+        const ids = albumIds.map(id => encodeURIComponent(id)).join(",");
+        portraitRows = await api(`album_credits?album_id=in.(${ids})&credit_type=eq.performer&image_approved=eq.true&image_url=not.is.null&select=person_name,person_wikidata_id,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_status,image_approved,sort_order`);
+      }
+      if (!portraitRows.length && artistName) {
+        portraitRows = await api(`album_credits?person_name=eq.${encodeURIComponent(artistName)}&image_approved=eq.true&image_url=not.is.null&select=person_name,person_wikidata_id,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_status,image_approved,sort_order&limit=100`);
+      }
+      const replacement = artistImageCandidate(portraitRows, rejectedUrls);
+      const patch = {
+        image_url: replacement?.image_url || null,
+        image_source_url: replacement?.image_source_url || null,
+        image_author: replacement?.image_author || null,
+        image_license: replacement?.image_license || null,
+        image_license_url: replacement?.image_license_url || null,
+        image_attribution: replacement?.image_attribution || null,
+        image_rejected_urls: rejectedUrls,
+        updated_at: new Date().toISOString()
+      };
+      const strippedColumns = [];
+      let nextPatch = { ...patch };
+      let rows = null;
+      const maximumAttempts = Object.keys(nextPatch).length + 1;
+      for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+        try {
+          rows = await api(`artists?id=eq.${encodeURIComponent(artistRow.id)}`, {
+            method: "PATCH",
+            headers: { "Prefer": "return=representation" },
+            body: JSON.stringify(nextPatch)
+          });
+          break;
+        } catch (error) {
+          const missingColumn = missingColumnFromError(error);
+          if (!missingColumn || !Object.prototype.hasOwnProperty.call(nextPatch, missingColumn)) throw error;
+          strippedColumns.push(missingColumn);
+          delete nextPatch[missingColumn];
+        }
+      }
+      if (!rows) throw new Error("Could not reject the artist image after checking the live artist schema.");
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows?.[0] || { ...artistRow, ...nextPatch }, replacement, rejected_urls: rejectedUrls, stripped_columns: strippedColumns }) };
     }
 
     if (action === "save") {
