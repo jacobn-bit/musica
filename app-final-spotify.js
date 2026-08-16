@@ -1754,10 +1754,14 @@ window.unlockOverviewAdmin=async function(){
     setAdminInlineStatus("Admin PIN was not accepted. Locally, set VITE_ADMIN_PIN in config.js; on Netlify, set the same PIN in Environment variables.","error");
   }
 }
-async function loadCustomOverviews(){
-  const protectedLiveScores={
+function protectedOverviewRows(){
+  return {
     "life after death":{album_key:"life after death",title:"Life After Death (2014 Remastered Edition)",artist:"The Notorious B.I.G.",admin_score:9.1,admin_ratings_count:5}
   };
+}
+function primeProtectedOverviews(){extras.overviews={...protectedOverviewRows(),...(extras.overviews||{})};return indexOverviewRows()}
+async function loadCustomOverviews(){
+  const protectedLiveScores=protectedOverviewRows();
   extras.overviews={...protectedLiveScores};
   const localOverviews=JSON.parse(localStorage.getItem("musicaCustomOverviews")||"{}");
   if(!db){extras.overviews=isLocalRuntime()?{...protectedLiveScores,...localOverviews}:protectedLiveScores;return indexOverviewRows()}
@@ -2451,8 +2455,8 @@ async function hydrateMissingCovers(){
   }
   if(changed){saveCoverCache(cache);render()}
 }
-function score(a){return albumOverviewNumber(a,"admin_score",Number(a.avg_rating||0))}
-function count(a){return albumOverviewNumber(a,"admin_ratings_count",Number(a.ratings_count||0))}
+function score(a){return albumOverviewNumber(a,"admin_score",Number(a?.admin_score??a?.avg_rating??0))}
+function count(a){return albumOverviewNumber(a,"admin_ratings_count",Number(a?.admin_ratings_count??a?.ratings_count??0))}
 function muzeOverallRank(album){
   if(!album||score(album)<=0)return null;
   const ranked=state.albums.filter(item=>score(item)>0).slice().sort((a,b)=>score(b)-score(a));
@@ -8161,15 +8165,16 @@ function card(a){const genreLabel=albumGenreLabel(a);const adminDelete=isAdminUn
 function row(a,i){const genreLabel=albumGenreLabel(a);return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(genreLabel)} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
 function render(){
 if(!state.dataReady){$("#heroScore").textContent="-";$("#heroTitle").textContent="Loading current rankings...";const heroCard=$("#heroCard");if(heroCard){heroCard.style.removeProperty("--hero-cover");heroCard.removeAttribute("onclick");heroCard.removeAttribute("role");heroCard.removeAttribute("tabindex");heroCard.removeAttribute("aria-label");heroCard.onkeydown=null}content.innerHTML='<div class="empty">Loading current album rankings...</div>';return}
-let arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;const heroCard=$("#heroCard");if(heroCard){heroCard.setAttribute("onclick",`openAlbum('${escapeJsString(top.id)}')`);heroCard.setAttribute("role","button");heroCard.setAttribute("tabindex","0");heroCard.setAttribute("aria-label",`Open ${top.title||"top-rated album"} album details`);heroCard.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openAlbum(top.id)}};if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}}$("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("");
+let arr=[];if(state.view==="rankings"){arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;const heroCard=$("#heroCard");if(heroCard){heroCard.setAttribute("onclick",`openAlbum('${escapeJsString(top.id)}')`);heroCard.setAttribute("role","button");heroCard.setAttribute("tabindex","0");heroCard.setAttribute("aria-label",`Open ${top.title||"top-rated album"} album details`);heroCard.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openAlbum(top.id)}};if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}}$("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("")}
 if(state.view==="rankings"){
   const limit=Math.max(60,Number(state.homeAlbumLimit)||120);
   const visible=arr.slice(0,limit);
-  const more=visible.length<arr.length?`<div class="albumBatchMore"><button onclick="showMoreAlbums()">Show more albums</button><span>${visible.length.toLocaleString()} of ${arr.length.toLocaleString()}</span></div>`:"";
-  content.innerHTML=state.sort==="hidden"?`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`:`<div class="sectionTitle"><h2>Top Albums</h2><span class="muted">${arr.length} results</span></div><div class="grid">${visible.map(card).join("")}</div>${more}`;
+  const more=visible.length<arr.length?`<div class="albumBatchMore"><button onclick="showMoreAlbums()">Show more albums</button>${isAdminUnlocked()?`<span>${visible.length.toLocaleString()} of ${arr.length.toLocaleString()}</span>`:""}</div>`:"";
+  const resultCount=isAdminUnlocked()?`<span class="muted">${arr.length} results</span>`:"";
+  content.innerHTML=state.sort==="hidden"?`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`:`<div class="sectionTitle"><h2>Top Albums</h2>${resultCount}</div><div class="grid">${visible.map(card).join("")}</div>${more}`;
 }
 if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
-if(state.view==="artists"){content.innerHTML=artistPage()}
+if(state.view==="artists"){content.innerHTML=artistPage(true);setTimeout(()=>renderArtistResults({chunked:true}),25)}
 if(state.view==="artist-profile"){content.innerHTML=artistProfilePage()}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
 if(state.view==="libraries"){librariesView()}
@@ -8349,15 +8354,68 @@ function albumReactionWhispers(album){
   if(text.includes("hip-hop")||text.includes("rap"))return ["?Every bar lands?","?The storytelling is unreal?","?Still quote this one?"];
   return ["?That transition destroyed me?","?Gets better at night?","?Replay material?"];
 }
-function artistAlbumRow(a){return`<div class="artistAlbumRow" onclick="openAlbum('${escapeJsString(a.id)}')">${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong>${count(a)>0?`<span>${count(a).toLocaleString()} ratings</span>`:""}</div><div class="artistAlbumScore">${score(a)>0?displayScore(a):""}</div></div>`}
-function artistGenres(){const counts={};state.albums.forEach(a=>{const label=albumGenreLabel(a);if(label&&label!=="Album")counts[label]=(counts[label]||0)+1});return ["Popular",...Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([genre])=>genre)]}
-function artistRank(name){let albums=state.albums.filter(a=>a.artist===name);let rated=albums.filter(a=>score(a)>0||count(a)>0);let totalRatings=rated.reduce((sum,a)=>sum+count(a),0);let avg=rated.length?rated.reduce((sum,a)=>sum+score(a),0)/rated.length:0;let top=rated.length?Math.max(...rated.map(a=>score(a))):0;return {ratedCount:rated.length,totalRatings,avg,top}}
-function artistNames(){let names=[...new Set(state.albums.map(a=>a.artist).filter(Boolean))];let q=state.artistSearch.toLowerCase().trim();let filtered=names.filter(name=>{let albums=state.albums.filter(a=>a.artist===name);let letterOk=state.artistLetter==="All"||String(name).trim().toUpperCase().startsWith(state.artistLetter);let genreOk=state.artistGenre==="All"||state.artistGenre==="Popular"||albums.some(a=>albumGenreLabel(a)===state.artistGenre);let searchOk=!q||String(name).toLowerCase().includes(q)||albums.some(a=>`${a.title} ${genreSearchText(a)}`.toLowerCase().includes(q));return letterOk&&genreOk&&searchOk});return filtered.sort((a,b)=>{let ra=artistRank(a),rb=artistRank(b);if(state.artistGenre==="All"||state.artistGenre==="Popular"){if(!!rb.ratedCount!==!!ra.ratedCount)return rb.ratedCount?1:-1;if(rb.avg!==ra.avg)return rb.avg-ra.avg;if(rb.top!==ra.top)return rb.top-ra.top;if(rb.totalRatings!==ra.totalRatings)return rb.totalRatings-ra.totalRatings}return a.localeCompare(b)})}
-function renderArtistResults(){let artists=artistNames();let grid=$("#artistResults");let count=$("#artistCount");if(count)count.textContent=artists.length+" artist"+(artists.length===1?"":"s");if(grid)grid.innerHTML=artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>'}
-function artistPage(){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=artistGenres();let artists=artistNames();let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${artists.length} artist${artists.length===1?"":"s"}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div><div id="artistResults" class="artistGrid">${artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>'}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;render()}
+function artistFastScore(a){return Number(a?.admin_score??a?.avg_rating??0)||0}
+function artistFastCount(a){return Number(a?.admin_ratings_count??a?.ratings_count??0)||0}
+function artistFastGenre(a){return String(a?.genre||"").trim()||"Album"}
+function artistFastScoreLabel(value){return Number(value)>0?Number(value).toFixed(1):""}
+function artistFastListCover(a){const url=String(a?.cover_url||"").trim();return url?`<div class="listCover"><img src="${escapeHtml(url)}" loading="lazy" decoding="async" onerror="this.hidden=true" alt="${escapeHtml(a.title||"Album cover")}"><span>${escapeHtml(coverText(a))}</span></div>`:`<div class="listCover"><span>${escapeHtml(coverText(a))}</span></div>`}
+function artistAlbumRow(a){return`<div class="artistAlbumRow" onclick="openAlbum('${escapeJsString(a.id)}')">${artistFastListCover(a)}<div><strong>${escapeHtml(a.title)}</strong>${artistFastCount(a)>0?`<span>${artistFastCount(a).toLocaleString()} ratings</span>`:""}</div><div class="artistAlbumScore">${artistFastScoreLabel(artistFastScore(a))}</div></div>`}
+let artistDirectoryCache=null;
+function artistDirectoryCacheKey(){return `${state.albums.length}:${state.albums[0]?.id||""}:${state.albums[state.albums.length-1]?.id||""}`}
+function warmArtistDirectory(){setTimeout(()=>{try{artistDirectoryBaseRows()}catch(error){console.warn("Unable to warm artist directory",error)}},120)}
+function artistDirectoryBaseRows(){
+  const key=artistDirectoryCacheKey();
+  if(artistDirectoryCache?.key===key)return artistDirectoryCache.rows;
+  const byName=new Map();
+  state.albums.forEach(album=>{
+    const name=album.artist;
+    if(!name)return;
+    if(!byName.has(name))byName.set(name,[]);
+    byName.get(name).push(album);
+  });
+  const rows=[...byName.entries()].map(([name,albums])=>{
+    const sorted=albums.slice().sort((a,b)=>artistFastScore(b)-artistFastScore(a));
+    const genres=[...new Set(sorted.map(artistFastGenre).filter(g=>g&&g!=="Album"))];
+    const rated=sorted.filter(a=>artistFastScore(a)>0||artistFastCount(a)>0);
+    const totalRatings=rated.reduce((sum,a)=>sum+artistFastCount(a),0);
+    const avg=rated.length?rated.reduce((sum,a)=>sum+artistFastScore(a),0)/rated.length:0;
+    const top=rated.length?Math.max(...rated.map(a=>artistFastScore(a))):0;
+    const hero=sorted.find(a=>a.cover_url)||sorted[0]||{};
+    const searchText=`${name} ${sorted.map(a=>`${a.title||""} ${artistFastGenre(a)}`).join(" ")}`.toLowerCase();
+    return {name,albums:sorted,genres,hero,featured:sorted.slice(0,4),slug:artistSlugForName(name),totalRatings,scoreLabel:artistFastScoreLabel(avg),rank:{ratedCount:rated.length,totalRatings,avg,top},searchText};
+  });
+  artistDirectoryCache={key,rows};
+  return rows;
+}
+function artistGenres(){const counts={};artistDirectoryBaseRows().forEach(row=>row.genres.forEach(label=>{counts[label]=(counts[label]||0)+1}));return ["Popular",...Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([genre])=>genre)]}
+function artistDirectoryRows(){
+  const rows=artistDirectoryBaseRows();
+  const q=state.artistSearch.toLowerCase().trim();
+  const filtered=rows.filter(row=>{
+    const letterOk=state.artistLetter==="All"||String(row.name).trim().toUpperCase().startsWith(state.artistLetter);
+    const genreOk=state.artistGenre==="All"||state.artistGenre==="Popular"||row.genres.includes(state.artistGenre);
+    const searchOk=!q||row.searchText.includes(q);
+    return letterOk&&genreOk&&searchOk;
+  });
+  return filtered.sort((a,b)=>{
+    const ra=a.rank,rb=b.rank;
+    if(state.artistGenre==="All"||state.artistGenre==="Popular"){
+      if(!!rb.ratedCount!==!!ra.ratedCount)return rb.ratedCount?1:-1;
+      if(rb.avg!==ra.avg)return rb.avg-ra.avg;
+      if(rb.top!==ra.top)return rb.top-ra.top;
+      if(rb.totalRatings!==ra.totalRatings)return rb.totalRatings-ra.totalRatings;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+function artistRank(name){return artistDirectoryRows().find(row=>row.name===name)?.rank||{ratedCount:0,totalRatings:0,avg:0,top:0}}
+function artistNames(){return artistDirectoryRows().map(row=>row.name)}
+let artistRenderToken=0;
+function renderArtistResults(options={}){let artists=[];let grid=$("#artistResults");let count=$("#artistCount");try{artists=artistDirectoryRows()}catch(error){console.error("Unable to render artist directory",error);if(count)count.textContent="Artists unavailable";if(grid)grid.innerHTML='<div class="empty">Artists could not be loaded.</div>';return}if(count)count.textContent=artists.length+" artist"+(artists.length===1?"":"s");if(!grid)return;artistRenderToken++;const token=artistRenderToken;if(!options.chunked){grid.innerHTML=artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>';return}grid.innerHTML="";if(!artists.length){grid.innerHTML='<div class="empty">No artists found.</div>';return}let index=0;function renderChunk(){if(token!==artistRenderToken||state.view!=="artists"||!document.body.contains(grid))return;const next=artists.slice(index,index+36).map(artistBlock).join("");if(next)grid.insertAdjacentHTML("beforeend",next);index+=36;if(index<artists.length)requestAnimationFrame(renderChunk)}renderChunk()}
+function artistPage(deferResults=false){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=deferResults&&!artistDirectoryCache?["Popular","Rock","Pop","Alternative Rock","Hip-Hop","Folk Rock","Pop Rock","Metal","Soul"]:artistGenres();let artists=deferResults?[]:artistDirectoryRows();let countLabel=deferResults?"Loading artists...":`${artists.length} artist${artists.length===1?"":"s"}`;let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<div class="artistTopBand"><section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${countLabel}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div></div><div id="artistResults" class="artistGrid">${deferResults?"":(artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>')}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;render()}
 window.setArtistGenre=function(genre){state.artistGenre=genre==="Popular"?"All":genre;render()}
-window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults()}
-function artistBlock(name){let d=state.albums.filter(a=>a.artist===name).sort((a,b)=>score(b)-score(a));let genres=[...new Set(d.map(albumGenreLabel).filter(g=>g&&g!=="Album"))].slice(0,3);let hero=d.find(a=>a.cover_url)||d[0]||{};let totalRatings=d.reduce((sum,a)=>sum+count(a),0);let featured=d.slice(0,4);let slug=artistSlugForName(name);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(hero.cover_url||"")}')"><div><h3><button class="artistDiscoveryLink" onclick="openArtistPage('${escapeJsString(slug)}')">${escapeHtml(name)}</button></h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${d.length} album${d.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${artistScoreLabel(d)}${totalRatings?`<span>${totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${featured.map(artistAlbumRow).join("")}</div></section>`}
+window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults({chunked:true})}
+function artistBlock(row){if(typeof row==="string")row=artistDirectoryRows().find(item=>item.name===row)||{name:row,albums:[],genres:[],hero:{},featured:[],slug:artistSlugForName(row),totalRatings:0,scoreLabel:""};let genres=(row.genres||[]).slice(0,3);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(row.hero?.cover_url||"")}')"><div><h3><button class="artistDiscoveryLink" onclick="openArtistPage('${escapeJsString(row.slug)}')">${escapeHtml(row.name)}</button></h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${row.albums.length} album${row.albums.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${row.scoreLabel||""}${row.totalRatings?`<span>${row.totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${row.featured.map(artistAlbumRow).join("")}</div></section>`}
 
 function artistSlugForName(value){
   return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")
@@ -8398,8 +8456,8 @@ function artistProfilePortraitSource(profile){
   const rejected=artistRejectedImageUrls(profile);
   const approved=artistProfileApprovedPortraits(state.artistProfilePortraits||[],rejected);
   const exact=approved.find(row=>normalizeAlbumName(row.person_name)===normalizeAlbumName(profile.name));
-  if(exact)return {type:"credit",image_url:String(exact.image_url||""),portraits:[exact]};
   if(profile.image_url&&normalizeAlbumName(profile.name)!=="prince"&&!rejected.includes(String(profile.image_url||"").trim()))return {type:"profile",image_url:String(profile.image_url||""),portraits:[],credit:profile};
+  if(exact)return {type:"credit",image_url:String(exact.image_url||""),portraits:[exact]};
   const portraits=exact?[exact]:approved.slice(0,4);
   if(!portraits.length||(!exact&&portraits.length<2))return null;
   return {type:portraits.length>1?"collage":"credit",image_url:String(portraits[0]?.image_url||""),portraits};
@@ -8848,6 +8906,10 @@ function mergeAlbumSources(primary=[],fallback=[]){
   });
   return dedupeAlbumRows(rows);
 }
+const ALBUM_BOOT_CACHE_KEY="muzeAlbumBootCache:v2";
+function cachedBootAlbums(){try{const rows=JSON.parse(localStorage.getItem(ALBUM_BOOT_CACHE_KEY)||"[]");return Array.isArray(rows)?rows.filter(album=>album&&album.id&&album.title):[]}catch(error){return []}}
+function saveBootAlbums(rows){try{localStorage.setItem(ALBUM_BOOT_CACHE_KEY,JSON.stringify((rows||[]).slice(0,1200)))}catch(error){}}
+function materializedBootAlbums(){return state.albums.map(album=>({...album,admin_score:score(album),admin_ratings_count:count(album),genre:albumGenreLabel(album)}))}
 function showSavedAlbumImmediately(album){
   if(!album)return null;
   const visibleAlbum={...album,avg_rating:Number(album.avg_rating||0),ratings_count:Number(album.ratings_count||0),genre:albumGenreLabel(album)};
@@ -8873,15 +8935,26 @@ async function loadData(){
     state.albums=dedupeAlbumRows([...seedAlbums.filter(a=>!hiddenSeedAlbums().includes(a.id)),...(localOnly?localAlbums():[])]);
     state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
     state.ratingMap=localOnly?localRatings():{};
-    await loadCustomOverviews();
+    primeProtectedOverviews();
     applyCachedCovers();
     state.dataReady=true;
     render();
+    warmArtistDirectory();
     if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
     hydrateMissingCovers();
+    loadCustomOverviews().then(()=>{applyCachedCovers();render();warmArtistDirectory()}).catch(error=>console.warn("Muze overview scores could not be loaded",error));
     return;
   }
   localStorage.removeItem("musicaLocalAlbums");
+  const bootAlbums=cachedBootAlbums();
+  if(bootAlbums.length){
+    state.albums=bootAlbums;
+    primeProtectedOverviews();
+    applyCachedCovers();
+    state.dataReady=true;
+    render();
+    warmArtistDirectory();
+  }
   let albums=[];
   let rawAlbums=[];
   const [scoreResult,rawResult]=await Promise.allSettled([loadAllAlbumScoreRows(),loadRawAlbumRows()]);
@@ -8892,7 +8965,13 @@ async function loadData(){
   state.albums=mergeAlbumSources([...seedAlbums,...albums],rawAlbums);
   if(!state.albums.length){state.albums=seedAlbums}
   state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
+  primeProtectedOverviews();
   applyCachedCovers();
+  state.dataReady=true;
+  render();
+  warmArtistDirectory();
+  if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
+  hydrateMissingCovers();
   const [ratingsResult,overviewsResult]=await Promise.allSettled([
     db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId),
     loadCustomOverviews()
@@ -8903,10 +8982,9 @@ async function loadData(){
   }else state.ratingMap={};
   if(overviewsResult.status==="rejected")console.warn("Muze overview scores could not be loaded",overviewsResult.reason);
   applyCachedCovers();
-  state.dataReady=true;
+  saveBootAlbums(materializedBootAlbums());
   render();
-  if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
-  hydrateMissingCovers();
+  warmArtistDirectory();
 }function openSpotifyAdd(target){
   extras.spotifyTarget=target||"musica";
   const title=$("#addModalTitle");

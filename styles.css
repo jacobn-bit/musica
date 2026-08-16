@@ -14890,7 +14890,7 @@ body.chatView .simpleMessengerChat{
 .trackShareMiniMenu{
   position:fixed!important;
   left:0;
-  top:0;
+  top:-34px;
   width:168px!important;
   display:grid!important;
   gap:4px!important;
@@ -16629,7 +16629,7 @@ body.light .topbarChatButton{
 .albumInfoPageHeader p{margin:8px 0 0;color:rgba(255,255,255,.64);font-size:15px}
 .albumInfoPopup .albumInfoSection{margin:0;padding:0 0 46px;border-top:0}
 .albumInfoPopup .albumOverviewClose{position:sticky;float:right;top:16px;margin:16px 16px -60px 0}
-.albumBatchMore{display:flex;align-items:center;justify-content:center;gap:14px;padding:28px 0 8px}.albumBatchMore button{border:1px solid rgba(255,213,31,.42);background:#15130b;color:#ffd51f;border-radius:6px;padding:11px 18px;font-weight:750;cursor:pointer}.albumBatchMore button:hover{background:#211c09}.albumBatchMore span{color:rgba(255,255,255,.5);font-size:12px}
+.albumBatchMore{display:flex;align-items:center;justify-content:center;gap:14px;padding:28px 0 8px}.albumBatchMore button{position:relative;isolation:isolate;overflow:hidden;border:1px solid rgba(255,213,31,.56);background:linear-gradient(135deg,#fff06a 0%,#f2c94c 38%,#b9860e 100%);color:#08090c;border-radius:12px;padding:13px 24px;font-weight:950;letter-spacing:.01em;cursor:pointer;box-shadow:0 16px 36px rgba(0,0,0,.42),0 0 26px rgba(242,201,76,.14),inset 0 1px 0 rgba(255,255,255,.54);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}.albumBatchMore button:before{content:"";position:absolute;inset:1px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0) 42%);z-index:-1}.albumBatchMore button:hover{transform:translateY(-2px);filter:saturate(1.08);box-shadow:0 20px 46px rgba(0,0,0,.52),0 0 34px rgba(242,201,76,.24),inset 0 1px 0 rgba(255,255,255,.64)}.albumBatchMore button:focus-visible{outline:2px solid #fff06a;outline-offset:4px}.albumBatchMore span{color:rgba(255,255,255,.5);font-size:12px;font-weight:800}
 .albumInfoLoading,.albumInfoUnavailable{min-height:180px;display:grid;place-items:center;align-content:center;gap:12px;color:rgba(255,255,255,.64);text-align:center}
 .albumInfoLoading span{width:26px;height:26px;border:2px solid rgba(255,213,31,.2);border-top-color:#ffd51f;border-radius:50%;animation:albumInfoSpin .8s linear infinite}
 @keyframes albumInfoSpin{to{transform:rotate(360deg)}}
@@ -17212,6 +17212,21 @@ body.light .muzeArtistImageTools button{border-color:rgba(20,20,20,.15);backgrou
 body.light .muzeArtistImageTools span,body.light .muzeArtistImageCredit{color:rgba(20,20,20,.56)}
 body.light .muzeArtistImageCreditFields{border-color:rgba(20,20,20,.12);background:rgba(255,255,255,.42)}
 body.light .muzeArtistImageCredit a{color:#8a6b00}
+
+.muzeArtistBioToggle span{font-size:11px!important}
+
+.artistTopBand{
+  margin:0 calc(50% - 50vw) 26px;
+  padding:34px max(24px,calc((100vw - 1450px) / 2 + 24px)) 22px;
+  background:linear-gradient(180deg,#4b3348 0%,#3b2639 58%,#201622 100%);
+}
+.artistTopBand .artistDiscovery{margin-top:0}
+.artistTopBand .artistFilterDock{
+  margin-bottom:0!important;
+  background:transparent!important;
+  backdrop-filter:none!important;
+}
+body.light .artistTopBand{background:linear-gradient(180deg,#eee2f1 0%,#e3d1ea 100%)}
 
 @media(max-width:850px){
   .controls{
