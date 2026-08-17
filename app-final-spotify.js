@@ -1759,12 +1759,12 @@ function protectedOverviewRows(){
     "life after death":{album_key:"life after death",title:"Life After Death (2014 Remastered Edition)",artist:"The Notorious B.I.G.",admin_score:9.1,admin_ratings_count:5}
   };
 }
-function primeProtectedOverviews(){extras.overviews={...protectedOverviewRows(),...(extras.overviews||{})};return indexOverviewRows()}
+function primeProtectedOverviews(){extras.overviews={...protectedOverviewRows(),...(extras.overviews||{})};clearArtistDirectoryCache();return indexOverviewRows()}
 async function loadCustomOverviews(){
   const protectedLiveScores=protectedOverviewRows();
   extras.overviews={...protectedLiveScores};
   const localOverviews=JSON.parse(localStorage.getItem("musicaCustomOverviews")||"{}");
-  if(!db){extras.overviews=isLocalRuntime()?{...protectedLiveScores,...localOverviews}:protectedLiveScores;return indexOverviewRows()}
+  if(!db){extras.overviews=isLocalRuntime()?{...protectedLiveScores,...localOverviews}:protectedLiveScores;clearArtistDirectoryCache();return indexOverviewRows()}
   const baseOverviewFields="album_key,title,artist,overview,loved_track_key,loved_track_name,admin_ratings_count,admin_score,hero_focus,moment_focus";
   const structuredOverviewFields=",album_id,intro_summary,sound_summary,impact_summary,legacy_summary,quote_headline,defining_tracks,sources_used,source_summary,fallback_generated,generated_at,generation_model,manual_override";
   let {data,error}=await db.from("album_overviews").select(baseOverviewFields+structuredOverviewFields);
@@ -1831,11 +1831,11 @@ async function loadCustomOverviews(){
       }
     }catch(publishedReviewError){}
     extras.overviews=mergeLocalOverviewRows(extras.overviews,localOverviews);
-    return indexOverviewRows();
+    clearArtistDirectoryCache();return indexOverviewRows();
   }
   console.warn("Could not load album_overviews from Supabase; using protected public score overrides only.",error);
   extras.overviews=isLocalRuntime()?{...protectedLiveScores,...localOverviews}:protectedLiveScores;
-  return indexOverviewRows();
+  clearArtistDirectoryCache();return indexOverviewRows();
 }function albumBaseOverview(a){
   const savedRow=albumOverviewRow(a);
   if(savedRow&&albumNeedsResearch(a,savedRow))return "";
@@ -8169,7 +8169,7 @@ let arr=[];if(state.view==="rankings"){arr=filtered();let top=state.albums.slice
 if(state.view==="rankings"){
   const limit=Math.max(60,Number(state.homeAlbumLimit)||120);
   const visible=arr.slice(0,limit);
-  const more=visible.length<arr.length?`<div class="albumBatchMore"><button onclick="showMoreAlbums()">Show more albums</button>${isAdminUnlocked()?`<span>${visible.length.toLocaleString()} of ${arr.length.toLocaleString()}</span>`:""}</div>`:"";
+  const more=visible.length<arr.length?`<div class="albumBatchMore"><button onclick="showMoreAlbums()">See more</button>${isAdminUnlocked()?`<span>${visible.length.toLocaleString()} of ${arr.length.toLocaleString()}</span>`:""}</div>`:"";
   const resultCount=isAdminUnlocked()?`<span class="muted">${arr.length} results</span>`:"";
   content.innerHTML=state.sort==="hidden"?`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`:`<div class="sectionTitle"><h2>Top Albums</h2>${resultCount}</div><div class="grid">${visible.map(card).join("")}</div>${more}`;
 }
@@ -8354,13 +8354,15 @@ function albumReactionWhispers(album){
   if(text.includes("hip-hop")||text.includes("rap"))return ["?Every bar lands?","?The storytelling is unreal?","?Still quote this one?"];
   return ["?That transition destroyed me?","?Gets better at night?","?Replay material?"];
 }
-function artistFastScore(a){return Number(a?.admin_score??a?.avg_rating??0)||0}
-function artistFastCount(a){return Number(a?.admin_ratings_count??a?.ratings_count??0)||0}
-function artistFastGenre(a){return String(a?.genre||"").trim()||"Album"}
+function artistFastOverviewRow(a){for(const key of overviewKeyCandidates(a)){const row=extras.overviews?.[key];if(row&&overviewRowsMatchAlbum(row,a))return row}return {}}
+function artistFastScore(a){const row=artistFastOverviewRow(a);return Number(row.admin_score??a?.admin_score??a?.avg_rating??0)||0}
+function artistFastCount(a){const row=artistFastOverviewRow(a);return Number(row.admin_ratings_count??a?.admin_ratings_count??a?.ratings_count??0)||0}
+function artistFastGenre(a){const row=artistFastOverviewRow(a);return String(row.manual_genre||a?.genre||"").trim()||"Album"}
 function artistFastScoreLabel(value){return Number(value)>0?Number(value).toFixed(1):""}
 function artistFastListCover(a){const url=String(a?.cover_url||"").trim();return url?`<div class="listCover"><img src="${escapeHtml(url)}" loading="lazy" decoding="async" onerror="this.hidden=true" alt="${escapeHtml(a.title||"Album cover")}"><span>${escapeHtml(coverText(a))}</span></div>`:`<div class="listCover"><span>${escapeHtml(coverText(a))}</span></div>`}
 function artistAlbumRow(a){return`<div class="artistAlbumRow" onclick="openAlbum('${escapeJsString(a.id)}')">${artistFastListCover(a)}<div><strong>${escapeHtml(a.title)}</strong>${artistFastCount(a)>0?`<span>${artistFastCount(a).toLocaleString()} ratings</span>`:""}</div><div class="artistAlbumScore">${artistFastScoreLabel(artistFastScore(a))}</div></div>`}
 let artistDirectoryCache=null;
+function clearArtistDirectoryCache(){artistDirectoryCache=null}
 function artistDirectoryCacheKey(){return `${state.albums.length}:${state.albums[0]?.id||""}:${state.albums[state.albums.length-1]?.id||""}`}
 function warmArtistDirectory(){setTimeout(()=>{try{artistDirectoryBaseRows()}catch(error){console.warn("Unable to warm artist directory",error)}},120)}
 function artistDirectoryBaseRows(){
