@@ -1147,6 +1147,20 @@ body.light .tinyAdminOverview:hover{color:rgba(138,101,0,.75)}
 .authPanel.libraryAccessPanel .libraryAccessActions button{min-height:33px!important;padding:7px 12px!important;font-size:13px!important}
 .authPanel.libraryAccessPanel .authStatus{min-height:0!important;margin-top:8px!important}
 .setupWarning{margin:14px 0;padding:14px 16px;border:1px solid #8d6e15;background:rgba(242,201,76,.12);border-radius:18px}.controls{display:grid;grid-template-columns:1fr 180px 180px;gap:12px;margin:18px 0}.controls input,.controls select,.addSearch input{width:100%;padding:15px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:15px}
+.muzeSearchWrap{position:relative;min-width:0;z-index:30}
+.muzeSearchSuggest{position:absolute;left:0;right:0;top:calc(100% + 7px);z-index:120;overflow:hidden;border:1px solid rgba(214,171,53,.28);border-radius:14px;background:#171719;box-shadow:0 24px 60px rgba(0,0,0,.55),0 0 0 1px rgba(75,51,72,.24);color:#f5f2ea}
+.muzeSearchSuggest.hidden{display:none!important}
+.muzeSearchOption{width:100%;min-height:82px;display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 13px;border:0;border-bottom:1px solid rgba(255,255,255,.10);border-radius:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.muzeSearchOption:last-child{border-bottom:0}
+.muzeSearchOption:hover,.muzeSearchOption:focus-visible{background:rgba(214,171,53,.075);outline:0}
+.muzeSearchOptionCover{width:58px;height:58px;border-radius:7px;overflow:hidden;background:rgba(255,255,255,.06);display:grid;place-items:center;border:1px solid rgba(255,255,255,.10)}
+.muzeSearchOptionCover img{width:100%;height:100%;object-fit:cover;display:block}
+.muzeSearchOptionCover b{color:#d6ab35;font-size:13px}
+.muzeSearchOptionCopy{min-width:0;display:block}
+.muzeSearchOptionCopy strong{display:block;color:#f3efe6;font-size:18px;line-height:1.15;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.muzeSearchOptionCopy small{display:block;margin-top:4px;color:rgba(235,235,235,.58);font-size:13px;font-weight:750}
+.muzeSearchOptionCopy em{display:block;margin-top:4px;color:rgba(235,235,235,.70);font-size:14px;font-style:normal;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.muzeSearchRuntime{justify-self:end;color:rgba(235,235,235,.50);font-size:12px;font-weight:750;white-space:nowrap}
 #searchInput{background:#fff!important;color:#111!important;border-color:#d7d7d7!important;caret-color:#111!important}
 #searchInput::placeholder{color:#737373!important}
 #genreFilter,#sortSelect{background:#fff!important;color:#111!important;border-color:#d7d7d7!important;color-scheme:light}
@@ -14679,7 +14693,7 @@ body.chatView .simpleMessengerChat{
   justify-content:center!important;
   padding:0 0 4px!important;
   line-height:0!important;
-  font-size:22px!important;
+  font-size:20px!important;
 }
 .simpleMessengerChat .chatComposeButton.active,
 .topbarChatPanel .simpleMessengerChat .chatComposeButton.active{
@@ -16629,7 +16643,7 @@ body.light .topbarChatButton{
 .albumInfoPageHeader p{margin:8px 0 0;color:rgba(255,255,255,.64);font-size:15px}
 .albumInfoPopup .albumInfoSection{margin:0;padding:0 0 46px;border-top:0}
 .albumInfoPopup .albumOverviewClose{position:sticky;float:right;top:16px;margin:16px 16px -60px 0}
-.albumBatchMore{display:flex;align-items:center;justify-content:center;gap:14px;padding:28px 0 8px}.albumBatchMore button{position:relative;isolation:isolate;overflow:hidden;border:1px solid rgba(255,213,31,.56);background:linear-gradient(135deg,#fff06a 0%,#f2c94c 38%,#b9860e 100%);color:#08090c;border-radius:12px;padding:13px 24px;font-weight:950;letter-spacing:.01em;cursor:pointer;box-shadow:0 16px 36px rgba(0,0,0,.42),0 0 26px rgba(242,201,76,.14),inset 0 1px 0 rgba(255,255,255,.54);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}.albumBatchMore button:before{content:"";position:absolute;inset:1px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0) 42%);z-index:-1}.albumBatchMore button:hover{transform:translateY(-2px);filter:saturate(1.08);box-shadow:0 20px 46px rgba(0,0,0,.52),0 0 34px rgba(242,201,76,.24),inset 0 1px 0 rgba(255,255,255,.64)}.albumBatchMore button:focus-visible{outline:2px solid #fff06a;outline-offset:4px}.albumBatchMore span{color:rgba(255,255,255,.5);font-size:12px;font-weight:800}
+.albumBatchMore{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:22px 0 8px}.albumBatchMore button{position:relative;overflow:hidden;border:1px solid rgba(255,213,31,.30);background:linear-gradient(180deg,rgba(255,255,255,.032),rgba(255,255,255,.012));color:rgba(255,213,31,.82);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:900;letter-spacing:.005em;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.05);transition:transform .18s ease,border-color .18s ease,color .18s ease,background .18s ease,box-shadow .18s ease}.albumBatchMore button:hover{transform:translateY(-1px);border-color:rgba(255,213,31,.48);background:linear-gradient(180deg,rgba(255,213,31,.075),rgba(255,255,255,.016));color:#ffe66a;box-shadow:0 10px 24px rgba(0,0,0,.25),0 0 14px rgba(242,201,76,.07),inset 0 1px 0 rgba(255,255,255,.07)}.albumBatchMore button:focus-visible{outline:2px solid rgba(255,213,31,.62);outline-offset:4px}.albumBatchMore span{color:rgba(255,255,255,.5);font-size:12px;font-weight:800}
 .albumInfoLoading,.albumInfoUnavailable{min-height:180px;display:grid;place-items:center;align-content:center;gap:12px;color:rgba(255,255,255,.64);text-align:center}
 .albumInfoLoading span{width:26px;height:26px;border:2px solid rgba(255,213,31,.2);border-top-color:#ffd51f;border-radius:50%;animation:albumInfoSpin .8s linear infinite}
 @keyframes albumInfoSpin{to{transform:rotate(360deg)}}
@@ -17232,7 +17246,7 @@ body.light .artistTopBand{background:linear-gradient(180deg,#eee2f1 0%,#e3d1ea 1
   .controls{
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
-  .controls #searchInput{
+  .controls .muzeSearchWrap{
     grid-column:1 / -1!important;
     grid-row:2!important;
   }
@@ -17255,3 +17269,378 @@ body.light .artistTopBand{background:linear-gradient(180deg,#eee2f1 0%,#e3d1ea 1
 
 .heroCard[role="button"]{cursor:pointer}
 .heroCard[role="button"]:focus-visible{outline:2px solid #ffd51f;outline-offset:4px}
+
+/* Compact IMDb-style artist results list */
+.trendingArtistsBlock{
+  --artist-page-inset:max(48px,calc((100vw - 1450px) / 2 + 48px));
+  margin:0 0 18px!important;
+  position:relative!important;
+  left:calc(50% - 50vw + var(--artist-page-inset))!important;
+  width:calc(100vw - var(--artist-page-inset) - var(--artist-page-inset))!important;
+}
+.trendingArtistsBlock:after{
+  content:""!important;
+  display:block!important;
+  height:1px!important;
+  margin:26px 0 0!important;
+  background:
+    linear-gradient(90deg,transparent 44%,rgba(214,171,53,.78) 44%,rgba(214,171,53,.78) 56%,transparent 56%),
+    linear-gradient(90deg,rgba(75,51,72,.45) 0%,rgba(75,51,72,.20) 32%,rgba(214,171,53,.75) 50%,rgba(75,51,72,.20) 68%,rgba(75,51,72,.45) 100%)!important;
+}
+.trendingArtistsHeader .artistFilterLabel{
+  color:#d6ab35!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  letter-spacing:.12em!important;
+}
+.trendingArtistsHeader{
+  display:flex!important;
+  align-items:start!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+  margin:0 0 14px!important;
+}
+.trendingArtistsHeader h3{
+  margin:2px 0 0!important;
+  color:#f3efe6!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:30px!important;
+  line-height:1.1!important;
+  font-weight:600!important;
+  letter-spacing:-.02em!important;
+}
+.trendingArtistsHeader span{
+  color:rgba(235,235,235,.40)!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  text-align:right!important;
+  padding-top:24px!important;
+}
+.trendingArtistsGrid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:14px!important;
+}
+.trendingArtistCard{
+  position:relative!important;
+  min-height:188px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+  background:#111217!important;
+  cursor:pointer!important;
+  box-shadow:none!important;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease!important;
+}
+.trendingArtistCard:hover{
+  transform:translateY(-1px)!important;
+  border-color:rgba(214,171,53,.25)!important;
+  box-shadow:none!important;
+}
+.trendingArtistCard:focus-visible{
+  outline:2px solid rgba(255,213,31,.64)!important;
+  outline-offset:4px!important;
+}
+.trendingArtistArt{
+  position:absolute!important;
+  inset:0!important;
+  background:rgba(255,255,255,.04)!important;
+}
+.trendingArtistArt:after{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  background:linear-gradient(to top,rgba(5,5,7,.92) 0%,rgba(5,5,7,.52) 45%,rgba(5,5,7,.08) 75%)!important;
+}
+.trendingArtistArt img{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+  filter:saturate(.92)!important;
+  opacity:0!important;
+  transition:opacity .7s ease!important;
+}
+.trendingArtistArt img.active{
+  opacity:1!important;
+}
+.trendingArtistArt span{
+  width:100%!important;
+  height:100%!important;
+  display:grid!important;
+  place-items:center!important;
+  color:rgba(255,255,255,.42)!important;
+  font-size:28px!important;
+  font-weight:950!important;
+}
+.trendingArtistCopy{
+  position:absolute!important;
+  left:14px!important;
+  right:14px!important;
+  bottom:13px!important;
+  z-index:1!important;
+}
+.trendingArtistCopy>span{
+  display:inline-flex!important;
+  margin-bottom:8px!important;
+  padding:5px 9px!important;
+  border-radius:999px!important;
+  background:rgba(214,171,53,.14)!important;
+  border:1px solid rgba(214,171,53,.38)!important;
+  color:#e0b63f!important;
+  font-size:11px!important;
+  font-weight:700!important;
+}
+.trendingArtistCopy h3{
+  margin:0!important;
+  color:#f3efe6!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:24px!important;
+  line-height:1.05!important;
+  font-weight:600!important;
+  letter-spacing:-.02em!important;
+}
+.trendingArtistCopy p{
+  margin:6px 0 0!important;
+  color:rgba(255,255,255,.72)!important;
+  font-size:12px!important;
+  font-weight:600!important;
+}
+.trendingArtistCopy small{
+  display:block!important;
+  margin-top:5px!important;
+  color:rgba(255,255,255,.44)!important;
+  font-size:10px!important;
+  font-weight:600!important;
+}
+.artistGrid{
+  --artist-page-inset:max(48px,calc((100vw - 1450px) / 2 + 48px));
+  grid-template-columns:1fr!important;
+  justify-content:stretch!important;
+  gap:8px!important;
+  align-items:stretch!important;
+  position:relative!important;
+  left:calc(50% - 50vw + var(--artist-page-inset))!important;
+  width:calc(100vw - var(--artist-page-inset) - var(--artist-page-inset))!important;
+  margin-top:0!important;
+}
+.artistListCard.artistCard{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:40px 72px minmax(0,1fr) 165px 44px!important;
+  align-items:center!important;
+  column-gap:18px!important;
+  min-height:92px!important;
+  padding:12px 20px!important;
+  border-radius:14px!important;
+  background:
+    radial-gradient(circle at 0% 50%,rgba(75,51,72,.025),transparent 32%),
+    rgba(255,255,255,.012)!important;
+  border:1px solid rgba(75,51,72,.16)!important;
+  box-shadow:inset 0 0 0 1px rgba(75,51,72,.025),-10px 0 28px rgba(112,62,139,.11)!important;
+  cursor:pointer!important;
+  overflow:hidden!important;
+  transition:background .18s ease,border-color .18s ease!important;
+}
+.artistListCard.artistCard:before{
+  content:""!important;
+  position:absolute!important;
+  inset:-1px!important;
+  border-radius:inherit!important;
+  padding:1px!important;
+  background:linear-gradient(90deg,rgba(132,73,164,.78),rgba(75,51,72,.34) 18%,rgba(75,51,72,.16) 72%,rgba(75,51,72,.30))!important;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0)!important;
+  -webkit-mask-composite:xor!important;
+  mask-composite:exclude!important;
+  pointer-events:none!important;
+}
+.artistListCard.artistCard:after{
+  content:""!important;
+  position:absolute!important;
+  inset:0 auto 0 -1px!important;
+  width:2px!important;
+  border-radius:14px 0 0 14px!important;
+  background:linear-gradient(180deg,rgba(132,73,164,.90),rgba(75,51,72,.38))!important;
+  box-shadow:0 0 18px rgba(132,73,164,.34)!important;
+  pointer-events:none!important;
+}
+.artistListCard.artistCard>*{
+  position:relative!important;
+  z-index:1!important;
+}
+.artistListCard.artistCard:nth-child(3n+1){grid-row:auto!important}
+.artistListCard.artistCard:hover{
+  transform:none!important;
+  border-color:rgba(75,51,72,.30)!important;
+  background:
+    radial-gradient(circle at 0% 50%,rgba(75,51,72,.04),transparent 32%),
+    rgba(255,255,255,.02)!important;
+  box-shadow:inset 0 0 0 1px rgba(75,51,72,.04),-12px 0 32px rgba(132,73,164,.16),0 0 20px rgba(75,51,72,.035)!important;
+}
+.artistListCard.artistCard:hover:before{
+  background:linear-gradient(90deg,rgba(132,73,164,.92),rgba(75,51,72,.42) 18%,rgba(75,51,72,.18) 72%,rgba(75,51,72,.34))!important;
+}
+.artistListCard.artistCard:hover:after{
+  box-shadow:0 0 22px rgba(132,73,164,.42)!important;
+}
+.artistListCard.artistCard:focus-visible{
+  outline:2px solid rgba(255,213,31,.64)!important;
+  outline-offset:3px!important;
+}
+.artistListMark{
+  width:22px!important;
+  height:28px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  opacity:.7!important;
+}
+.artistListMark i{
+  display:block!important;
+  width:2px!important;
+  border-radius:999px!important;
+  background:linear-gradient(180deg,#d6ab35 0%,#d6ab35 65%,#4b3348 100%)!important;
+}
+.artistListMark i:nth-child(1){height:13px!important}
+.artistListMark i:nth-child(2){height:22px!important}
+.artistListMark i:nth-child(3){height:17px!important}
+.artistListCover{
+  width:72px!important;
+  height:72px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  background:rgba(255,255,255,.04)!important;
+  border:1px solid rgba(214,171,53,.65)!important;
+  box-shadow:0 0 0 1px rgba(75,51,72,.14)!important;
+  display:grid!important;
+  place-items:center!important;
+  color:rgba(214,171,53,.75)!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:18px!important;
+  font-weight:700!important;
+  transition:border-color .18s ease!important;
+}
+.artistListCard.artistCard:hover .artistListCover{border-color:rgba(214,171,53,.82)!important}
+.artistListCover img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.artistListCopy{min-width:0!important}
+.artistListCopy h3{
+  margin:0!important;
+  color:#f3efe6!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:24px!important;
+  line-height:1.05!important;
+  font-weight:600!important;
+  letter-spacing:-.02em!important;
+  transition:color .18s ease!important;
+}
+.artistListCard.artistCard:hover .artistListCopy h3{color:#fff7df!important}
+.artistListCopy p{
+  max-width:540px!important;
+  margin:6px 0 0!important;
+  color:rgba(235,235,235,.58)!important;
+  font-size:14px!important;
+  line-height:1.35!important;
+  font-weight:500!important;
+  letter-spacing:0!important;
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+  overflow:hidden!important;
+}
+.artistListCard .artistTags{
+  margin-top:4px!important;
+  gap:6px!important;
+}
+.artistListCard .artistTags span{
+  padding:4px 8px!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:600!important;
+  letter-spacing:0!important;
+  color:rgba(240,240,240,.72)!important;
+  background:rgba(75,51,72,.025)!important;
+  border-color:rgba(75,51,72,.16)!important;
+}
+.artistListMeta{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  align-items:flex-start!important;
+  text-align:left!important;
+  justify-self:start!important;
+}
+.artistListMeta strong{
+  display:block!important;
+  color:#d6ab35!important;
+  font-size:14px!important;
+  line-height:1.2!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+  white-space:nowrap!important;
+}
+.artistListMeta span{
+  display:block!important;
+  margin-top:3px!important;
+  color:rgba(235,235,235,.45)!important;
+  font-size:11px!important;
+  line-height:1.2!important;
+  font-weight:600!important;
+  letter-spacing:.10em!important;
+  text-transform:uppercase!important;
+  white-space:nowrap!important;
+}
+.artistListArrow{
+  width:40px!important;
+  height:40px!important;
+  border:1px solid rgba(214,171,53,.55)!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#d6ab35!important;
+  background:transparent!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:18px!important;
+  line-height:1!important;
+  transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease!important;
+}
+.artistListCard.artistCard:hover .artistListArrow{
+  transform:translateX(1px)!important;
+  border-color:rgba(214,171,53,.90)!important;
+  background:rgba(75,51,72,.05)!important;
+  color:#d6ab35!important;
+}
+@media(max-width:650px){
+  .trendingArtistsHeader{align-items:start!important;flex-direction:column!important;gap:4px!important}
+  .trendingArtistsGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  .trendingArtistCard{min-height:154px!important;border-radius:12px!important}
+  .trendingArtistCopy{left:11px!important;right:11px!important;bottom:10px!important}
+  .trendingArtistCopy h3{font-size:18px!important}
+  .trendingArtistCopy small{display:none!important}
+  .artistGrid{grid-template-columns:1fr!important;gap:11px!important}
+  .artistListCard.artistCard{
+    grid-template-columns:60px minmax(0,1fr) 36px!important;
+    min-height:0!important;
+    padding:12px!important;
+    gap:12px!important;
+    border-radius:14px!important;
+  }
+  .artistListMark{display:none!important}
+  .artistListCover{width:58px!important;height:58px!important}
+  .artistListCopy h3{font-size:20px!important;line-height:1.05!important}
+  .artistListCopy p{font-size:13px!important;line-height:1.35!important;-webkit-line-clamp:2!important}
+  .artistListCard .artistTags{margin-top:5px!important;gap:5px!important}
+  .artistListCard .artistTags span{font-size:10px!important;padding:3px 7px!important}
+  .artistListMeta{grid-column:2 / 3!important;text-align:left!important;justify-self:start!important;align-items:flex-start!important;margin-top:2px!important}
+  .artistListMeta strong{font-size:13px!important}
+  .artistListMeta span{font-size:10px!important;margin-top:3px!important}
+  .artistListArrow{grid-column:3!important;grid-row:1 / 3!important;width:34px!important;height:34px!important;font-size:18px!important}
+}

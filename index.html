@@ -87,7 +87,10 @@
     </div>
 
     <div class="controls">
-      <input id="searchInput" placeholder="Search albums, artists, genres..." />
+      <div class="muzeSearchWrap">
+        <input id="searchInput" placeholder="Search albums, artists, genres..." autocomplete="off" />
+        <div id="muzeSearchSuggest" class="muzeSearchSuggest hidden" role="listbox" aria-label="Muze search suggestions"></div>
+      </div>
       <select id="genreFilter"><option value="All">All genres</option></select>
       <select id="sortSelect">
         <option value="score">Highest score</option>

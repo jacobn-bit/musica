@@ -64,7 +64,7 @@ function clearLocalOverviewOverride(key){
   }catch(error){}
 }
 const state={view:"rankings",search:"",genre:"All",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},libraries:[],libraryFollows:[],profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
 let homeSearchRenderTimer=0;
 const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
@@ -1537,6 +1537,58 @@ function albumGenreLabel(album){
   return metadataGenreFallback(album)||"Album";
 }
 function genreSearchText(album){return [albumGenreLabel(album),...albumGenreCandidates(album)].join(" ")}
+const albumSearchTextCache=new WeakMap();
+const albumGenreLabelCache=new WeakMap();
+const albumSearchTokenCache=new WeakMap();
+function cachedAlbumGenreLabel(album){
+  if(!album)return "Album";
+  const cached=albumGenreLabelCache.get(album);
+  if(cached)return cached;
+  const label=albumGenreLabel(album);
+  albumGenreLabelCache.set(album,label);
+  return label;
+}
+function albumSearchText(album){
+  if(!album)return "";
+  const cached=albumSearchTextCache.get(album);
+  if(cached)return cached;
+  const text=`${album.title||""} ${album.artist||""} ${album.year||""} ${genreSearchText(album)}`.toLowerCase();
+  albumSearchTextCache.set(album,text);
+  return text;
+}
+function fuzzySearchKey(value){return String(value||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim()}
+function editDistanceWithin(a,b,limit=2){
+  a=fuzzySearchKey(a);b=fuzzySearchKey(b);
+  if(!a||!b)return false;
+  if(Math.abs(a.length-b.length)>limit)return false;
+  let previous=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){
+    let current=[i],rowMin=current[0];
+    for(let j=1;j<=b.length;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      const value=Math.min(previous[j]+1,current[j-1]+1,previous[j-1]+cost);
+      current[j]=value;rowMin=Math.min(rowMin,value);
+    }
+    if(rowMin>limit)return false;
+    previous=current;
+  }
+  return previous[b.length]<=limit;
+}
+function albumSearchTokens(album){
+  const cached=albumSearchTokenCache.get(album);
+  if(cached)return cached;
+  const tokens=[album.title,album.artist,cachedAlbumGenreLabel(album),...(Array.isArray(album.genres)?album.genres:[])].flatMap(value=>fuzzySearchKey(value).split(" ")).filter(token=>token.length>=3);
+  albumSearchTokenCache.set(album,tokens);
+  return tokens;
+}
+function albumMatchesSearch(album,query){
+  const q=fuzzySearchKey(query);
+  if(!q)return true;
+  const haystack=albumSearchText(album);
+  if(haystack.includes(q))return true;
+  const qTokens=q.split(" ").filter(Boolean);
+  return qTokens.every(token=>albumSearchTokens(album).some(candidate=>candidate.includes(token)||token.includes(candidate)||editDistanceWithin(token,candidate,token.length<=5?1:2)));
+}
 function beautifulAlbumDescription(a){
   const title=String(a.title||"This album").trim();
   const artist=String(a.artist||"the artist").trim();
@@ -8156,25 +8208,98 @@ window.openAlbumOverviewFilter=function(type,value){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function genres(){return["All",...new Set([...state.albums.map(albumGenreLabel).filter(Boolean),"Classical","Soundtracks","International"])]}
-function filtered(){let a=state.albums.filter(x=>{let q=state.search.toLowerCase();const label=albumGenreLabel(x);const genreOk=state.genre==="All"?label!=="Greatest hits":label===state.genre;return genreOk&&(`${x.title} ${x.artist} ${x.year||""} ${genreSearchText(x)}`.toLowerCase().includes(q))});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
+function filtered(){const q=state.search.trim();let a=state.albums.filter(x=>{const label=cachedAlbumGenreLabel(x);const genreOk=state.genre==="All"?label!=="Greatest hits":label===state.genre;return genreOk&&albumMatchesSearch(x,q)});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
+function muzeSearchSuggestions(query){
+  const q=fuzzySearchKey(query);
+  if(q.length<1)return [];
+  return state.albums.map(album=>{
+    const title=fuzzySearchKey(album.title);
+    const artist=fuzzySearchKey(album.artist);
+    const genre=fuzzySearchKey(cachedAlbumGenreLabel(album));
+    const haystack=albumSearchText(album);
+    if(!albumMatchesSearch(album,q))return null;
+    let rank=0;
+    if(title===q)rank+=1000;
+    else if(title.startsWith(q))rank+=650;
+    else if(title.includes(q))rank+=360;
+    if(artist===q)rank+=760;
+    else if(artist.startsWith(q))rank+=460;
+    else if(artist.includes(q))rank+=230;
+    if(genre.startsWith(q))rank+=120;
+    if(!haystack.includes(q))rank+=95;
+    rank+=Math.min(100,score(album)*10)+Math.min(80,count(album)/500);
+    return {album,rank};
+  }).filter(Boolean).sort((a,b)=>b.rank-a.rank||String(a.album.title||"").localeCompare(String(b.album.title||""))).slice(0,7).map(item=>item.album);
+}
+function hideMuzeSearchSuggestions(){
+  const box=$("#muzeSearchSuggest");
+  if(box){box.classList.add("hidden");box.innerHTML=""}
+}
+function muzeSearchAlbumRuntime(album){
+  const direct=Number(album?.total_runtime_ms||album?.runtime_ms||album?.duration_ms||0);
+  if(direct>0)return albumInfoRuntime(direct);
+  const info=extras.albumInfo?.[albumRef(album?.id)];
+  const metadata=info?.metadata||{};
+  const saved=Number(metadata.total_runtime_ms||info?.total_runtime_ms||0);
+  if(saved>0)return albumInfoRuntime(saved);
+  const tracks=extras.tracks?.[albumRef(album?.id)];
+  if(Array.isArray(tracks)&&tracks.length){
+    const total=tracks.reduce((sum,track)=>sum+Math.max(0,Number(track.duration_ms)||0),0);
+    if(total>0)return albumInfoRuntime(total);
+  }
+  return "";
+}
+function renderMuzeSearchSuggestions(){
+  const box=$("#muzeSearchSuggest");
+  const input=$("#searchInput");
+  if(!box||!input)return;
+  const rows=muzeSearchSuggestions(input.value);
+  if(!rows.length){hideMuzeSearchSuggestions();return}
+  box.innerHTML=rows.map(album=>{
+    const image=String(album.cover_url||"").trim();
+    const meta=[album.year,cachedAlbumGenreLabel(album)].filter(Boolean).join("  ");
+    const runtime=muzeSearchAlbumRuntime(album);
+    return `<button type="button" class="muzeSearchOption" role="option" onclick="selectMuzeSearchSuggestion('${escapeJsString(album.id)}')"><span class="muzeSearchOptionCover">${image?`<img src="${escapeHtml(image)}" loading="lazy" decoding="async" onerror="this.hidden=true" alt="">`:`<b>${escapeHtml(coverText(album))}</b>`}</span><span class="muzeSearchOptionCopy"><strong>${escapeHtml(album.title||"Untitled album")}</strong><small>${escapeHtml(meta)}</small><em>${escapeHtml(album.artist||"Unknown artist")}</em></span>${runtime?`<span class="muzeSearchRuntime">${escapeHtml(runtime)}</span>`:""}</button>`;
+  }).join("");
+  box.classList.remove("hidden");
+}
+window.selectMuzeSearchSuggestion=function(albumId){
+  hideMuzeSearchSuggestions();
+  openAlbum(albumId);
+};
 function scheduleHomeSearchRender(){
   clearTimeout(homeSearchRenderTimer);
   homeSearchRenderTimer=setTimeout(()=>{homeSearchRenderTimer=0;state.homeAlbumLimit=120;render()},120);
 }
-function card(a){const genreLabel=albumGenreLabel(a);const adminDelete=isAdminUnlocked()?`<button class="adminAlbumDeleteBtn" onclick="event.stopPropagation();deleteAlbumAdmin('${escapeJsString(a.id)}')" aria-label="Delete ${escapeHtml(a.title)}">Delete</button>`:"";return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button>${adminDelete}<div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(genreLabel)}</span></div></article>`}
+function card(a){const genreLabel=cachedAlbumGenreLabel(a);const adminDelete=isAdminUnlocked()?`<button class="adminAlbumDeleteBtn" onclick="event.stopPropagation();deleteAlbumAdmin('${escapeJsString(a.id)}')" aria-label="Delete ${escapeHtml(a.title)}">Delete</button>`:"";return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button>${adminDelete}<div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(genreLabel)}</span></div></article>`}
 function row(a,i){const genreLabel=albumGenreLabel(a);return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(genreLabel)} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
-function render(){
-if(!state.dataReady){$("#heroScore").textContent="-";$("#heroTitle").textContent="Loading current rankings...";const heroCard=$("#heroCard");if(heroCard){heroCard.style.removeProperty("--hero-cover");heroCard.removeAttribute("onclick");heroCard.removeAttribute("role");heroCard.removeAttribute("tabindex");heroCard.removeAttribute("aria-label");heroCard.onkeydown=null}content.innerHTML='<div class="empty">Loading current album rankings...</div>';return}
-let arr=[];if(state.view==="rankings"){arr=filtered();let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];if(top){$("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;const heroCard=$("#heroCard");if(heroCard){heroCard.setAttribute("onclick",`openAlbum('${escapeJsString(top.id)}')`);heroCard.setAttribute("role","button");heroCard.setAttribute("tabindex","0");heroCard.setAttribute("aria-label",`Open ${top.title||"top-rated album"} album details`);heroCard.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openAlbum(top.id)}};if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}}$("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("")}
-if(state.view==="rankings"){
-  const limit=Math.max(60,Number(state.homeAlbumLimit)||120);
-  const visible=arr.slice(0,limit);
-  const more=visible.length<arr.length?`<div class="albumBatchMore"><button onclick="showMoreAlbums()">See more</button>${isAdminUnlocked()?`<span>${visible.length.toLocaleString()} of ${arr.length.toLocaleString()}</span>`:""}</div>`:"";
-  const resultCount=isAdminUnlocked()?`<span class="muted">${arr.length} results</span>`:"";
-  content.innerHTML=state.sort==="hidden"?`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`:`<div class="sectionTitle"><h2>Top Albums</h2>${resultCount}</div><div class="grid">${visible.map(card).join("")}</div>${more}`;
+let albumRenderToken=0;
+function renderRankingsView(){
+  const token=++albumRenderToken;
+  content.innerHTML='<div class="sectionTitle"><h2>Top Albums</h2></div><div class="grid albumGridPending"></div>';
+  requestAnimationFrame(()=>{
+    if(token!==albumRenderToken||state.view!=="rankings")return;
+    const arr=filtered();
+    let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];
+    if(top){
+      $("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;
+      const heroCard=$("#heroCard");
+      if(heroCard){heroCard.setAttribute("onclick",`openAlbum('${escapeJsString(top.id)}')`);heroCard.setAttribute("role","button");heroCard.setAttribute("tabindex","0");heroCard.setAttribute("aria-label",`Open ${top.title||"top-rated album"} album details`);heroCard.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openAlbum(top.id)}};if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}
+    }
+    $("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("");
+    const limit=Math.max(60,Number(state.homeAlbumLimit)||120);
+    const visible=arr.slice(0,limit);
+    const more=visible.length<arr.length?`<div class="albumBatchMore"><button onclick="showMoreAlbums()">See more</button>${isAdminUnlocked()?`<span>${visible.length.toLocaleString()} of ${arr.length.toLocaleString()}</span>`:""}</div>`:"";
+    const resultCount=isAdminUnlocked()?`<span class="muted">${arr.length} results</span>`:"";
+    content.innerHTML=state.sort==="hidden"?`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`:`<div class="sectionTitle"><h2>Top Albums</h2>${resultCount}</div><div class="grid">${visible.map(card).join("")}</div>${more}`;
+  });
 }
+function render(){
+if(state.view!=="artists")stopTrendingArtistFlip();
+if(!state.dataReady){$("#heroScore").textContent="-";$("#heroTitle").textContent="Loading current rankings...";const heroCard=$("#heroCard");if(heroCard){heroCard.style.removeProperty("--hero-cover");heroCard.removeAttribute("onclick");heroCard.removeAttribute("role");heroCard.removeAttribute("tabindex");heroCard.removeAttribute("aria-label");heroCard.onkeydown=null}content.innerHTML='<div class="empty">Loading current album rankings...</div>';return}
+if(state.view==="rankings"){renderRankingsView()}
 if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
-if(state.view==="artists"){content.innerHTML=artistPage(true);setTimeout(()=>renderArtistResults({chunked:true}),25)}
+if(state.view==="artists"){content.innerHTML=artistPage(true);setTimeout(()=>{renderArtistResults({chunked:true});startTrendingArtistFlip();loadTrendingArtists()},25)}
 if(state.view==="artist-profile"){content.innerHTML=artistProfilePage()}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
 if(state.view==="libraries"){librariesView()}
@@ -8365,15 +8490,26 @@ let artistDirectoryCache=null;
 function clearArtistDirectoryCache(){artistDirectoryCache=null}
 function artistDirectoryCacheKey(){return `${state.albums.length}:${state.albums[0]?.id||""}:${state.albums[state.albums.length-1]?.id||""}`}
 function warmArtistDirectory(){setTimeout(()=>{try{artistDirectoryBaseRows()}catch(error){console.warn("Unable to warm artist directory",error)}},120)}
+const commaArtistNameExceptions=new Set(["earth, wind & fire","earth, wind and fire","crosby, stills, nash & young","crosby, stills, nash and young","emerson, lake & palmer","emerson, lake and palmer","blood, sweat & tears","blood, sweat and tears"]);
+function artistCreditNames(value){
+  const raw=String(value||"").trim();
+  if(!raw)return [];
+  if(commaArtistNameExceptions.has(raw.toLowerCase()))return [raw];
+  const parts=raw.split(/\s*,\s*/).map(part=>part.trim()).filter(Boolean);
+  return parts.length>1?parts:[raw];
+}
+function albumHasArtistCredit(album,slug){
+  return artistCreditNames(album?.artist).some(name=>artistSlugForName(name)===slug);
+}
 function artistDirectoryBaseRows(){
   const key=artistDirectoryCacheKey();
   if(artistDirectoryCache?.key===key)return artistDirectoryCache.rows;
   const byName=new Map();
   state.albums.forEach(album=>{
-    const name=album.artist;
-    if(!name)return;
-    if(!byName.has(name))byName.set(name,[]);
-    byName.get(name).push(album);
+    artistCreditNames(album.artist).forEach(name=>{
+      if(!byName.has(name))byName.set(name,[]);
+      byName.get(name).push(album);
+    });
   });
   const rows=[...byName.entries()].map(([name,albums])=>{
     const sorted=albums.slice().sort((a,b)=>artistFastScore(b)-artistFastScore(a));
@@ -8410,14 +8546,129 @@ function artistDirectoryRows(){
     return a.name.localeCompare(b.name);
   });
 }
+function artistTrendNameKey(value){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/^the\s+/,"").replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim()}
+function matchedTrendingArtists(){
+  const rows=artistDirectoryBaseRows();
+  const byName=new Map(rows.map(row=>[artistTrendNameKey(row.name),row]));
+  const used=new Set();
+  const matched=[];
+  (extras.trendingArtists||[]).forEach(trend=>{
+    const row=byName.get(artistTrendNameKey(trend.name));
+    if(!row||used.has(row.slug))return;
+    used.add(row.slug);
+    matched.push({...row,trend});
+  });
+  rows.forEach(row=>{
+    if(matched.length>=4)return;
+    if(used.has(row.slug))return;
+    used.add(row.slug);
+    matched.push({...row,trend:{rank:matched.length+1,sources:["Muze community"],fallback:true}});
+  });
+  return matched.slice(0,4);
+}
+let trendingArtistFlipTimer=0;
+let trendingArtistFlipOrderIndex=0;
+function stopTrendingArtistFlip(){
+  clearInterval(trendingArtistFlipTimer);
+  trendingArtistFlipTimer=0;
+}
+function trendingArtistCovers(row){
+  const hero=row.hero||row.featured?.[0]||{};
+  const covers=[hero,...(row.featured||[])].map(album=>({url:String(album?.cover_url||"").trim(),title:String(album?.title||row.name||"Artist image").trim()})).filter(item=>item.url);
+  const seen=new Set();
+  return covers.filter(item=>{if(seen.has(item.url))return false;seen.add(item.url);return true}).slice(0,5);
+}
+function startTrendingArtistFlip(){
+  clearInterval(trendingArtistFlipTimer);
+  const cards=[...document.querySelectorAll(".trendingArtistCard[data-cover-count]")].filter(card=>Number(card.dataset.coverCount)>1);
+  if(!cards.length)return;
+  const orders=[[0,2,1,3],[0,3,2,1],[1,3,0,2],[2,0,3,1],[1,0,3,2],[2,3,0,1]];
+  const flip=()=>{
+    const order=orders[trendingArtistFlipOrderIndex%orders.length];
+    trendingArtistFlipOrderIndex++;
+    order.map(index=>cards[index]).filter(Boolean).forEach((card,index)=>setTimeout(()=>{
+    if(!document.body.contains(card))return;
+    const images=[...card.querySelectorAll(".trendingArtistArt img")];
+    if(images.length<2)return;
+    const next=(Number(card.dataset.coverIndex||0)+1)%images.length;
+    card.dataset.coverIndex=String(next);
+    images.forEach((image,imageIndex)=>image.classList.toggle("active",imageIndex===next));
+  },index*320));
+  };
+  trendingArtistFlipTimer=setInterval(flip,3000);
+}
+function trendingArtistCard(row,index){
+  const covers=trendingArtistCovers(row);
+  const genres=(row.genres||[]).slice(0,2).join(" / ");
+  const source=row.trend?.sources?.[0]||"Listener activity";
+  const label=row.trend?.fallback?"Muze pick":`Trending #${row.trend?.rank||index+1}`;
+  const art=covers.length?covers.map((cover,coverIndex)=>`<img class="${coverIndex===0?"active":""}" src="${escapeHtml(cover.url)}" loading="${coverIndex?"lazy":"eager"}" decoding="async" onerror="this.hidden=true" alt="${escapeHtml(row.name)} - ${escapeHtml(cover.title)}">`).join(""):`<span>${escapeHtml(coverText({title:row.name}))}</span>`;
+  return `<article class="trendingArtistCard" data-cover-count="${covers.length}" data-cover-index="0" role="button" tabindex="0" onclick="openArtistPage('${escapeJsString(row.slug)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openArtistPage('${escapeJsString(row.slug)}')}"><div class="trendingArtistArt">${art}</div><div class="trendingArtistCopy"><span>${escapeHtml(label)}</span><h3>${escapeHtml(row.name)}</h3><p>${escapeHtml(genres||source)}</p><small>${escapeHtml(source)}</small></div></article>`;
+}
+function trendingArtistsMarkup(){
+  const rows=matchedTrendingArtists();
+  if(!rows.length)return "";
+  const note=extras.trendingArtistsLoaded?"Updated from external listener trends":"Loading live trend signal";
+  return `<section class="trendingArtistsBlock" aria-label="Trending artists"><div class="trendingArtistsHeader"><div><p class="artistFilterLabel">Trending artists</p><h3>Artists people are playing now</h3></div><span>${escapeHtml(note)}</span></div><div class="trendingArtistsGrid">${rows.map(trendingArtistCard).join("")}</div></section>`;
+}
+function renderTrendingArtists(){
+  const host=$("#artistTrending");
+  if(host)host.outerHTML=`<div id="artistTrending">${trendingArtistsMarkup()}</div>`;
+  startTrendingArtistFlip();
+}
+async function loadTrendingArtists(){
+  if(extras.trendingArtistsRequest)return extras.trendingArtistsRequest;
+  const cached=(()=>{try{return JSON.parse(localStorage.getItem("muzeTrendingArtists:v1")||"null")}catch(error){return null}})();
+  if(cached?.artists&&Date.now()-Number(cached.saved_at||0)<6*60*60*1000){extras.trendingArtists=cached.artists;extras.trendingArtistsLoaded=true;renderTrendingArtists()}
+  extras.trendingArtistsRequest=fetchWithTimeout("/.netlify/functions/trending-artists",{cache:"no-store"},9000)
+    .then(response=>response.ok?response.json():Promise.reject(new Error("Trending artists request failed")))
+    .then(data=>{
+      extras.trendingArtists=Array.isArray(data.artists)?data.artists:[];
+      extras.trendingArtistsLoaded=true;
+      try{localStorage.setItem("muzeTrendingArtists:v1",JSON.stringify({artists:extras.trendingArtists,saved_at:Date.now()}))}catch(error){}
+      renderTrendingArtists();
+      return extras.trendingArtists;
+    })
+    .catch(error=>{console.warn("Unable to load external trending artists",error);extras.trendingArtistsLoaded=false;renderTrendingArtists();return []})
+    .finally(()=>{extras.trendingArtistsRequest=null});
+  return extras.trendingArtistsRequest;
+}
 function artistRank(name){return artistDirectoryRows().find(row=>row.name===name)?.rank||{ratedCount:0,totalRatings:0,avg:0,top:0}}
 function artistNames(){return artistDirectoryRows().map(row=>row.name)}
 let artistRenderToken=0;
 function renderArtistResults(options={}){let artists=[];let grid=$("#artistResults");let count=$("#artistCount");try{artists=artistDirectoryRows()}catch(error){console.error("Unable to render artist directory",error);if(count)count.textContent="Artists unavailable";if(grid)grid.innerHTML='<div class="empty">Artists could not be loaded.</div>';return}if(count)count.textContent=artists.length+" artist"+(artists.length===1?"":"s");if(!grid)return;artistRenderToken++;const token=artistRenderToken;if(!options.chunked){grid.innerHTML=artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>';return}grid.innerHTML="";if(!artists.length){grid.innerHTML='<div class="empty">No artists found.</div>';return}let index=0;function renderChunk(){if(token!==artistRenderToken||state.view!=="artists"||!document.body.contains(grid))return;const next=artists.slice(index,index+36).map(artistBlock).join("");if(next)grid.insertAdjacentHTML("beforeend",next);index+=36;if(index<artists.length)requestAnimationFrame(renderChunk)}renderChunk()}
-function artistPage(deferResults=false){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=deferResults&&!artistDirectoryCache?["Popular","Rock","Pop","Alternative Rock","Hip-Hop","Folk Rock","Pop Rock","Metal","Soul"]:artistGenres();let artists=deferResults?[]:artistDirectoryRows();let countLabel=deferResults?"Loading artists...":`${artists.length} artist${artists.length===1?"":"s"}`;let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<div class="artistTopBand"><section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${countLabel}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div></div><div id="artistResults" class="artistGrid">${deferResults?"":(artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>')}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;render()}
-window.setArtistGenre=function(genre){state.artistGenre=genre==="Popular"?"All":genre;render()}
+function artistPage(deferResults=false){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=deferResults&&!artistDirectoryCache?["Popular","Rock","Pop","Alternative Rock","Hip-Hop","Folk Rock","Pop Rock","Metal","Soul"]:artistGenres();let artists=deferResults?[]:artistDirectoryRows();let countLabel=deferResults?"Loading artists...":`${artists.length} artist${artists.length===1?"":"s"}`;let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<div class="artistTopBand"><section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${countLabel}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div></div><div id="artistTrending">${trendingArtistsMarkup()}</div><div id="artistResults" class="artistGrid">${deferResults?"":(artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>')}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;syncArtistFilterControls();renderArtistResults({chunked:true})}
+function syncArtistFilterControls(){
+  document.querySelectorAll(".artistGenreChips button").forEach(button=>{
+    const label=(button.textContent||"").trim();
+    button.classList.toggle("active",state.artistGenre===label||(label==="Popular"&&state.artistGenre==="All"));
+  });
+  const summary=document.querySelector(".artistAZMenu summary");
+  if(summary)summary.innerHTML=`${state.artistLetter==="All"?"A-Z Filter":escapeHtml(state.artistLetter)} <span>v</span>`;
+  document.querySelectorAll(".artistAZ button").forEach(button=>button.classList.toggle("active",(button.textContent||"").trim()===state.artistLetter));
+}
+window.setArtistGenre=function(genre){state.artistGenre=genre==="Popular"?"All":genre;syncArtistFilterControls();renderArtistResults({chunked:true})}
 window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults({chunked:true})}
-function artistBlock(row){if(typeof row==="string")row=artistDirectoryRows().find(item=>item.name===row)||{name:row,albums:[],genres:[],hero:{},featured:[],slug:artistSlugForName(row),totalRatings:0,scoreLabel:""};let genres=(row.genres||[]).slice(0,3);return`<section class="artistCard"><div class="artistHero" style="--artist-cover:url('${escapeHtml(row.hero?.cover_url||"")}')"><div><h3><button class="artistDiscoveryLink" onclick="openArtistPage('${escapeJsString(row.slug)}')">${escapeHtml(row.name)}</button></h3><p>${genres.length?escapeHtml(genres.join(" - "))+" - ":""}${row.albums.length} album${row.albums.length===1?"":"s"} ranked</p><div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div></div><div class="artistScore">${row.scoreLabel||""}${row.totalRatings?`<span>${row.totalRatings.toLocaleString()} ratings</span>`:""}</div></div><div class="artistAlbumList">${row.featured.map(artistAlbumRow).join("")}</div></section>`}
+function artistListActiveYears(row){
+  const years=(row.albums||[]).map(album=>Number(albumReleaseYear(album)||album.year||0)).filter(year=>year>0).sort((a,b)=>a-b);
+  if(!years.length)return "";
+  return String(years[0]);
+}
+function artistListSummary(row){
+  const genres=(row.genres||[]).map(value=>String(value||"").toLowerCase());
+  const name=String(row.name||"This artist").trim()||"This artist";
+  const topTitle=String(row.featured?.[0]?.title||row.hero?.title||"").trim();
+  if(genres.some(g=>g.includes("hip-hop")||g.includes("rap")))return `${name} turns rhythm, voice, and perspective into records built for close listening.`;
+  if(genres.some(g=>g.includes("metal")))return `${name} channels force, precision, and atmosphere into a catalogue with real weight.`;
+  if(genres.some(g=>g.includes("soul")||g.includes("r&b")))return `${name} brings warmth, feeling, and vocal character to songs that linger.`;
+  if(genres.some(g=>g.includes("electronic")))return `${name} shapes texture, pulse, and mood into a distinct listening world.`;
+  if(genres.some(g=>g.includes("classical")))return `${name} carries a sense of craft, scale, and lasting musical architecture.`;
+  if(genres.some(g=>g.includes("folk")))return `${name} keeps the focus on storytelling, melody, and emotional detail.`;
+  if(genres.some(g=>g.includes("pop")))return `${name} turns melody and personality into music with broad cultural pull.`;
+  if(genres.some(g=>g.includes("alternative")||g.includes("rock")))return `${name} balances edge, melody, and identity across a catalogue made to be revisited.`;
+  return topTitle?`${name} is represented in Muze through a focused catalogue led by ${topTitle}.`:`${name} has a focused Muze catalogue shaped by sound, memory, and community taste.`;
+}
+function artistBlock(row){if(typeof row==="string")row=artistDirectoryRows().find(item=>item.name===row)||{name:row,albums:[],genres:[],hero:{},featured:[],slug:artistSlugForName(row),totalRatings:0,scoreLabel:""};let genres=(row.genres||[]).slice(0,2);let hero=row.hero||row.featured?.[0]||{};let cover=String(hero.cover_url||"").trim();let years=artistListActiveYears(row);let summary=artistListSummary(row);return`<section class="artistCard artistListCard" role="button" tabindex="0" onclick="openArtistPage('${escapeJsString(row.slug)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openArtistPage('${escapeJsString(row.slug)}')}"><div class="artistListMark" aria-hidden="true"><i></i><i></i><i></i></div><div class="artistListCover">${cover?`<img src="${escapeHtml(cover)}" loading="lazy" decoding="async" onerror="this.hidden=true" alt="${escapeHtml(row.name)} image">`:`<span>${escapeHtml(coverText(hero.title?hero:{title:row.name}))}</span>`}</div><div class="artistListCopy"><h3>${escapeHtml(row.name)}</h3>${genres.length?`<div class="artistTags">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join("")}</div>`:""}<p>${escapeHtml(summary)}</p></div><div class="artistListMeta">${years?`<strong>${escapeHtml(years)}</strong>`:""}</div><span class="artistListArrow" aria-hidden="true">&rsaquo;</span></section>`}
 
 function artistSlugForName(value){
   return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")
@@ -8430,7 +8681,7 @@ function artistSlugFromPath(){
 function artistFallbackRecord(slug){
   const name=artistNames().find(item=>artistSlugForName(item)===slug)||"";
   if(!name)return null;
-  const albums=state.albums.filter(album=>artistSlugForName(album.artist)===slug);
+  const albums=state.albums.filter(album=>albumHasArtistCredit(album,slug));
   return {id:null,name,slug,image_url:"",image_source_url:"",image_author:"",image_license:"",image_license_url:"",image_attribution:"",bio:"",bio_sources:[],bio_generated_at:null,bio_generation_model:"",country:"",artist_type:"",genres:[...new Set(albums.map(albumGenreLabel).filter(label=>label&&label!=="Album"))],formed_year:null,disbanded_year:null,birth_date:null,death_date:null}
 }
 function artistProfileMeta(profile){
@@ -8603,7 +8854,7 @@ async function loadArtistProfile(slug){
     }
   }
   if(!profile)profile=artistFallbackRecord(cleanSlug);
-  if(profile&&!albums.length)albums=state.albums.filter(album=>artistSlugForName(album.artist)===cleanSlug);
+  if(profile&&!albums.length)albums=state.albums.filter(album=>albumHasArtistCredit(album,cleanSlug));
   if(albums.length)state.albums=mergeAlbumSources(state.albums,albums);
   state.artistProfile=profile;state.artistProfileAlbums=dedupeArtistDiscography(albums);state.artistProfileLoading=false;
   if(!profile)state.artistProfileError="Check the artist name or return to the Muze artist directory.";
@@ -8897,6 +9148,52 @@ async function loadRawAlbumRows(){
   }
   return (result.data||[]).map(album=>({...album,avg_rating:Number(album.avg_rating||0),ratings_count:Number(album.ratings_count||0)}));
 }
+async function loadAlbumRuntimeRows(){
+  if(!db)return [];
+  const pageSize=1000;
+  const rows=[];
+  for(let from=0;;from+=pageSize){
+    const to=from+pageSize-1;
+    const result=await db.from("album_metadata").select("album_ref,total_runtime_ms").not("total_runtime_ms","is",null).range(from,to);
+    if(result.error)throw result.error;
+    const batch=result.data||[];
+    rows.push(...batch);
+    if(batch.length<pageSize)break;
+  }
+  return rows;
+}
+function applyAlbumRuntimeRows(rows=[]){
+  if(!Array.isArray(rows)||!rows.length)return false;
+  const runtimes=new Map(rows.map(row=>[String(row.album_ref||""),Number(row.total_runtime_ms)||0]).filter(([,value])=>value>0));
+  if(!runtimes.size)return false;
+  let changed=false;
+  state.albums=state.albums.map(album=>{
+    const runtime=runtimes.get(albumRef(album.id));
+    if(!runtime||Number(album.total_runtime_ms||0)===runtime)return album;
+    changed=true;
+    return {...album,total_runtime_ms:runtime};
+  });
+  return changed;
+}
+let albumRuntimeHydrationRequest=null;
+async function hydrateAlbumRuntimes(){
+  if(!db)return;
+  if(albumRuntimeHydrationRequest)return albumRuntimeHydrationRequest;
+  albumRuntimeHydrationRequest=(async()=>{
+    try{
+      const rows=await loadAlbumRuntimeRows();
+      if(applyAlbumRuntimeRows(rows)){
+        saveBootAlbums(materializedBootAlbums());
+        renderMuzeSearchSuggestions();
+      }
+    }catch(error){
+      console.warn("Muze album runtimes could not be loaded",error?.message||error);
+    }finally{
+      albumRuntimeHydrationRequest=null;
+    }
+  })();
+  return albumRuntimeHydrationRequest;
+}
 function mergeAlbumSources(primary=[],fallback=[]){
   const byId=new Set(primary.map(album=>String(album.id||"")).filter(Boolean));
   const rows=primary.slice();
@@ -8956,6 +9253,7 @@ async function loadData(){
     state.dataReady=true;
     render();
     warmArtistDirectory();
+    hydrateAlbumRuntimes();
   }
   let albums=[];
   let rawAlbums=[];
@@ -8972,6 +9270,7 @@ async function loadData(){
   state.dataReady=true;
   render();
   warmArtistDirectory();
+  hydrateAlbumRuntimes();
   if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
   hydrateMissingCovers();
   const [ratingsResult,overviewsResult]=await Promise.allSettled([
@@ -9164,7 +9463,11 @@ function handleNavViewAction(event){
   navigateToView(view);
 }
 document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>{t.onclick=handleNavViewAction;t.addEventListener("pointerup",handleNavViewAction);t.addEventListener("touchend",handleNavViewAction,{passive:false})});
-$("#searchInput").oninput=e=>{state.search=e.target.value;scheduleHomeSearchRender()};$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
+$("#searchInput").oninput=e=>{state.search=e.target.value;renderMuzeSearchSuggestions();scheduleHomeSearchRender()};
+$("#searchInput")?.addEventListener("focus",renderMuzeSearchSuggestions);
+$("#searchInput")?.addEventListener("keydown",event=>{if(event.key==="Escape")hideMuzeSearchSuggestions()});
+document.addEventListener("pointerdown",event=>{if(!event.target.closest(".muzeSearchWrap"))hideMuzeSearchSuggestions()});
+$("#genreFilter").onchange=e=>{state.genre=e.target.value;render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
 document.addEventListener("visibilitychange",()=>{if(document.hidden)updateOwnPresence(false);else startPresenceHeartbeat()});
 window.addEventListener("pagehide",()=>updateOwnPresence(false));
 initAuth();
