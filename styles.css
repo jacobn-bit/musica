@@ -9262,6 +9262,7 @@ body.light .authPanel .adminOverviewUnlock{
   .editorialStatus{display:inline-block!important;margin-top:8px!important}
   .editorialBatchChoices{grid-template-columns:1fr!important}
 }
+
 .backCoverZoomHint{position:absolute!important;left:18px!important;bottom:16px!important;z-index:2!important;padding:8px 12px!important;border-radius:999px!important;border:1px solid rgba(212,175,55,.20)!important;background:rgba(0,0,0,.62)!important;color:rgba(255,255,255,.82)!important;font-size:12px!important;font-weight:800!important;letter-spacing:.03em!important;box-shadow:0 14px 34px rgba(0,0,0,.32)!important;}
 @media(max-width:1050px){.backCoverZoomHotspot{display:none!important;}.backCoverZoomPanel{width:100vw!important;height:100vh!important;border-radius:0!important;border-left:0!important;border-right:0!important;}.backCoverZoomViewer{padding:0!important;}}
 
@@ -19252,7 +19253,7 @@ body.libraryView .communityShelfCard .curatedListMeta{
 .publicListEditorPanel h2{margin:0 0 18px;font-family:var(--muze-serif,Georgia,serif);font-size:34px;font-weight:500}
 .publicListForm{display:grid;gap:14px}
 .publicListForm>label{display:grid;gap:6px;font-size:12px;font-weight:800}
-.publicListForm input,.publicListForm textarea{width:100%;padding:11px 13px;border:1px solid rgba(58,33,54,.2);border-radius:8px;background:#fff;color:#241521;font:500 14px var(--muze-sans,Arial,sans-serif)}
+.publicListForm input,.publicListForm textarea,.publicListForm select{width:100%;padding:11px 13px;border:1px solid rgba(58,33,54,.2);border-radius:8px;background:#fff;color:#241521;font:500 14px var(--muze-sans,Arial,sans-serif)}
 .publicListForm .publicListVisibility{display:flex;align-items:center;gap:8px}.publicListForm .publicListVisibility input{width:auto}
 .publicListAlbumPicker{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-height:250px;overflow:auto}
 .publicListAlbumChoice{display:grid;grid-template-columns:42px minmax(0,1fr);grid-template-rows:auto auto;gap:2px 8px;align-items:center;padding:7px;border:1px solid rgba(58,33,54,.12);border-radius:8px;background:rgba(255,255,255,.55);color:#2b1430;text-align:left}
@@ -19263,3 +19264,262 @@ body.libraryView .communityShelfCard .curatedListMeta{
 
 .publicListPage{max-width:1400px;margin:0 auto;color:#2b1430}.publicListBack{margin:12px 0 16px;padding:0;border:0;background:transparent;color:#8b6507;font-weight:800}.publicListHero{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;padding:32px;border:1px solid rgba(214,171,53,.28);border-radius:18px;background:linear-gradient(120deg,#3a1634,#171319);color:#f5eee7}.publicListHero h1{margin:7px 0 8px;font-family:var(--muze-serif,Georgia,serif);font-size:44px;font-weight:500}.publicListHero p{max-width:680px;margin:0 0 10px;color:rgba(245,238,231,.75)}.publicListHero small{color:rgba(245,238,231,.58)}.publicListHeroActions button{white-space:nowrap;padding:10px 17px;border:0;border-radius:999px;background:#d6ab35;color:#171015;font-weight:800}.publicListPage>.sectionTitle{margin-top:28px}
 @media(max-width:700px){.publicListAlbumPicker{grid-template-columns:1fr 1fr}.publicListHero{align-items:flex-start;flex-direction:column}.publicListHero h1{font-size:34px}}
+
+/* Compact Libraries header and hero on phones. */
+@media(max-width:760px){
+  body.libraryView #content{
+    padding:18px 14px 52px!important;
+  }
+  body.libraryView .mockLibrariesHeader{
+    grid-template-columns:1fr!important;
+    gap:14px!important;
+    margin:0 0 10px!important;
+  }
+  body.libraryView .mockLibrariesHeader h2{
+    margin:0 0 5px!important;
+    font-size:44px!important;
+    line-height:.95!important;
+    letter-spacing:-.035em!important;
+  }
+  body.libraryView .mockLibrariesHeader p{
+    font-size:14px!important;
+    line-height:1.25!important;
+  }
+  body.libraryView .mockLibraryTools{
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+    padding-top:0!important;
+  }
+  body.libraryView .mockLibraryTools label,
+  body.libraryView .mockLibraryTools button{
+    height:44px!important;
+  }
+  body.libraryView .mockLibraryTools label{
+    padding:0 14px!important;
+  }
+  body.libraryView .mockLibraryTools button{
+    padding:0 18px!important;
+    font-size:14px!important;
+  }
+  body.libraryView .mockYourLibrary{
+    min-height:0!important;
+    height:auto!important;
+    grid-template-columns:1fr!important;
+    gap:15px!important;
+    margin:0 0 16px!important;
+    padding:18px!important;
+    border-radius:13px!important;
+  }
+  body.libraryView .mockYourLibrary:after{
+    inset:0!important;
+    opacity:.08!important;
+  }
+  body.libraryView .ownIdentity{
+    display:flex!important;
+    align-items:start!important;
+    justify-self:stretch!important;
+    width:100%!important;
+    gap:13px!important;
+  }
+  body.libraryView .mockYourLibrary .ownIdentity>div:not(.ownAvatar){
+    display:block!important;
+    order:0!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
+  }
+  body.libraryView .ownAvatar{
+    order:0!important;
+    flex:0 0 68px!important;
+    width:68px!important;
+    height:68px!important;
+  }
+  body.libraryView .ownIdentity p,
+  body.libraryView .ownRecent p{
+    display:block!important;
+    margin:0 0 5px!important;
+    font-size:10px!important;
+    line-height:1.1!important;
+  }
+  body.libraryView .ownIdentity h3{
+    margin:0 0 7px!important;
+    font-size:30px!important;
+    line-height:1!important;
+    letter-spacing:-.025em!important;
+    overflow-wrap:break-word!important;
+  }
+  body.libraryView .mockYourLibrary .ownIdentity h3:after{
+    content:none!important;
+  }
+  body.libraryView .ownLibrarySubtitle{
+    display:-webkit-box!important;
+    max-width:none!important;
+    margin:0 0 7px!important;
+    font-size:12px!important;
+    line-height:1.3!important;
+    -webkit-box-orient:vertical!important;
+    -webkit-line-clamp:2!important;
+    overflow:hidden!important;
+  }
+  body.libraryView .ownIdentity span{
+    display:none!important;
+  }
+  body.libraryView .ownIdentity em{
+    margin:0 0 9px!important;
+    font-size:12px!important;
+    line-height:1.2!important;
+  }
+  body.libraryView .mockYourLibrary button{
+    min-width:170px!important;
+    height:40px!important;
+    padding:0 18px!important;
+    font-size:13px!important;
+  }
+  body.libraryView .ownRecent>div{
+    gap:8px!important;
+  }
+  body.libraryView .ownRecent:not(:has(.ownRecentCover)){
+    display:none!important;
+  }
+  body.libraryView .mockYourLibrary .ownRecent,
+  body.libraryView .mockYourLibrary .ownNumbers{
+    display:none!important;
+  }
+  body.libraryView .ownRecentCover{
+    width:52px!important;
+    height:52px!important;
+    border-radius:6px!important;
+  }
+  body.libraryView .ownNumbers{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:5px!important;
+    width:100%!important;
+    padding:12px 0 0!important;
+    border:0!important;
+    border-top:1px solid rgba(255,255,255,.10)!important;
+    border-radius:0!important;
+    background:transparent!important;
+  }
+  body.libraryView .ownNumbers>p{
+    display:none!important;
+  }
+  body.libraryView .ownNumbers>div{
+    display:block!important;
+    min-width:0!important;
+    min-height:0!important;
+    padding:0 6px!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    text-align:center!important;
+  }
+  body.libraryView .ownNumbers strong{
+    font-size:24px!important;
+    line-height:1!important;
+  }
+  body.libraryView .ownNumbers span{
+    margin-top:4px!important;
+    font-size:10px!important;
+    line-height:1.15!important;
+  }
+  body.libraryView .mockYourLibrary .ownNumbers>div:nth-of-type(1) span:after,
+  body.libraryView .mockYourLibrary .ownNumbers>div:nth-of-type(2) span:after,
+  body.libraryView .mockYourLibrary .ownNumbers>div:nth-of-type(3) span:after{
+    content:none!important;
+  }
+}
+
+/* Keep the Libraries mobile topbar compact and on one horizontal row. */
+@media(max-width:650px){
+  body.libraryView .topbar{
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    width:calc(100vw - 28px)!important;
+    min-height:58px!important;
+    gap:7px!important;
+    margin:0 auto!important;
+    padding:5px 0!important;
+  }
+  body.libraryView .topbar .menuBtn{
+    flex:0 0 38px!important;
+    width:38px!important;
+    height:38px!important;
+    font-size:19px!important;
+  }
+  body.libraryView .topbar .brandWrap{
+    flex:0 0 68px!important;
+    width:68px!important;
+    min-height:48px!important;
+    margin:0!important;
+    justify-content:center!important;
+  }
+  body.libraryView .topbar .brandLogo{
+    width:68px!important;
+    height:52px!important;
+    max-width:68px!important;
+    transform:none!important;
+  }
+  body.libraryView .topbar .brandWrap:before,
+  body.libraryView .topbar .brandWrap:after,
+  body.libraryView .topbar .tagline{
+    display:none!important;
+  }
+  body.libraryView .topbar .notificationWrap{
+    display:flex!important;
+    flex:0 0 auto!important;
+    align-items:center!important;
+    gap:5px!important;
+    margin-left:auto!important;
+  }
+  body.libraryView .topbar .topbarChatButton,
+  body.libraryView .topbar .notificationBell{
+    flex:0 0 36px!important;
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+  }
+  body.libraryView .topbar .authButton,
+  body.libraryView .topbar .authButton:has(.authButtonIcon.hasAvatar){
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:0!important;
+    min-height:36px!important;
+    margin:0!important;
+    padding:0 10px 0 7px!important;
+    gap:7px!important;
+    font-size:12px!important;
+  }
+  body.libraryView .topbar .authButtonIcon,
+  body.libraryView .topbar .authButtonIcon.hasAvatar{
+    width:22px!important;
+    height:22px!important;
+    flex-basis:22px!important;
+  }
+}
+
+/* Let Curated by Listeners cards hug their content on phones. */
+@media(max-width:700px){
+  body.libraryView .mockCommunityGrid .communityShelfCard{
+    height:auto!important;
+    min-height:0!important;
+    padding:14px!important;
+    gap:7px!important;
+    grid-template-rows:none!important;
+    grid-auto-rows:auto!important;
+    align-content:start!important;
+  }
+  body.libraryView .communityShelfCard .mockAlbumPreview{
+    align-self:start!important;
+    grid-template-rows:auto!important;
+    grid-auto-rows:auto!important;
+  }
+  body.libraryView .communityShelfCard .mockAlbumPreview .mockAlbumTile,
+  body.libraryView .communityShelfCard .mockAlbumPreview .mockFeaturedAlbum,
+  body.libraryView .communityShelfCard .mockAlbumPreview .mockSideAlbum{
+    grid-row:auto!important;
+  }
+  body.libraryView .communityShelfCard .mockLibraryActions{
+    margin-top:2px!important;
+  }
+}
