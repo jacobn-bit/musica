@@ -6346,6 +6346,7 @@ function albumToLibraryItem(a){return {
 }}
 const PUBLIC_LISTS_STORAGE_KEY="musicaPublicLists";
 const PUBLIC_LIST_FOLLOWS_STORAGE_KEY="musicaPublicListFollows";
+const PUBLIC_LIST_TYPE_OVERRIDES_KEY="musicaPublicListTypeOverrides";
 const seededPublicListDefinitions=[
   {id:"seed-list-summer-breezers",slug:"summer-breezers",title:"Summer Breezers",description:"Warm records for open windows and long evenings.",username:"northsideben",genres:["Soul","Pop","Reggae","R&B"],count:14},
   {id:"seed-list-90s-alternative",slug:"90s-alternative-essentials",title:"90s Alternative Essentials",description:"The records that gave a restless decade its sound.",username:"noahvibes",genres:["Alternative","Rock","Grunge","Indie"],count:20},
@@ -6356,6 +6357,8 @@ function localPublicLists(){try{const rows=JSON.parse(localStorage.getItem(PUBLI
 function saveLocalPublicLists(rows){localStorage.setItem(PUBLIC_LISTS_STORAGE_KEY,JSON.stringify(rows||[]))}
 function localPublicListFollows(){try{const rows=JSON.parse(localStorage.getItem(PUBLIC_LIST_FOLLOWS_STORAGE_KEY)||"[]");return Array.isArray(rows)?rows.map(String):[]}catch(error){return []}}
 function saveLocalPublicListFollows(rows){localStorage.setItem(PUBLIC_LIST_FOLLOWS_STORAGE_KEY,JSON.stringify([...new Set((rows||[]).map(String))]))}
+function publicListTypeOverrides(){try{const value=JSON.parse(localStorage.getItem(PUBLIC_LIST_TYPE_OVERRIDES_KEY)||"{}");return value&&typeof value==="object"&&!Array.isArray(value)?value:{}}catch(error){return {}}}
+function savePublicListTypeOverride(list,type){const key=String(list?.id||list?.slug||"");if(!key)return;const overrides=publicListTypeOverrides();overrides[key]=publicListCurationType({curation_type:type});localStorage.setItem(PUBLIC_LIST_TYPE_OVERRIDES_KEY,JSON.stringify(overrides))}
 function publicListSchemaUnavailable(error){return /schema cache|relation .*lists.*does not exist|could not find .*lists|list_albums|list_follows/i.test(String(error?.message||error||""))}
 function publicListSlug(value){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,70)||"listener-list"}
 function publicListSlugFromPath(){
@@ -6411,7 +6414,8 @@ function publicListProfile(list={}){
 function normalizedPublicList(list={}){
   const profile=publicListProfile(list);
   const username=String(list.username||profile.username||"listener").replace(/^@/,"");
-  return {...list,...profile,username,items:liveLibraryItems(Array.isArray(list.items)?list.items:[]),album_count:Number(list.album_count||(Array.isArray(list.items)?list.items.length:0)||0),followers_count:Number(list.followers_count||0)};
+  const typeOverride=publicListTypeOverrides()[String(list.id||list.slug||"")];
+  return {...list,...profile,username,curation_type:publicListCurationType({curation_type:typeOverride||list.curation_type}),items:liveLibraryItems(Array.isArray(list.items)?list.items:[]),album_count:Number(list.album_count||(Array.isArray(list.items)?list.items.length:0)||0),followers_count:Number(list.followers_count||0)};
 }
 function visiblePublicLists(){
   const rows=[...localPublicLists(),...(extras.publicLists||[]),...convertedSeededPublicLists(),...seededPublicLists()];
@@ -6429,9 +6433,15 @@ async function loadPublicLists(force=false){
     if(!db){extras.publicLists=localPublicLists();extras.publicListsLoaded=true;return visiblePublicLists()}
     try{
       const userId=String(loggedInUser()?.id||"");
-      let query=db.from("lists").select("id,user_id,title,slug,description,is_public,cover_image_url,featured,created_at,updated_at").order("featured",{ascending:false}).order("updated_at",{ascending:false}).limit(60);
+      let query=db.from("lists").select("id,user_id,title,slug,description,is_public,cover_image_url,featured,curation_type,created_at,updated_at").order("featured",{ascending:false}).order("updated_at",{ascending:false}).limit(60);
       if(!userId)query=query.eq("is_public",true);
-      const {data:lists,error:listError}=await query;
+      let {data:lists,error:listError}=await query;
+      if(listError&&/curation_type|column/i.test(String(listError.message||""))){
+        let fallbackQuery=db.from("lists").select("id,user_id,title,slug,description,is_public,cover_image_url,featured,created_at,updated_at").order("featured",{ascending:false}).order("updated_at",{ascending:false}).limit(60);
+        if(!userId)fallbackQuery=fallbackQuery.eq("is_public",true);
+        const fallbackResult=await fallbackQuery;
+        lists=fallbackResult.data;listError=fallbackResult.error;
+      }
       if(listError)throw listError;
       const listIds=(lists||[]).map(row=>row.id).filter(Boolean);
       let junctionRows=[],followRows=[];
@@ -6471,6 +6481,7 @@ function publicListBySlug(slug){
   if(list?.curation_type==="list"&&seededLibraryIndexFor(list)>=0)return seededLibraryAsPublicList(fullSeededLibraryByKey(list.id)||list);
   return list;
 }
+function publicListCurationType(list={}){return String(list.curation_type||"list").toLowerCase()==="library"?"library":"list"}
 function publicListOwnedByUser(list){return Boolean(list)&&!list.seeded&&((list.local_owner_device_id&&list.local_owner_device_id===state.deviceId)||(list.user_id&&String(list.user_id)===String(loggedInUser()?.id||"")))}
 const seededLibraryBlueprints=[
   ["miraafterhours","Mira's After Hours Shelf",["Soul","R&B","Jazz","Hip-Hop","Pop"],9],
@@ -7397,19 +7408,35 @@ function libraryAlbumCard(item, removable=false, draggable=false){
   const dragAttrs=draggable?' draggable="true" ondragstart="dragLibraryItem(event,\''+escapeJsString(item.id)+'\')" ondragend="endLibraryDrag(event)" ondragover="event.preventDefault()" ondragenter="event.currentTarget.classList.add(\'dragTarget\')" ondragleave="event.currentTarget.classList.remove(\'dragTarget\')" ondrop="dropLibraryItem(event,\''+escapeJsString(item.id)+'\')"':'';
   return '<div class="libraryDraftCard"'+dragAttrs+'>'+card+'<button class="draftRemove" onclick="event.stopPropagation();removeFromMyLibrary(\''+escapeJsString(item.id)+'\')">Remove</button></div>';
 }
+function libraryProfileMetaMarkup(stats={},albumCount=0){
+  const albumsRated=Number(stats.albumsRated||0);
+  const songsRated=Number(stats.songsRated||0);
+  const songsShared=Number(stats.songsShared||0);
+  const commentsLeft=Number(stats.commentsLeft||0);
+  const items=[
+    ["albumsAdded","&#9673;",`${albumCount} album${albumCount===1?"":"s"}`],
+    ["albumsRated","&#9734;",albumsRated?`${albumsRated} album${albumsRated===1?"":"s"} rated`:"No public album ratings"],
+    ["songsRated","&#9835;",songsRated?`${songsRated} song${songsRated===1?"":"s"} rated`:"No public song ratings"],
+    ["songsShared","&#8599;",songsShared?`${songsShared} item${songsShared===1?"":"s"} shared`:"Not shared"],
+    ["commentsLeft","&#9675;",commentsLeft?`${commentsLeft} comment${commentsLeft===1?"":"s"}`:"No comments"]
+  ];
+  return items.map(([key,icon,label])=>`<button type="button" class="libraryMetaItem" onclick="openProfileActivity('${key}')"><span aria-hidden="true">${icon}</span><small>${escapeHtml(label)}</small></button>`).join("");
+}
 function openLibraryDetails(library){
   if(!library)return;
+  $("#albumModal").classList.add("libraryDetailModal");
   const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const isMine=library.device_id===state.deviceId||library.isMine;
   const key=escapeJsString(library.id||"");
   const adminAddAction=isAdminUnlocked()&&!isMine&&library.id?'<button class="libraryDetailAddBtn adminLibraryAddBtn" onclick="event.stopPropagation();adminAddAlbumToLibrary(\''+key+'\')">+ Add album</button>':'';
   const addAction=isMine?'<button class="libraryDetailAddBtn" onclick="event.stopPropagation();openLibrarySpotifyAdd()">+ Add album</button>':adminAddAction;
   const baseStats={albumsAdded:Number(library.album_count||items.length||0),albumsRated:0,songsRated:0,songsShared:0,commentsLeft:0};
-  $("#albumModalContent").innerHTML='<div class="sectionTitle libraryDetailTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' - '+Number(library.album_count||items.length||0)+' albums</span></div><div class="libraryDetailActions">'+addAction+'</div></div><div id="libraryProfileStatsGrid" class="profileStatsGrid libraryProfileStatsGrid">'+profileStatsMarkup(baseStats)+'</div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div>';
+  const albumCount=Number(library.album_count||items.length||0);
+  $("#albumModalContent").innerHTML='<div class="libraryDetailBrand"><img src="/Muze%20correct%20logo%20dark-word.png?v=dark-word-v1" alt="Muze"></div><div class="sectionTitle libraryDetailTitle"><div><h2>'+escapeHtml(library.title||"Library")+'</h2><span class="muted">@'+escapeHtml(library.username||"Listener")+' &middot; '+albumCount+' album'+(albumCount===1?'':'s')+'</span></div><div class="libraryDetailActions">'+addAction+'</div></div><div id="libraryProfileStatsGrid" class="libraryMetaStrip">'+libraryProfileMetaMarkup(baseStats,albumCount)+'</div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,isMine,isMine)).join("")||'<div class="empty">No albums yet.</div>')+'</div><div class="libraryDetailFlourish" aria-hidden="true"><span></span><i></i><span></span></div>';
   $("#albumModal").classList.remove("hidden");
   loadPublicProfileStats(library).then(stats=>{
     const grid=$("#libraryProfileStatsGrid");
-    if(grid&&stats)grid.innerHTML=profileStatsMarkup({...baseStats,...stats,albumsAdded:Math.max(Number(stats.albumsAdded||0),baseStats.albumsAdded)});
+    if(grid&&stats)grid.innerHTML=libraryProfileMetaMarkup({...baseStats,...stats,albumsAdded:Math.max(Number(stats.albumsAdded||0),baseStats.albumsAdded)},albumCount);
   }).catch(error=>console.warn("Unable to load public profile stats",error.message||error));
 }function fastCommunityLibraries(limit=3,username=currentUsername()){
   const normalizedUsername=String(username||"").toLowerCase();
@@ -7592,7 +7619,6 @@ function libraryPreviewBlock(library){
   const followers=Number(library.followers_count||0);
   const albumCount=Number(library.album_count||rawItems.length||0);
   const tags=[...new Set(rawItems.map(item=>String(item.genre||albumGenreLabel(item)||"").trim()).filter(g=>g&&g!=="Album"))].slice(0,3);
-  const similarity=Math.max(0,Math.min(100,Number(librarySimilarity(allItems,ownComparableLibraryItems()))||0));
   const isSeeded=isSeededLibrary(library);
   const seedIndex=seededLibraryIndexFor(library);
   const canFollow=!isSeeded&&library.id&&String(library.id).indexOf("local-library-")!==0;
@@ -7604,10 +7630,12 @@ function libraryPreviewBlock(library){
     return '<article class="mockAlbumTile '+(index===0?'mockFeaturedAlbum':'mockSideAlbum')+'" onclick="event.stopPropagation();openLibraryAlbum(\''+encodeURIComponent(JSON.stringify(item))+'\')"><div class="mockAlbumCover">'+(image?'<img src="'+escapeHtml(image)+'" alt="'+escapeHtml(title)+'">':'<strong>'+escapeHtml(title.slice(0,1)||"M")+'</strong>')+'</div></article>';
   }).join("");
   const extraCount=Math.max(0,albumCount-3);
-  return '<div class="libraryCard mockLibraryCard communityShelfCard curatedLibraryCard" role="button" tabindex="0" onclick="openLibraryDetailsById(\''+key+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openLibraryDetailsById(\''+key+'\')}"><div class="mockLibraryTop"><div class="mockAvatar">'+lightweightLibraryAvatar(library)+'</div><div class="mockLibraryTitle"><span class="curatedTypeBadge libraryTypeBadge">Library</span><h3>'+escapeHtml(library.title||"Library")+'</h3><p class="mockLibraryByline"><span class="mockUsername">@'+escapeHtml(library.username||"Listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p></div></div><div class="mockDescriptor">'+escapeHtml(libraryGenreLabel(tags))+'</div><div class="communityMatchBadge">'+similarity+'% MATCH</div><div class="mockAlbumPreview '+(rawItems.length>=3?'hasMobileTrio':'')+'">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+(extraCount?'<div class="mockMoreTile">+'+extraCount+'</div>':'')+'</div><div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">Explore &rarr;</button><span class="libraryAdminIdentitySlot">'+adminIdentityEdit+'<button class="libraryFollowBtn" onclick="event.stopPropagation();'+followAction+'">Follow</button></span></div></div>';
+  return '<div class="libraryCard mockLibraryCard communityShelfCard curatedLibraryCard" role="button" tabindex="0" onclick="openLibraryDetailsById(\''+key+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openLibraryDetailsById(\''+key+'\')}"><div class="mockLibraryTop"><div class="mockAvatar">'+lightweightLibraryAvatar(library)+'</div><div class="mockLibraryTitle"><span class="curatedTypeBadge libraryTypeBadge">Library</span><h3>'+escapeHtml(library.title||"Library")+'</h3><p class="mockLibraryByline"><span class="mockUsername">@'+escapeHtml(library.username||"Listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p></div></div><div class="mockAlbumPreview '+(rawItems.length>=3?'hasMobileTrio':'')+'">'+(preview||'<div class="emptyMini">No public albums yet.</div>')+(extraCount?'<div class="mockMoreTile">+'+extraCount+'</div>':'')+'</div><div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openLibraryDetailsById(\''+key+'\')">Explore &rarr;</button><span class="libraryAdminIdentitySlot">'+adminIdentityEdit+'<button class="libraryFollowBtn" onclick="event.stopPropagation();'+followAction+'">Follow</button></span></div></div>';
 }
 function publicListPreviewBlock(rawList){
   const list=normalizedPublicList(rawList);
+  const curationType=publicListCurationType(list);
+  const isLibrary=curationType==="library";
   const items=list.items.slice(0,3);
   const followers=Number(list.followers_count||0);
   const albumCount=Number(list.album_count||list.items.length||0);
@@ -7621,8 +7649,8 @@ function publicListPreviewBlock(rawList){
   const seedIndex=seededLibraryIndexFor(list);
   const editAction=seedIndex>=0?'editSeededLibraryIdentity('+seedIndex+')':'openPublicListEditor(\''+escapeJsString(list.id)+'\')';
   const ownerActions=(publicListOwnedByUser(list)||isAdminUnlocked())?'<button class="libraryAdminIdentityBtn" onclick="event.stopPropagation();'+editAction+'">Edit</button>':'';
-  const description=String(list.description||"A listener-curated album list.").trim();
-  return '<div class="libraryCard mockLibraryCard communityShelfCard curatedListCard" role="button" tabindex="0" onclick="openPublicList(\''+slug+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPublicList(\''+slug+'\')}"><div class="mockLibraryTop"><div class="mockAvatar">'+lightweightLibraryAvatar(list)+'</div><div class="mockLibraryTitle"><span class="curatedTypeBadge listTypeBadge">List</span><h3>'+escapeHtml(list.title||"Listener list")+'</h3><p class="mockLibraryByline"><span class="mockUsername">by @'+escapeHtml(list.username||"listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p></div></div><div class="mockDescriptor curatedListDescription">'+escapeHtml(description)+'</div><div class="curatedListMeta">Curated album list</div><div class="mockAlbumPreview '+(items.length>=3?'hasMobileTrio':'')+'">'+(preview||'<div class="emptyMini">No albums yet.</div>')+(extraCount?'<div class="mockMoreTile">+'+extraCount+'</div>':'')+'</div><div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openPublicList(\''+slug+'\')">Explore &rarr;</button><span class="libraryAdminIdentitySlot">'+ownerActions+'<button class="libraryFollowBtn '+(followed?'following':'')+'" onclick="event.stopPropagation();followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow')+'</button></span></div></div>';
+  const description=String(list.description||(isLibrary?"A listener's personal album library.":"A listener-curated album list.")).trim();
+  return '<div class="libraryCard mockLibraryCard communityShelfCard curatedListCard '+(isLibrary?'curatedLibraryCard':'')+'" role="button" tabindex="0" onclick="openPublicList(\''+slug+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPublicList(\''+slug+'\')}"><div class="mockLibraryTop"><div class="mockAvatar">'+lightweightLibraryAvatar(list)+'</div><div class="mockLibraryTitle"><span class="curatedTypeBadge '+(isLibrary?'libraryTypeBadge':'listTypeBadge')+'">'+(isLibrary?'Library':'List')+'</span><h3>'+escapeHtml(list.title||(isLibrary?"Listener library":"Listener list"))+'</h3><p class="mockLibraryByline"><span class="mockUsername">'+(isLibrary?'@':'by @')+escapeHtml(list.username||"listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p></div></div>'+(isLibrary?'':'<div class="mockDescriptor curatedListDescription">'+escapeHtml(description)+'</div>')+'<div class="mockAlbumPreview '+(items.length>=3?'hasMobileTrio':'')+'">'+(preview||'<div class="emptyMini">No albums yet.</div>')+(extraCount?'<div class="mockMoreTile">+'+extraCount+'</div>':'')+'</div><div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openPublicList(\''+slug+'\')">Explore &rarr;</button><span class="libraryAdminIdentitySlot">'+ownerActions+'<button class="libraryFollowBtn '+(followed?'following':'')+'" onclick="event.stopPropagation();followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow')+'</button></span></div></div>';
 }
 function curatedShelfRows(limit=4,query=""){
   const username=currentUsername();
@@ -7819,12 +7847,15 @@ function publicListView(){
     return;
   }
   const owned=publicListOwnedByUser(list);
+  const curationType=publicListCurationType(list);
+  const isLibrary=curationType==="library";
   const canEdit=owned||isAdminUnlocked();
   const seedIndex=seededLibraryIndexFor(list);
   const editAction=seedIndex>=0?'editSeededLibraryIdentity('+seedIndex+')':'openPublicListEditor(\''+escapeJsString(list.id)+'\')';
   const followed=(extras.listFollows||[]).some(row=>String(row.list_id)===String(list.id)&&String(row.user_id)===String(loggedInUser()?.id||""))||localPublicListFollows().includes(String(list.id));
   const items=liveLibraryItems(list.items||[]);
-  content.innerHTML='<section class="publicListPage"><button class="publicListBack" onclick="navigateToView(\'libraries\')">&larr; Libraries</button><header class="publicListHero"><div><span class="curatedTypeBadge listTypeBadge">List</span><h1>'+escapeHtml(list.title||"Listener list")+'</h1><p>'+escapeHtml(list.description||"A listener-curated collection of albums.")+'</p><small>by @'+escapeHtml(list.username||"listener")+' &middot; '+libraryAlbumCountText(items.length)+' &middot; '+Number(list.followers_count||0)+' followers</small></div><div class="publicListHeroActions">'+(canEdit?'<button onclick="'+editAction+'">Edit list</button>':'<button onclick="followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow list')+'</button>')+'</div></header><div class="sectionTitle"><h2>Albums in this list</h2></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,false,false)).join("")||'<div class="empty">No albums have been added yet.</div>')+'</div></section>';
+  const followerCount=Number(list.followers_count||0);
+  content.innerHTML='<section class="publicListPage premiumPublicListPage"><button class="publicListBack" onclick="navigateToView(\'libraries\')">&larr; Libraries</button><header class="publicListHero"><div><span class="publicListEyebrow">'+(isLibrary?'PERSONAL LIBRARY':'CURATED COLLECTION')+'</span><h1>'+escapeHtml(list.title||(isLibrary?"Listener library":"Listener list"))+'</h1><p>'+escapeHtml(list.description||(isLibrary?"A listener's personal album library.":"A listener-curated collection of albums."))+'</p><small>'+(isLibrary?'@':'by @')+escapeHtml(list.username||"listener")+' &middot; '+libraryAlbumCountText(items.length)+' &middot; '+followerCount+' follower'+(followerCount===1?'':'s')+'</small></div><div class="publicListHeroActions">'+(canEdit?'<button onclick="'+editAction+'">Edit '+(isLibrary?'library':'list')+'</button>':'<button onclick="followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow '+(isLibrary?'library':'list'))+'</button>')+'</div></header><div class="publicListMetaStrip"><span><i aria-hidden="true">&#9673;</i>'+libraryAlbumCountText(items.length)+'</span><span><i aria-hidden="true">&#9734;</i>'+(isLibrary?'Personal library':'Curated collection')+'</span><span><i aria-hidden="true">&#9675;</i>'+followerCount+' follower'+(followerCount===1?'':'s')+'</span></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,false,false)).join("")||'<div class="empty">No albums have been added yet.</div>')+'</div><div class="libraryDetailFlourish" aria-hidden="true"><span></span><i></i><span></span></div></section>';
 }
 window.openPublicList=function(slug,options={}){
   const clean=publicListSlug(slug);if(!clean)return;
@@ -8969,7 +9000,8 @@ function renderPublicListEditor(){
   const candidates=listEditorCandidates().filter(album=>!query||`${album.title||""} ${album.artist||""}`.toLowerCase().includes(query)).slice(0,60);
   const selected=draft.albumIds.map(listDraftAlbum).filter(Boolean);
   const usernameField=draft.canEditUsername?'<label>Username<input id="publicListUsername" maxlength="32" value="'+escapeHtml(draft.username||"")+'" placeholder="listener"></label>':'';
-  mount.innerHTML='<p class="eyebrow">'+(draft.canEditUsername?'Admin curation':'Listener curation')+'</p><h2 id="publicListEditorTitle">'+(draft.id?'Edit list':'Create a public list')+'</h2><div class="publicListForm"><label>Title<input id="publicListTitle" maxlength="70" value="'+escapeHtml(draft.title)+'" placeholder="Summer Breezers"></label>'+usernameField+'<label>Description<textarea id="publicListDescription" maxlength="220" rows="3" placeholder="What connects these records?">'+escapeHtml(draft.description)+'</textarea></label><label class="publicListVisibility"><input id="publicListVisibility" type="checkbox" '+(draft.is_public?'checked':'')+'> Make this list public</label><label>Find albums<input value="'+escapeHtml(draft.search||"")+'" oninput="setPublicListAlbumSearch(this.value)" placeholder="Search your library and Muze..."></label><div class="publicListAlbumPicker">'+candidates.map(album=>'<button type="button" class="publicListAlbumChoice '+(draft.albumIds.includes(String(album.id))?'selected':'')+'" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')">'+(album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<span></span>')+'<b>'+escapeHtml(album.title||"Untitled")+'</b><small>'+escapeHtml(album.artist||"")+'</small></button>').join("")+'</div><div class="publicListOrder"><strong>Album order</strong>'+(selected.length?selected.map((album,index)=>'<div><span>'+(index+1)+'. '+escapeHtml(album.title||"Untitled")+'</span><button type="button" onclick="movePublicListDraftAlbum('+index+',-1)" aria-label="Move '+escapeHtml(album.title||"album")+' up">&uarr;</button><button type="button" onclick="movePublicListDraftAlbum('+index+',1)" aria-label="Move '+escapeHtml(album.title||"album")+' down">&darr;</button><button type="button" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')" aria-label="Remove '+escapeHtml(album.title||"album")+'">&times;</button></div>').join(""):'<p>Select at least one album.</p>')+'</div><div class="publicListFormActions">'+(draft.id&&draft.canDelete?'<button type="button" class="publicListDelete" onclick="deletePublicListDraft()">Delete list</button>':'<span></span>')+'<button type="button" onclick="savePublicListDraft()">Save list</button></div></div>';
+  const typeField=draft.canEditType?'<label>Content type<select id="publicListCurationType"><option value="list" '+(draft.curation_type==="list"?'selected':'')+'>List</option><option value="library" '+(draft.curation_type==="library"?'selected':'')+'>Library</option></select></label>':'';
+  mount.innerHTML='<p class="eyebrow">'+(draft.canEditUsername?'Admin curation':'Listener curation')+'</p><h2 id="publicListEditorTitle">'+(draft.id?'Edit curation':'Create a public list')+'</h2><div class="publicListForm"><label>Title<input id="publicListTitle" maxlength="70" value="'+escapeHtml(draft.title)+'" placeholder="Summer Breezers"></label>'+usernameField+typeField+'<label>Description<textarea id="publicListDescription" maxlength="220" rows="3" placeholder="What connects these records?">'+escapeHtml(draft.description)+'</textarea></label><label class="publicListVisibility"><input id="publicListVisibility" type="checkbox" '+(draft.is_public?'checked':'')+'> Make this curation public</label><label>Find albums<input value="'+escapeHtml(draft.search||"")+'" oninput="setPublicListAlbumSearch(this.value)" placeholder="Search your library and Muze..."></label><div class="publicListAlbumPicker">'+candidates.map(album=>'<button type="button" class="publicListAlbumChoice '+(draft.albumIds.includes(String(album.id))?'selected':'')+'" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')">'+(album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<span></span>')+'<b>'+escapeHtml(album.title||"Untitled")+'</b><small>'+escapeHtml(album.artist||"")+'</small></button>').join("")+'</div><div class="publicListOrder"><strong>Album order</strong>'+(selected.length?selected.map((album,index)=>'<div><span>'+(index+1)+'. '+escapeHtml(album.title||"Untitled")+'</span><button type="button" onclick="movePublicListDraftAlbum('+index+',-1)" aria-label="Move '+escapeHtml(album.title||"album")+' up">&uarr;</button><button type="button" onclick="movePublicListDraftAlbum('+index+',1)" aria-label="Move '+escapeHtml(album.title||"album")+' down">&darr;</button><button type="button" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')" aria-label="Remove '+escapeHtml(album.title||"album")+'">&times;</button></div>').join(""):'<p>Select at least one album.</p>')+'</div><div class="publicListFormActions">'+(draft.id&&draft.canDelete?'<button type="button" class="publicListDelete" onclick="deletePublicListDraft()">Delete list</button>':'<span></span>')+'<button type="button" onclick="savePublicListDraft()">Save changes</button></div></div>';
 }
 window.openPublicListEditor=function(listId=""){
   const existing=listId?visiblePublicLists().find(list=>String(list.id)===String(listId)):null;
@@ -8977,7 +9009,7 @@ window.openPublicListEditor=function(listId=""){
   const adminEditing=Boolean(existing)&&!owned&&isAdminUnlocked();
   if(!adminEditing&&!requireAuth("save",()=>openPublicListEditor(listId)))return;
   if(existing&&!owned&&!adminEditing){alert("Only the list creator or a Muze admin can edit this list.");return}
-  state.listDraft={id:existing?.id||"",title:existing?.title||"",username:existing?.username||currentUsername()||"listener",description:existing?.description||"",is_public:existing?.is_public!==false,slug:existing?.slug||"",albumIds:(existing?.items||[]).map(album=>String(album.id)),originalItems:existing?.items||[],adminEditing,canEditUsername:Boolean(existing)&&isAdminUnlocked(),canDelete:Boolean(existing)&&owned,search:""};
+  state.listDraft={id:existing?.id||"",title:existing?.title||"",username:existing?.username||currentUsername()||"listener",description:existing?.description||"",curation_type:publicListCurationType(existing||{}),is_public:existing?.is_public!==false,slug:existing?.slug||"",albumIds:(existing?.items||[]).map(album=>String(album.id)),originalItems:existing?.items||[],adminEditing,canEditUsername:Boolean(existing)&&isAdminUnlocked(),canEditType:Boolean(existing)&&isAdminUnlocked(),canDelete:Boolean(existing)&&owned,search:""};
   ensurePublicListModal().classList.remove("hidden");renderPublicListEditor();
 };
 window.closePublicListEditor=function(){state.listDraft=null;$("#publicListModal")?.classList.add("hidden")};
@@ -8996,6 +9028,7 @@ window.savePublicListDraft=async function(){
   const draft=state.listDraft;if(!draft)return;
   const title=String($("#publicListTitle")?.value||"").trim();
   const username=draft.canEditUsername?String($("#publicListUsername")?.value||"").trim().replace(/^@+/,""):String(draft.username||"").trim().replace(/^@+/,"");
+  const curationType=draft.canEditType?publicListCurationType({curation_type:$("#publicListCurationType")?.value}):"list";
   const description=String($("#publicListDescription")?.value||"").trim();
   const isPublic=Boolean($("#publicListVisibility")?.checked);
   if(!title){alert("Give this list a title.");return}
@@ -9009,12 +9042,18 @@ window.savePublicListDraft=async function(){
   const items=draft.albumIds.map(listDraftAlbum).filter(Boolean).map(albumToLibraryItem);
   const now=new Date().toISOString();
   const editingExisting=Boolean(existing);
-  let saved={...existing,id:draft.id||`local-list-${crypto.randomUUID()}`,user_id:editingExisting?(existing?.user_id||null):(user?.id||null),local_owner_device_id:editingExisting?(existing?.local_owner_device_id||""):state.deviceId,username:draft.canEditUsername?username:(editingExisting?(existing?.username||"listener"):(currentUsername()||"listener")),title,slug,description,is_public:isPublic,items,album_count:items.length,followers_count:Number(existing?.followers_count||0),created_at:existing?.created_at||now,updated_at:now};
+  let saved={...existing,id:draft.id||`local-list-${crypto.randomUUID()}`,user_id:editingExisting?(existing?.user_id||null):(user?.id||null),local_owner_device_id:editingExisting?(existing?.local_owner_device_id||""):state.deviceId,username:draft.canEditUsername?username:(editingExisting?(existing?.username||"listener"):(currentUsername()||"listener")),title,slug,description,curation_type:curationType,is_public:isPublic,items,album_count:items.length,followers_count:Number(existing?.followers_count||0),created_at:existing?.created_at||now,updated_at:now};
   if(db&&user&&!String(draft.id).startsWith("seed-list-")){
-    const payload={title,slug,description,is_public:isPublic,updated_at:now};
+    const payload={title,slug,description,curation_type:curationType,is_public:isPublic,updated_at:now};
     let result=draft.id&&!String(draft.id).startsWith("local-list-")
       ?await db.from("lists").update(payload).eq("id",draft.id).select().single()
       :await db.from("lists").insert({...payload,user_id:user.id,created_at:now}).select().single();
+    if(result.error&&/curation_type|column/i.test(String(result.error.message||""))){
+      const legacyPayload={title,slug,description,is_public:isPublic,updated_at:now};
+      result=draft.id&&!String(draft.id).startsWith("local-list-")
+        ?await db.from("lists").update(legacyPayload).eq("id",draft.id).select().single()
+        :await db.from("lists").insert({...legacyPayload,user_id:user.id,created_at:now}).select().single();
+    }
     if(!result.error){
       saved={...saved,...result.data,id:result.data.id};
       const validAlbums=draft.albumIds.filter(id=>/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id));
@@ -9027,6 +9066,7 @@ window.savePublicListDraft=async function(){
     if(result.error&&!publicListSchemaUnavailable(result.error)){alert(result.error.message);return}
   }
   const local=localPublicLists().filter(list=>String(list.id)!==String(draft.id)&&String(list.slug)!==String(saved.slug));
+  if(draft.canEditType)savePublicListTypeOverride(saved,curationType);
   saveLocalPublicLists([saved,...local]);
   extras.publicLists=[saved,...(extras.publicLists||[]).filter(list=>String(list.id)!==String(draft.id)&&String(list.id)!==String(saved.id))];
   closePublicListEditor();
@@ -9489,10 +9529,15 @@ function trendingArtistDayIndex(){
   return Math.floor(start.getTime()/86400000);
 }
 function dailyTrendingArtistSlice(rows){
-  if(rows.length<=4)return rows.slice(0,4);
-  const fullGroups=Math.floor(rows.length/4);
-  const start=((trendingArtistDayIndex()%fullGroups)*4)%rows.length;
-  return rows.slice(start,start+4);
+  if(!rows.length)return [];
+  const start=(trendingArtistDayIndex()*4)%rows.length;
+  const ordered=[...rows.slice(start),...rows.slice(0,start)];
+  const selected=[];
+  for(const row of ordered){
+    if(uniqueTrendingArtistCoverSets([...selected,row]).every(covers=>covers.length))selected.push(row);
+    if(selected.length===4)break;
+  }
+  return selected;
 }
 function matchedTrendingArtists(){
   const rows=artistDirectoryBaseRows();
@@ -9523,9 +9568,34 @@ function stopTrendingArtistFlip(){
 }
 function trendingArtistCovers(row){
   const hero=row.hero||row.featured?.[0]||{};
-  const covers=[hero,...(row.featured||[])].map(album=>({url:String(album?.cover_url||"").trim(),title:String(album?.title||row.name||"Artist image").trim()})).filter(item=>item.url);
+  const covers=[hero,...(row.featured||[]),...(row.albums||[])].map(album=>({url:String(album?.cover_url||"").trim(),title:String(album?.title||row.name||"Artist image").trim()})).filter(item=>item.url);
   const seen=new Set();
-  return covers.filter(item=>{if(seen.has(item.url))return false;seen.add(item.url);return true}).slice(0,5);
+  return covers.filter(item=>{const key=trendingArtistCoverKey(item.url);if(seen.has(key))return false;seen.add(key);return true}).slice(0,12);
+}
+function trendingArtistCoverKey(value){return String(value||"").trim().toLowerCase()}
+function uniqueTrendingArtistCoverSets(rows){
+  const allCovers=rows.map(trendingArtistCovers);
+  const coverOwner=new Map();
+  const selected=new Array(rows.length).fill(-1);
+  function assign(rowIndex,visited){
+    for(let coverIndex=0;coverIndex<allCovers[rowIndex].length;coverIndex++){
+      const key=trendingArtistCoverKey(allCovers[rowIndex][coverIndex].url);
+      if(visited.has(key))continue;
+      visited.add(key);
+      const previousOwner=coverOwner.get(key);
+      if(previousOwner===undefined||assign(previousOwner,visited)){
+        coverOwner.set(key,rowIndex);
+        selected[rowIndex]=coverIndex;
+        return true;
+      }
+    }
+    return false;
+  }
+  rows.forEach((row,rowIndex)=>assign(rowIndex,new Set()));
+  return allCovers.map((covers,rowIndex)=>{
+    const selectedIndex=selected[rowIndex];
+    return selectedIndex<0?[]:[covers[selectedIndex],...covers.slice(selectedIndex+1),...covers.slice(0,selectedIndex)];
+  });
 }
 function startTrendingArtistFlip(){
   clearInterval(trendingArtistFlipTimer);
@@ -9539,25 +9609,34 @@ function startTrendingArtistFlip(){
     if(!document.body.contains(card))return;
     const images=[...card.querySelectorAll(".trendingArtistArt img")];
     if(images.length<2)return;
-    const next=(Number(card.dataset.coverIndex||0)+1)%images.length;
+    const current=Number(card.dataset.coverIndex||0);
+    const used=new Set([...document.querySelectorAll(".trendingArtistCard .trendingArtistArt img.active")]
+      .filter(image=>!card.contains(image))
+      .map(image=>trendingArtistCoverKey(image.dataset.coverKey||image.currentSrc||image.src)));
+    let next=current;
+    for(let offset=1;offset<images.length;offset++){
+      const candidate=(current+offset)%images.length;
+      if(!used.has(trendingArtistCoverKey(images[candidate].dataset.coverKey||images[candidate].currentSrc||images[candidate].src))){next=candidate;break}
+    }
+    if(next===current)return;
     card.dataset.coverIndex=String(next);
     images.forEach((image,imageIndex)=>image.classList.toggle("active",imageIndex===next));
   },index*320));
   };
   trendingArtistFlipTimer=setInterval(flip,3000);
 }
-function trendingArtistCard(row,index){
-  const covers=trendingArtistCovers(row);
+function trendingArtistCard(row,index,covers=trendingArtistCovers(row)){
   const genres=(row.genres||[]).slice(0,2).join(" / ");
   const source=row.trend?.sources?.[0]||"Listener activity";
   const label=row.trend?.fallback?"Muze pick":`Trending #${row.trend?.rank||index+1}`;
-  const art=covers.length?covers.map((cover,coverIndex)=>`<img class="${coverIndex===0?"active":""}" src="${escapeHtml(cover.url)}" loading="${coverIndex?"lazy":"eager"}" decoding="async" onerror="this.hidden=true" alt="${escapeHtml(row.name)} - ${escapeHtml(cover.title)}">`).join(""):`<span>${escapeHtml(coverText({title:row.name}))}</span>`;
+  const art=covers.length?covers.map((cover,coverIndex)=>`<img class="${coverIndex===0?"active":""}" data-cover-key="${escapeHtml(trendingArtistCoverKey(cover.url))}" src="${escapeHtml(cover.url)}" loading="${coverIndex?"lazy":"eager"}" decoding="async" onerror="this.hidden=true" alt="${escapeHtml(row.name)} - ${escapeHtml(cover.title)}">`).join(""):`<span>${escapeHtml(coverText({title:row.name}))}</span>`;
   return `<article class="trendingArtistCard" data-cover-count="${covers.length}" data-cover-index="0" role="button" tabindex="0" onclick="openArtistPage('${escapeJsString(row.slug)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openArtistPage('${escapeJsString(row.slug)}')}"><div class="trendingArtistArt">${art}</div><div class="trendingArtistCopy"><span>${escapeHtml(label)}</span><h3>${escapeHtml(row.name)}</h3><p>${escapeHtml(genres||source)}</p><small>${escapeHtml(source)}</small></div></article>`;
 }
 function trendingArtistsMarkup(){
   const rows=matchedTrendingArtists();
   if(!rows.length)return "";
-  return `<section class="trendingArtistsBlock" aria-label="Trending artists"><div class="trendingArtistsHeader"><div><p class="artistFilterLabel">Trending artists</p><h3>Artists people are playing now</h3></div></div><div class="trendingArtistsGrid">${rows.map(trendingArtistCard).join("")}</div></section>`;
+  const coverSets=uniqueTrendingArtistCoverSets(rows);
+  return `<section class="trendingArtistsBlock" aria-label="Trending artists"><div class="trendingArtistsHeader"><div><p class="artistFilterLabel">Trending artists</p><h3>Artists people are playing now</h3></div></div><div class="trendingArtistsGrid">${rows.map((row,index)=>trendingArtistCard(row,index,coverSets[index])).join("")}</div></section>`;
 }
 function renderTrendingArtists(){
   const host=$("#artistTrending");
@@ -9688,7 +9767,8 @@ function artistImageCreditMarkup(source){
 function artistProfilePortraitMarkup(profile){
   const source=artistProfilePortraitSource(profile);
   if(!source)return "";
-  if(source.type==="profile")return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait"><img src="${escapeHtml(source.image_url)}" alt="${escapeHtml(profile.name)}"></div>${artistImageCreditMarkup(source)}</figure>`;
+  const focalClass=normalizeAlbumName(profile.name)==="jimi hendrix"?" isJimiHendrix":"";
+  if(source.type==="profile")return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait${focalClass}"><img src="${escapeHtml(source.image_url)}" alt="${escapeHtml(profile.name)}"></div>${artistImageCreditMarkup(source)}</figure>`;
   const collage=source.portraits.length>1;
   return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait isCreditPortrait${collage?` isMemberCollage count-${source.portraits.length}`:""}">${source.portraits.map(row=>`<img src="${escapeHtml(row.image_url)}" alt="${escapeHtml(collage?row.person_name:profile.name)}" loading="lazy">`).join("")}</div>${artistImageCreditMarkup(source)}</figure>`;
 }
@@ -9878,6 +9958,7 @@ window.saveArtistProfile=async function(){
 };
 
 window.openAlbum=async function(id){
+  $("#albumModal")?.classList.remove("libraryDetailModal");
   let a=state.albums.find(x=>String(x.id)===String(id));
   if(!a)return;
   const verifiedYear=albumReleaseYear(a);

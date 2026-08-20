@@ -12144,6 +12144,7 @@ body.artistProfileView #content{margin-top:26px}
 .muzeArtistProfileHero.noPortrait{grid-template-columns:minmax(0,760px)}
 .muzeArtistPortrait{width:100%;aspect-ratio:16/11;display:block;overflow:hidden;border:1px solid rgba(242,201,76,.5);border-radius:7px;background:#0a0b0d;box-shadow:0 18px 42px rgba(0,0,0,.34)}
 .muzeArtistPortrait img{width:100%;height:100%;display:block;object-fit:cover}
+.muzeArtistPortrait.isJimiHendrix img{object-position:center top;transform:translateY(-4px) scale(1.06)}
 .muzeArtistPortrait.isCreditPortrait:not(.isMemberCollage) img{object-position:center 22%}
 .muzeArtistPortrait.isMemberCollage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:2px;background:#191a1d}
 .muzeArtistPortrait.isMemberCollage img{min-width:0;min-height:0}
@@ -16414,6 +16415,7 @@ body.light .brandWrap:before{
   background:radial-gradient(ellipse at center,rgba(212,169,22,.10),rgba(212,169,22,.030) 50%,rgba(212,169,22,0) 78%)!important;
 }
 body.light .brandLogo{
+  content:url("/Muze%20correct%20logo%20dark-word.png?v=dark-word-v1")!important;
   filter:contrast(1.08) saturate(1.04) drop-shadow(0 1px 0 rgba(40,32,12,.16))!important;
   image-rendering:auto!important;
 }
@@ -18182,11 +18184,11 @@ body.libraryView .mockLibraryTools button{
   box-shadow:0 10px 26px rgba(184,133,23,.16)!important;
 }
 body.libraryView .mockYourLibrary{
-  min-height:270px!important;
+  min-height:244px!important;
   grid-template-columns:minmax(520px,1.14fr) minmax(330px,.76fr) minmax(380px,.8fr)!important;
   gap:38px!important;
   margin-bottom:25px!important;
-  padding:44px 70px!important;
+  padding:26px 70px!important;
   border-radius:14px!important;
   border-color:rgba(214,171,53,.42)!important;
   background:
@@ -18213,7 +18215,7 @@ body.libraryView .mockYourLibrary{
     min-height:55px!important;
   }
   body.libraryView .mockYourLibrary{
-    height:268px!important;
+    height:244px!important;
   }
   body.libraryView .mockLibraryCard{
     width:100%!important;
@@ -18233,6 +18235,11 @@ body.libraryView .mockYourLibrary:after{
 }
 body.libraryView .ownIdentity{
   gap:32px!important;
+}
+@media(min-width:1181px){
+  body.libraryView .mockYourLibrary .ownIdentity{
+    transform:translateY(-12px)!important;
+  }
 }
 body.libraryView .ownAvatar{
   width:132px!important;
@@ -18426,14 +18433,23 @@ body.libraryView .libraryRecoPanel .featuredReco{
   grid-column:auto!important;
   height:236px!important;
   min-height:236px!important;
-  grid-template-columns:minmax(210px,44%) minmax(0,1fr)!important;
+  grid-template-columns:236px minmax(0,1fr)!important;
   border:0!important;
   background:linear-gradient(125deg,#4a1f42 0%,#2b1730 100%)!important;
   box-shadow:0 16px 34px rgba(55,35,45,.16)!important;
 }
 body.libraryView .libraryRecoPanel .featuredReco .cover{
+  width:236px!important;
   height:236px!important;
   min-height:236px!important;
+  overflow:hidden!important;
+}
+body.libraryView .libraryRecoPanel .featuredReco .cover img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  object-position:center center!important;
 }
 body.libraryView .libraryRecoPanel .featuredRecoCopy{
   grid-column:2!important;
@@ -18608,6 +18624,9 @@ body.libraryView .libraryRecoPanel .standardReco em{
   body.libraryView .libraryRecoPanel .featuredRecoCopy{
     grid-column:auto!important;
     grid-row:auto!important;
+  }
+  body.libraryView .libraryRecoPanel .featuredReco .cover{
+    width:100%!important;
   }
 }
 
@@ -19522,4 +19541,439 @@ body.libraryView .communityShelfCard .curatedListMeta{
   body.libraryView .communityShelfCard .mockLibraryActions{
     margin-top:2px!important;
   }
+}
+
+/* Keep Artists on Muze's standard desktop content width. */
+@media(min-width:851px){
+  body.artistView .artistTopBand > *{
+    width:min(1120px,92vw)!important;
+    max-width:1120px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  body.artistView .trendingArtistsBlock,
+  body.artistView .artistGrid{
+    left:auto!important;
+    width:100%!important;
+    max-width:1120px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+}
+
+/* Premium Muze collector profile for opened public Libraries. */
+@media(min-width:851px){
+  body.libraryView .publicListPage .libraryFullGrid{
+    grid-template-columns:repeat(auto-fill,210px)!important;
+    column-gap:10px!important;
+    justify-content:start!important;
+    align-items:start!important;
+  }
+  body.libraryView .publicListPage .libraryAlbumCard{
+    width:210px!important;
+    max-width:210px!important;
+  }
+}
+
+body.libraryView .publicListPage .libraryAlbumCard{
+  background:#fff!important;
+  border-color:rgba(70,50,60,.12)!important;
+  color:#2b1f29!important;
+  box-shadow:0 10px 28px rgba(50,30,38,.06)!important;
+}
+body.libraryView .publicListPage .libraryAlbumCard .cover{
+  height:auto!important;
+  aspect-ratio:1 / 1!important;
+  background:#eee7dc!important;
+}
+body.libraryView .publicListPage .libraryAlbumCard .cardBody{background:#fff!important;color:#2b1f29!important}
+body.libraryView .publicListPage .libraryAlbumCard .title{color:#2b1f29!important}
+body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.62)!important}
+
+#albumModal.libraryDetailModal{
+  background:rgba(43,31,41,.18)!important;
+  backdrop-filter:blur(8px)!important;
+}
+#albumModal.libraryDetailModal .modalPanel{
+  width:min(1480px,96vw)!important;
+  padding:28px 34px 26px!important;
+  border:1px solid rgba(180,135,35,.18)!important;
+  border-radius:24px!important;
+  background:linear-gradient(180deg,#f7f1e8 0%,#f3ece3 100%)!important;
+  color:#2b1f29!important;
+  box-shadow:0 28px 70px rgba(35,20,30,.20)!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:rgba(70,50,60,.42) transparent!important;
+}
+#albumModal.libraryDetailModal .modalPanel::-webkit-scrollbar{width:8px!important}
+#albumModal.libraryDetailModal .modalPanel::-webkit-scrollbar-track{background:transparent!important}
+#albumModal.libraryDetailModal .modalPanel::-webkit-scrollbar-thumb{border-radius:999px!important;background:rgba(70,50,60,.36)!important}
+#albumModal.libraryDetailModal .modalPanel:before{display:none!important}
+#albumModal.libraryDetailModal #albumModalContent{
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+}
+#albumModal.libraryDetailModal .libraryDetailBrand{
+  width:90px!important;
+  height:78px!important;
+  margin:0 0 18px!important;
+  overflow:hidden!important;
+}
+#albumModal.libraryDetailModal .libraryDetailBrand img{
+  display:block!important;
+  width:90px!important;
+  height:auto!important;
+  transform:none!important;
+}
+#albumModal.libraryDetailModal .libraryDetailTitle{
+  align-items:flex-end!important;
+  margin:0 0 18px!important;
+  padding:0!important;
+}
+#albumModal.libraryDetailModal .libraryDetailTitle h2{
+  margin:0 0 10px!important;
+  color:#2b1430!important;
+  font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  font-size:clamp(38px,3vw,52px)!important;
+  font-weight:500!important;
+  line-height:1!important;
+  letter-spacing:-.02em!important;
+}
+#albumModal.libraryDetailModal .libraryDetailTitle .muted{
+  color:rgba(50,40,46,.60)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:14px!important;
+  font-weight:500!important;
+}
+#albumModal.libraryDetailModal .libraryMetaStrip{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:14px 40px!important;
+  width:100%!important;
+  margin:0!important;
+  padding:18px 0!important;
+  border-top:1px solid rgba(60,45,55,.08)!important;
+  border-bottom:1px solid rgba(60,45,55,.08)!important;
+}
+#albumModal.libraryDetailModal .libraryMetaItem{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-width:0!important;
+  min-height:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:rgba(55,45,50,.68)!important;
+  box-shadow:none!important;
+  cursor:pointer!important;
+}
+#albumModal.libraryDetailModal .libraryMetaItem>span{
+  color:rgba(160,115,25,.78)!important;
+  font-size:18px!important;
+  line-height:1!important;
+}
+#albumModal.libraryDetailModal .libraryMetaItem small{
+  margin:0!important;
+  color:inherit!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:13px!important;
+  font-weight:500!important;
+  line-height:1.2!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+}
+#albumModal.libraryDetailModal .libraryFullGrid{
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:16px!important;
+  margin-top:28px!important;
+  align-items:start!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard{
+  width:100%!important;
+  max-width:none!important;
+  border:1px solid rgba(70,50,60,.08)!important;
+  border-radius:14px!important;
+  background:rgba(255,255,255,.42)!important;
+  color:#2b1f29!important;
+  box-shadow:none!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard:hover{
+  border-color:rgba(180,135,35,.24)!important;
+  box-shadow:none!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .cover{
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:1 / 1!important;
+  background:#eee7dc!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .cover img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .cardBody{
+  min-height:78px!important;
+  padding:13px 14px 15px!important;
+  background:transparent!important;
+  color:#2b1f29!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .row{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(38px,max-content)!important;
+  align-items:start!important;
+  gap:10px!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .row>div:first-child{
+  min-width:0!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .title{
+  display:-webkit-box!important;
+  color:#2b1430!important;
+  font-size:15px!important;
+  font-weight:600!important;
+  line-height:1.15!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  overflow:hidden!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .artist{
+  margin-top:6px!important;
+  color:rgba(55,45,50,.62)!important;
+  font-size:13px!important;
+  font-weight:400!important;
+  line-height:1.3!important;
+}
+#albumModal.libraryDetailModal .libraryAlbumCard .score{
+  color:#966400!important;
+  font-size:14px!important;
+  font-weight:700!important;
+  min-width:38px!important;
+  padding-left:4px!important;
+  text-align:right!important;
+  justify-self:end!important;
+  white-space:nowrap!important;
+  line-height:1.2!important;
+  opacity:1!important;
+}
+#albumModal.libraryDetailModal .close{
+  width:44px!important;
+  height:44px!important;
+  right:22px!important;
+  top:20px!important;
+  border:1px solid rgba(190,140,30,.55)!important;
+  border-radius:50%!important;
+  background:transparent!important;
+  color:rgba(150,100,10,.90)!important;
+  box-shadow:none!important;
+}
+#albumModal.libraryDetailModal .close:hover{
+  border-color:rgba(190,140,30,.85)!important;
+  background:rgba(214,171,53,.06)!important;
+}
+#albumModal.libraryDetailModal #closeAlbumModal.close.cleanClose{
+  width:44px!important;
+  height:44px!important;
+  border:1px solid rgba(190,140,30,.55)!important;
+  background:transparent!important;
+}
+#albumModal.libraryDetailModal #closeAlbumModal.close.cleanClose:hover{
+  border-color:rgba(190,140,30,.85)!important;
+  background:rgba(214,171,53,.06)!important;
+}
+#albumModal.libraryDetailModal #closeAlbumModal.close.cleanClose .cleanCloseIcon:before,
+#albumModal.libraryDetailModal #closeAlbumModal.close.cleanClose .cleanCloseIcon:after{
+  height:1.5px!important;
+  background:rgba(150,100,10,.90)!important;
+}
+#albumModal.libraryDetailModal .libraryDetailFlourish{
+  display:grid!important;
+  grid-template-columns:1fr auto 1fr!important;
+  align-items:center!important;
+  gap:12px!important;
+  margin:28px 0 4px!important;
+}
+#albumModal.libraryDetailModal .libraryDetailFlourish span{height:1px!important;background:rgba(180,135,35,.18)!important}
+#albumModal.libraryDetailModal .libraryDetailFlourish i{width:10px!important;height:10px!important;background:#d6ab35!important;transform:rotate(45deg)!important}
+
+@media(max-width:1250px) and (min-width:1001px){
+  #albumModal.libraryDetailModal .libraryFullGrid{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+}
+@media(max-width:1000px) and (min-width:701px){
+  #albumModal.libraryDetailModal .libraryFullGrid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@media(max-width:700px){
+  body.libraryView .publicListPage .libraryAlbumCard{width:100%!important;max-width:none!important}
+  #albumModal.libraryDetailModal .modalPanel{
+    width:100vw!important;
+    padding:22px 16px 24px!important;
+    border-radius:0!important;
+  }
+  #albumModal.libraryDetailModal .libraryDetailBrand{margin-bottom:12px!important}
+  #albumModal.libraryDetailModal .libraryDetailTitle{align-items:flex-start!important;flex-direction:column!important;gap:12px!important}
+  #albumModal.libraryDetailModal .libraryDetailTitle h2{font-size:36px!important}
+  #albumModal.libraryDetailModal .libraryMetaStrip{gap:12px 22px!important;padding:15px 0!important}
+  #albumModal.libraryDetailModal .libraryFullGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;margin-top:22px!important}
+  #albumModal.libraryDetailModal .libraryAlbumCard .cardBody{padding:11px 10px 13px!important}
+}
+
+/* Give routed public Lists the same premium collector-profile hierarchy. */
+.premiumPublicListPage{
+  position:relative!important;
+  width:100%!important;
+  max-width:1660px!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+  color:#2b1f29!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+}
+.premiumPublicListPage .publicListBack{
+  margin:0 0 38px!important;
+  color:#966400!important;
+  font-size:13px!important;
+  font-weight:600!important;
+}
+.premiumPublicListPage .publicListBrand{
+  width:90px!important;
+  height:78px!important;
+  margin:0 0 18px!important;
+  overflow:hidden!important;
+}
+.premiumPublicListPage .publicListBrand img{display:block!important;width:90px!important;height:auto!important}
+.premiumPublicListPage .publicListHero{
+  position:relative!important;
+  isolation:isolate!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:flex-end!important;
+  gap:40px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#2b1f29!important;
+}
+.premiumPublicListPage .publicListHero:before{
+  content:""!important;
+  position:absolute!important;
+  z-index:-1!important;
+  inset:-50px -70px -34px!important;
+  pointer-events:none!important;
+  background:radial-gradient(circle at 20% 10%,rgba(91,45,85,.035),transparent 38%)!important;
+}
+.premiumPublicListPage .publicListEyebrow{
+  display:block!important;
+  margin:0 0 18px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:#b7830b!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase!important;
+}
+.premiumPublicListPage .publicListHero h1{
+  margin:0 0 14px!important;
+  color:#2b1430!important;
+  font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  font-size:clamp(42px,4vw,58px)!important;
+  font-weight:500!important;
+  line-height:1!important;
+  letter-spacing:-.025em!important;
+}
+.premiumPublicListPage .publicListHero p{
+  max-width:620px!important;
+  margin:0 0 12px!important;
+  color:rgba(55,42,50,.68)!important;
+  font-size:16px!important;
+  font-weight:400!important;
+  line-height:1.45!important;
+}
+.premiumPublicListPage .publicListHero small{
+  color:rgba(50,40,46,.60)!important;
+  font-size:14px!important;
+  font-weight:500!important;
+}
+.premiumPublicListPage .publicListHeroActions{align-self:end!important;padding-bottom:2px!important}
+.premiumPublicListPage .publicListHeroActions button{
+  padding:13px 24px!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:linear-gradient(180deg,#e3bc4a,#d3a72f)!important;
+  color:#1d1717!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:15px!important;
+  font-weight:700!important;
+  box-shadow:none!important;
+  transition:transform .18s ease,filter .18s ease!important;
+}
+.premiumPublicListPage .publicListHeroActions button:hover{transform:translateY(-1px)!important;filter:brightness(1.02)!important}
+.premiumPublicListPage .publicListMetaStrip{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:14px 40px!important;
+  margin:34px 0 0!important;
+  padding:18px 0!important;
+  border-top:0!important;
+  border-bottom:1px solid rgba(60,45,55,.08)!important;
+}
+.premiumPublicListPage .publicListMetaStrip:before{content:""!important;position:absolute!important;left:0!important;right:0!important;top:0!important;height:1px!important;background:linear-gradient(90deg,rgba(214,171,53,.45),rgba(91,45,85,.12),rgba(214,171,53,.18))!important}
+.premiumPublicListPage .publicListMetaStrip:after{content:""!important;position:absolute!important;right:0!important;top:-4px!important;width:9px!important;height:9px!important;background:#d6ab35!important;transform:rotate(45deg)!important}
+.premiumPublicListPage .publicListMetaStrip span{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  color:rgba(55,45,50,.68)!important;
+  font-size:13px!important;
+  font-weight:500!important;
+}
+.premiumPublicListPage .publicListMetaStrip i{
+  color:rgba(160,115,25,.78)!important;
+  font-size:18px!important;
+  font-style:normal!important;
+  line-height:1!important;
+}
+.premiumPublicListPage .libraryFullGrid{
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:18px!important;
+  margin-top:30px!important;
+  align-items:start!important;
+}
+.premiumPublicListPage .libraryAlbumCard{
+  width:100%!important;
+  max-width:none!important;
+  border:1px solid rgba(70,50,60,.08)!important;
+  border-radius:14px!important;
+  background:rgba(255,255,255,.40)!important;
+  color:#2b1f29!important;
+  box-shadow:0 6px 18px rgba(50,35,45,.035)!important;
+}
+.premiumPublicListPage .libraryAlbumCard:hover{transform:translateY(-2px)!important;border-color:rgba(91,45,85,.16)!important;box-shadow:0 10px 26px rgba(50,35,45,.06)!important}
+.premiumPublicListPage .libraryAlbumCard .cover{width:100%!important;height:auto!important;aspect-ratio:1/1!important;background:#eee7dc!important}
+.premiumPublicListPage .libraryAlbumCard .cover img{width:100%!important;height:100%!important;object-fit:cover!important}
+.premiumPublicListPage .libraryAlbumCard .cardBody{min-height:78px!important;padding:13px 14px 15px!important;background:transparent!important;color:#2b1f29!important}
+.premiumPublicListPage .libraryAlbumCard .title{display:-webkit-box!important;color:#2b1430!important;font-size:15px!important;font-weight:600!important;line-height:1.15!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;overflow:hidden!important}
+.premiumPublicListPage .libraryAlbumCard .artist{margin-top:6px!important;color:rgba(55,45,50,.62)!important;font-size:13px!important;font-weight:400!important;line-height:1.3!important}
+.premiumPublicListPage .libraryAlbumCard .score{color:#966400!important;font-size:14px!important;font-weight:700!important;opacity:1!important}
+.premiumPublicListPage .libraryDetailFlourish{display:grid!important;grid-template-columns:1fr auto 1fr!important;align-items:center!important;gap:12px!important;margin:28px 0 4px!important}
+.premiumPublicListPage .libraryDetailFlourish span{height:1px!important;background:rgba(180,135,35,.18)!important}
+.premiumPublicListPage .libraryDetailFlourish i{width:10px!important;height:10px!important;background:#d6ab35!important;transform:rotate(45deg)!important}
+
+@media(max-width:1250px) and (min-width:1001px){.premiumPublicListPage .libraryFullGrid{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+@media(max-width:1000px) and (min-width:701px){.premiumPublicListPage .libraryFullGrid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:700px){
+  .premiumPublicListPage .publicListBrand{margin-bottom:12px!important}
+  .premiumPublicListPage{padding-inline:18px!important}
+  .premiumPublicListPage .publicListBack{margin-bottom:28px!important}
+  .premiumPublicListPage .publicListHero{align-items:flex-start!important;grid-template-columns:1fr!important;gap:18px!important}
+  .premiumPublicListPage .publicListHero h1{font-size:36px!important}
+  .premiumPublicListPage .publicListMetaStrip{gap:12px 22px!important;padding:15px 0!important}
+  .premiumPublicListPage .libraryFullGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;margin-top:22px!important}
+  .premiumPublicListPage .libraryAlbumCard .cardBody{padding:11px 10px 13px!important}
 }
