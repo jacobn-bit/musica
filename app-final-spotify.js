@@ -1605,7 +1605,6 @@ function beautifulAlbumDescription(a){
   const artist=String(a.artist||"the artist").trim();
   const year=a.year||String(a.release_date||"").slice(0,4);
   const genre=String(albumGenreLabel(a)||a.tag||"").trim();
-  const rating=Number(score(a)||a.avg_rating||0);
   const saved=String(a.summary||"").trim();
   const factual=spotifyAlbumSummary(a);
   const key=`${artist} ${title}`.toLowerCase().replace(/\s+/g," ");
@@ -1642,8 +1641,7 @@ function beautifulAlbumDescription(a){
   const genreLine=genreLines[lowerGenre]||genreLines[Object.keys(genreLines).find(g=>lowerGenre.includes(g))]||"Research is needed before Muze writes a sound summary for this album.";
   const era=Number(year)||0;
   const eraLine=era>=2020?`As a newer release, ${title} still feels open-ended, with its reputation being shaped in real time by listeners.`:era>=2000?`Research is needed before Muze writes an impact summary for this album.`:era>=1990?`Coming out of the ${Math.floor(era/10)*10}s, it has the kind of immediacy that still cuts through decades later.`:era?`Heard now, its ${year} setting gives the record a sense of history without making it feel distant.`:`Heard now, it feels less tied to a date than to a particular state of mind.`;
-  const scoreLine=rating>=9?`The ${rating.toFixed(1)} community score suggests listeners are treating it as essential, not just enjoyable.`:rating>=7?`Its ${rating.toFixed(1)} community score points to a record with real supporters and enough character to keep the conversation moving.`:rating>0?`Its ${rating.toFixed(1)} community score leaves room for debate, which can make the album more interesting than a simple consensus pick.`:`Research is needed before Muze writes a legacy summary for this album.`;
-  return `${opening} ${genreLine} ${eraLine} ${scoreLine}`;
+  return `${opening} ${genreLine} ${eraLine}`;
 }
 const customAlbumOverviews={
   "thriller": "Thriller is more than just a blockbuster album, it?s the moment pop music became cinematic. Building on the sleek disco-funk foundations of Off the Wall, Michael Jackson and producer Quincy Jones crafted a record that fused pop, funk, rock, soul, and spectacle into something universal. From the razor-sharp groove of ?Billie Jean? to the explosive crossover energy of ?Beat It? and the theatrical horror of ?Thriller,? every track feels engineered for maximum impact. At the height of his powers, Jackson balanced charisma, vulnerability, paranoia, and ambition with unmatched precision, creating an album that didn?t just dominate the charts, it reshaped the possibilities of mainstream music. Decades later, Thriller remains less like an album and more like a cultural event permanently frozen in time.",
@@ -1910,8 +1908,7 @@ async function loadCustomOverviews(){
   if(!text&&titleKey.includes("white album"))text=customAlbumOverviews["the white album"]||customAlbumOverviews["the beatles"];
   return text||beautifulAlbumDescription(a);
 }
-function musicaScoreMeaning(a){const value=Number(score(a)||a.avg_rating||0);if(!value)return "Muze Score: unrated. This album is still waiting for the community to define its place.";let meaning=value>=9?"an essential community favorite":value>=8?"a strongly loved record with broad support":value>=7?"a respected album with clear supporters":value>=6?"a divisive or developing community pick":"a niche pick that may connect with specific listeners";return `Muze Score: ${value.toFixed(1)}/10, meaning ${meaning} based on listener ratings on Muze.`}
-function albumCustomOverview(a){const text=albumBaseOverview(a);return text?`${text} ${musicaScoreMeaning(a)}`:""}
+function albumCustomOverview(a){return albumBaseOverview(a)}
 function albumOverviewRow(a){
   for(const key of overviewKeyCandidates(a)){
     const row=extras.overviews[key];
@@ -2591,6 +2588,7 @@ function isWrongBackCoverForAlbum(album,url){
 }
 function albumBackCoverOverrideUrl(album){
   const text=normalizeAlbumName(`${album?.title||""} ${album?.artist||""}`);
+  if(text.includes("let there be rock")&&(text.includes("ac dc")||text.includes("acdc")))return "https://r2.theaudiodb.com/images/media/album/back/svqrut1538863907.jpg";
   if(text.includes("pink floyd")&&text.includes("animals"))return "https://coverartarchive.org/release/14d9fa93-1efe-491a-b668-f9454979bce9/24624062414.png";
   if(text.includes("bob dylan")&&text.includes("highway 61 revisited"))return "https://coverartarchive.org/release/bde5033d-4bc7-4072-a50b-0d4f09eea47a/33608911115.jpg";
   if(text.includes("bob dylan")&&text.includes("knocked out loaded"))return "https://coverartarchive.org/release/f414a2b8-7aa3-4dc7-83ec-37ee7e5823ff/16197404598.jpg";
@@ -5398,6 +5396,166 @@ window.scrollAlbumSeeMore=function(event){
   }
   target.scrollIntoView({behavior:"smooth",block:"start"});
 }
+const albumPerimeterContrastCache=new Map();
+const albumPerimeterPaletteCache=new Map();
+function albumCoverPerimeterPalette(source){
+  const src=String(source||"").trim();
+  if(!src)return Promise.resolve(null);
+  if(albumPerimeterPaletteCache.has(src))return Promise.resolve(albumPerimeterPaletteCache.get(src));
+  return new Promise(resolve=>{
+    const finish=value=>{albumPerimeterPaletteCache.set(src,value);resolve(value)};
+    const image=new Image();
+    image.crossOrigin="anonymous";
+    image.referrerPolicy="no-referrer";
+    image.onerror=()=>finish(null);
+    image.onload=()=>{
+      try{
+        const canvas=document.createElement("canvas");
+        canvas.width=44;canvas.height=44;
+        const context=canvas.getContext("2d",{willReadFrequently:true});
+        context.drawImage(image,0,0,44,44);
+        const pixels=context.getImageData(0,0,44,44).data;
+        const buckets=new Map();
+        for(let index=0;index<pixels.length;index+=4){
+          if(pixels[index+3]<180)continue;
+          const red=pixels[index],green=pixels[index+1],blue=pixels[index+2];
+          const high=Math.max(red,green,blue)/255,low=Math.min(red,green,blue)/255;
+          const lightness=(high+low)/2,chroma=high-low;
+          if(lightness<.055||lightness>.95)continue;
+          const saturation=chroma===0?0:chroma/(1-Math.abs(2*lightness-1));
+          const key=`${red>>5}-${green>>5}-${blue>>5}`;
+          const weight=.32+(saturation*1.75)+(lightness>.16&&lightness<.82?.42:0);
+          const bucket=buckets.get(key)||{red:0,green:0,blue:0,weight:0,count:0};
+          bucket.red+=red*weight;bucket.green+=green*weight;bucket.blue+=blue*weight;
+          bucket.weight+=weight;bucket.count++;
+          buckets.set(key,bucket);
+        }
+        let selected=null,selectedScore=-1;
+        buckets.forEach(bucket=>{
+          const red=bucket.red/bucket.weight,green=bucket.green/bucket.weight,blue=bucket.blue/bucket.weight;
+          const high=Math.max(red,green,blue)/255,low=Math.min(red,green,blue)/255;
+          const lightness=(high+low)/2,chroma=high-low;
+          const saturation=chroma===0?0:chroma/(1-Math.abs(2*lightness-1));
+          const score=bucket.weight*(.68+saturation*.82)*(1-Math.abs(lightness-.5)*.36);
+          if(score>selectedScore){selectedScore=score;selected={red,green,blue}}
+        });
+        if(!selected){finish(null);return}
+        const selectedHigh=Math.max(selected.red,selected.green,selected.blue)/255;
+        const selectedLow=Math.min(selected.red,selected.green,selected.blue)/255;
+        const selectedChroma=selectedHigh-selectedLow;
+        const selectedLightness=(selectedHigh+selectedLow)/2;
+        const selectedSaturation=selectedChroma===0?0:selectedChroma/(1-Math.abs(2*selectedLightness-1));
+        let selectedHue=0;
+        if(selectedChroma){
+          if(selectedHigh===selected.red/255)selectedHue=60*((((selected.green-selected.blue)/255)/selectedChroma)%6);
+          else if(selectedHigh===selected.green/255)selectedHue=60*(((selected.blue-selected.red)/255)/selectedChroma+2);
+          else selectedHue=60*(((selected.red-selected.green)/255)/selectedChroma+4);
+          if(selectedHue<0)selectedHue+=360;
+        }
+        const harshWarm=(selectedHue>=345||selectedHue<45)&&selectedSaturation>.38;
+        const primary=[selected.red,selected.green,selected.blue].map(value=>Math.round(value));
+        const soft=primary.map(value=>Math.round(value+(255-value)*.18));
+        finish({primary:primary.join(","),soft:soft.join(","),harshWarm});
+      }catch(error){finish(null)}
+    };
+    image.src=src;
+  });
+}
+function albumCoverHasStrongContrast(source){
+  const src=String(source||"").trim();
+  if(!src)return Promise.resolve(false);
+  if(albumPerimeterContrastCache.has(src))return Promise.resolve(albumPerimeterContrastCache.get(src));
+  return new Promise(resolve=>{
+    const finish=value=>{albumPerimeterContrastCache.set(src,Boolean(value));resolve(Boolean(value))};
+    const image=new Image();
+    image.crossOrigin="anonymous";
+    image.referrerPolicy="no-referrer";
+    image.onerror=()=>finish(false);
+    image.onload=()=>{
+      try{
+        const canvas=document.createElement("canvas");
+        canvas.width=40;canvas.height=40;
+        const context=canvas.getContext("2d",{willReadFrequently:true});
+        context.drawImage(image,0,0,40,40);
+        const pixels=context.getImageData(0,0,40,40).data;
+        const luminance=[];
+        let chromaTotal=0,vividPixels=0,clashWeight=0,samples=0;
+        for(let index=0;index<pixels.length;index+=4){
+          if(pixels[index+3]<180)continue;
+          const red=pixels[index]/255,green=pixels[index+1]/255,blue=pixels[index+2]/255;
+          const high=Math.max(red,green,blue),low=Math.min(red,green,blue),chroma=high-low;
+          const lightness=(high+low)/2;
+          const saturation=chroma===0?0:chroma/(1-Math.abs(2*lightness-1));
+          let hue=0;
+          if(chroma){
+            if(high===red)hue=60*(((green-blue)/chroma)%6);
+            else if(high===green)hue=60*((blue-red)/chroma+2);
+            else hue=60*((red-green)/chroma+4);
+            if(hue<0)hue+=360;
+          }
+          luminance.push(.2126*red+.7152*green+.0722*blue);
+          chromaTotal+=chroma;
+          if(chroma>.42)vividPixels++;
+          const lightRed=(hue>=345||hue<14)&&saturation>.25&&lightness>.58;
+          const primaryRed=(hue>=350||hue<10)&&saturation>.62&&lightness>.30&&lightness<.72;
+          const orange=hue>=14&&hue<43&&saturation>.56&&lightness>.36;
+          const peachCoral=(hue>=4&&hue<38)&&saturation>.28&&lightness>.61;
+          const pastelYellow=hue>=43&&hue<67&&saturation>.28&&lightness>.68;
+          const limeChartreuse=hue>=67&&hue<112&&saturation>.40&&lightness>.40;
+          const lightGreen=hue>=96&&hue<158&&saturation>.24&&lightness>.60;
+          const mintAqua=hue>=148&&hue<198&&saturation>.24&&lightness>.48;
+          const babyBlueCyan=hue>=188&&hue<224&&saturation>.23&&lightness>.57;
+          const primaryBlue=hue>=218&&hue<252&&saturation>.58&&lightness>.28&&lightness<.72;
+          const lavender=hue>=250&&hue<292&&saturation>.20&&lightness>.61;
+          const brightPinkFuchsia=hue>=292&&hue<345&&saturation>.45&&lightness>.43;
+          const coolLightGray=hue>=190&&hue<250&&saturation>=.045&&saturation<.24&&lightness>.66;
+          const severe=primaryRed||orange||limeChartreuse||mintAqua||primaryBlue||brightPinkFuchsia;
+          const paletteClash=severe||lightRed||peachCoral||pastelYellow||lightGreen||babyBlueCyan||lavender;
+          if(severe)clashWeight+=1.45;
+          else if(paletteClash)clashWeight+=1;
+          else if(coolLightGray)clashWeight+=.62;
+          samples++;
+        }
+        if(samples<20){finish(false);return}
+        luminance.sort((a,b)=>a-b);
+        const percentile=value=>luminance[Math.min(luminance.length-1,Math.max(0,Math.floor((luminance.length-1)*value)))];
+        const tonalRange=percentile(.90)-percentile(.10);
+        const averageChroma=chromaTotal/samples;
+        const vividShare=vividPixels/samples;
+        const paletteClashShare=clashWeight/samples;
+        finish(paletteClashShare>=.11||(tonalRange>=.46&&averageChroma>=.16)||(tonalRange>=.34&&vividShare>=.22));
+      }catch(error){finish(false)}
+    };
+    image.src=src;
+  });
+}
+function albumPerimeterContrastOverride(album){
+  const identity=`${album?.artist||""} ${album?.title||""}`.toLowerCase();
+  if(identity.includes("nas")&&identity.includes("illmatic"))return true;
+  if(identity.includes("michael jackson")&&identity.includes("thriller"))return false;
+  return null;
+}
+function applyAlbumPerimeterContrast(popup,source,album){
+  if(!popup)return;
+  const src=String(source||"").trim();
+  popup.dataset.perimeterSource=src;
+  popup.classList.remove("albumStrongContrast","albumHarshWarmPerimeter");
+  const ambient=albumAmbientStyleVars(album).match(/--album-ambient-rgb:([^;]+)/)?.[1]||"214,171,53";
+  popup.style.setProperty("--album-perimeter-rgb",ambient);
+  popup.style.setProperty("--album-perimeter-soft-rgb",ambient);
+  albumCoverPerimeterPalette(src).then(palette=>{
+    if(popup.dataset.perimeterSource!==src||!palette)return;
+    popup.style.setProperty("--album-perimeter-rgb",palette.primary);
+    popup.style.setProperty("--album-perimeter-soft-rgb",palette.soft);
+    popup.classList.toggle("albumHarshWarmPerimeter",Boolean(palette.harshWarm));
+  });
+  const override=albumPerimeterContrastOverride(album);
+  if(override!==null){popup.classList.toggle("albumStrongContrast",override);return}
+  albumCoverHasStrongContrast(src).then(strong=>{
+    if(popup.dataset.perimeterSource!==src)return;
+    popup.classList.toggle("albumStrongContrast",strong);
+  });
+}
 function fitAlbumOverviewPopup(){
   const popup=$("#albumOverviewPopup");
   if(!popup||popup.classList.contains("hidden"))return;
@@ -5468,6 +5626,7 @@ window.openAlbumOverviewPopup=function(){
     document.body.appendChild(popup);
   }
   popup.innerHTML=`<div class="albumOverviewBackdrop" onclick="closeAlbumOverviewPopup()"></div><div class="albumOverviewPopupPanel"><button class="albumOverviewClose" onclick="closeAlbumOverviewPopup()">&times;</button>${albumOverviewHtml(album,{albumId,coverUrl,albumScore,total,customOverview,canEditOverview})}</div>`;
+  applyAlbumPerimeterContrast(popup,albumCoverUrl(album),album);
   popup.classList.remove("hidden");
   fitAlbumOverviewPopup();
   requestAnimationFrame(fitAlbumOverviewPopup);
@@ -5493,6 +5652,7 @@ window.openAlbumInfoPopup=async function(){
     document.body.appendChild(popup);
   }
   if(popup.dataset.albumRef===ref&&popup.querySelector("#albumInfoSection")){
+    applyAlbumPerimeterContrast(popup,albumCoverUrl(album),album);
     popup.classList.remove("hidden");
     if(!extras.albumInfo[ref]&&!extras.albumInfoRequests[ref])loadAlbumInfo(album);
     return;
@@ -5501,6 +5661,7 @@ window.openAlbumInfoPopup=async function(){
   const hasCachedInfo=Boolean(extras.albumInfo[ref]);
   const initialSection=hasCachedInfo?"":'<div class="albumInfoLoading"><span></span><p>Loading verified album information...</p></div>';
   popup.innerHTML=`<div class="albumOverviewBackdrop" onclick="closeAlbumInfoPopup()"></div><div class="albumOverviewPopupPanel albumInfoPopupPanel"><button class="albumOverviewClose" onclick="closeAlbumInfoPopup()" aria-label="Close album information">&times;</button><div class="albumInfoPage">${albumInfoHeroHtml(album,extras.albumInfo[ref]||{})}<section id="albumInfoSection" class="albumInfoSection" aria-label="Album information">${initialSection}</section></div></div>`;
+  applyAlbumPerimeterContrast(popup,albumCoverUrl(album),album);
   popup.classList.remove("hidden");
   renderAlbumInfo(album.id);
   if(!hasCachedInfo)loadAlbumInfo(album);
@@ -7623,7 +7784,7 @@ function libraryPreviewBlock(library){
   const seedIndex=seededLibraryIndexFor(library);
   const canFollow=!isSeeded&&library.id&&String(library.id).indexOf("local-library-")!==0;
   const followAction=canFollow?"followLibrary('"+escapeJsString(library.id)+"')":"openLibraryDetailsById('"+key+"')";
-  const adminIdentityEdit=isAdminUnlocked()&&seedIndex>=0?'<button class="libraryAdminIdentityBtn" title="Edit title, username, and Library/List type" onclick="event.stopPropagation();editSeededLibraryIdentity('+seedIndex+')">Edit</button>':'';
+  const adminIdentityEdit=isAdminUnlocked()&&seedIndex>=0?'<button class="libraryAdminIdentityBtn" title="Edit title, username, and Library/Suggestion type" onclick="event.stopPropagation();editSeededLibraryIdentity('+seedIndex+')">Edit</button>':'';
   const preview=rawItems.slice(0,3).map((item,index)=>{
     const image=String(item.cover_url||"").trim();
     const title=String(item.title||"Album").trim();
@@ -7649,8 +7810,8 @@ function publicListPreviewBlock(rawList){
   const seedIndex=seededLibraryIndexFor(list);
   const editAction=seedIndex>=0?'editSeededLibraryIdentity('+seedIndex+')':'openPublicListEditor(\''+escapeJsString(list.id)+'\')';
   const ownerActions=(publicListOwnedByUser(list)||isAdminUnlocked())?'<button class="libraryAdminIdentityBtn" onclick="event.stopPropagation();'+editAction+'">Edit</button>':'';
-  const description=String(list.description||(isLibrary?"A listener's personal album library.":"A listener-curated album list.")).trim();
-  return '<div class="libraryCard mockLibraryCard communityShelfCard curatedListCard '+(isLibrary?'curatedLibraryCard':'')+'" role="button" tabindex="0" onclick="openPublicList(\''+slug+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPublicList(\''+slug+'\')}"><div class="mockLibraryTop"><div class="mockAvatar">'+lightweightLibraryAvatar(list)+'</div><div class="mockLibraryTitle"><span class="curatedTypeBadge '+(isLibrary?'libraryTypeBadge':'listTypeBadge')+'">'+(isLibrary?'Library':'List')+'</span><h3>'+escapeHtml(list.title||(isLibrary?"Listener library":"Listener list"))+'</h3><p class="mockLibraryByline"><span class="mockUsername">'+(isLibrary?'@':'by @')+escapeHtml(list.username||"listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p></div></div>'+(isLibrary?'':'<div class="mockDescriptor curatedListDescription">'+escapeHtml(description)+'</div>')+'<div class="mockAlbumPreview '+(items.length>=3?'hasMobileTrio':'')+'">'+(preview||'<div class="emptyMini">No albums yet.</div>')+(extraCount?'<div class="mockMoreTile">+'+extraCount+'</div>':'')+'</div><div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openPublicList(\''+slug+'\')">Explore &rarr;</button><span class="libraryAdminIdentitySlot">'+ownerActions+'<button class="libraryFollowBtn '+(followed?'following':'')+'" onclick="event.stopPropagation();followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow')+'</button></span></div></div>';
+  const description=String(list.description||(isLibrary?"A listener's personal album library.":"A listener-curated album suggestion.")).trim();
+  return '<div class="libraryCard mockLibraryCard communityShelfCard curatedListCard '+(isLibrary?'curatedLibraryCard':'')+'" role="button" tabindex="0" onclick="openPublicList(\''+slug+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPublicList(\''+slug+'\')}"><div class="mockLibraryTop"><div class="mockAvatar">'+lightweightLibraryAvatar(list)+'</div><div class="mockLibraryTitle"><span class="curatedTypeBadge '+(isLibrary?'libraryTypeBadge':'listTypeBadge')+'">'+(isLibrary?'Library':'Suggestion')+'</span><h3>'+escapeHtml(list.title||(isLibrary?"Listener library":"Listener suggestion"))+'</h3><p class="mockLibraryByline"><span class="mockUsername">'+(isLibrary?'@':'by @')+escapeHtml(list.username||"listener")+'</span><span class="mockAlbumMeta"> &middot; '+libraryAlbumCountText(albumCount)+'</span><span class="mockFollowerMeta"> &middot; '+followers+' follower'+(followers===1?'':'s')+'</span></p></div></div>'+(isLibrary?'':'<div class="mockDescriptor curatedListDescription">'+escapeHtml(description)+'</div>')+'<div class="mockAlbumPreview '+(items.length>=3?'hasMobileTrio':'')+'">'+(preview||'<div class="emptyMini">No albums yet.</div>')+(extraCount?'<div class="mockMoreTile">+'+extraCount+'</div>':'')+'</div><div class="mockLibraryActions"><button class="libraryExploreBtn" onclick="event.stopPropagation();openPublicList(\''+slug+'\')">Explore &rarr;</button><span class="libraryAdminIdentitySlot">'+ownerActions+'<button class="libraryFollowBtn '+(followed?'following':'')+'" onclick="event.stopPropagation();followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow')+'</button></span></div></div>';
 }
 function curatedShelfRows(limit=4,query=""){
   const username=currentUsername();
@@ -7825,7 +7986,7 @@ function librariesView(){
   const query=String(state.librarySearch||"").toLowerCase().trim();
   const communityLimit=showAllCommunity?40:4;
   const curated=curatedShelfRows(communityLimit,query);
-  content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore music through the people who collect it.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, lists, albums..."></label><button onclick="openPublicListEditor()">+ Add library / list</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle curatedListenersTitle"><div><strong>Curated by Listeners</strong><small>Libraries and lists created by music fans like you.</small></div><button onclick="toggleCommunityLibraries()">${showAllCommunity?'Show less':'See all'}</button></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid">${curated.map(row=>row.type==="list"?publicListPreviewBlock(row.item):libraryPreviewBlock(row.item)).join("")||'<div class="empty">No public libraries or lists yet.</div>'}</div><div id="libraryRecommendationMount"></div>`;
+  content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore music through the people who collect it.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, suggestions, albums..."></label><button onclick="openPublicListEditor()">+ Add library / suggestion</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle curatedListenersTitle"><div><strong>Curated by Listeners</strong><small>Libraries and suggestions created by music fans like you.</small></div><button onclick="toggleCommunityLibraries()">${showAllCommunity?'Show less':'See all'}</button></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid">${curated.map(row=>row.type==="list"?publicListPreviewBlock(row.item):libraryPreviewBlock(row.item)).join("")||'<div class="empty">No public libraries or suggestions yet.</div>'}</div><div id="libraryRecommendationMount"></div>`;
   setTimeout(()=>{
     const mount=$("#libraryRecommendationMount");
     if(mount&&state.view==="libraries")mount.innerHTML=libraryRecommendationPanel();
@@ -7833,17 +7994,17 @@ function librariesView(){
 }
 function librariesShellView(){
   const displayMine=quickCurrentLibraryCard();
-  content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore music through the people who collect it.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, lists, albums..."></label><button onclick="openPublicListEditor()">+ Add library / list</button></div></div>${ownLibraryHero(displayMine)}`;
+  content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore music through the people who collect it.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, suggestions, albums..."></label><button onclick="openPublicListEditor()">+ Add library / suggestion</button></div></div>${ownLibraryHero(displayMine)}`;
 }
 function librariesErrorView(error){
   console.error("Libraries render failed",error);
   const displayMine=quickCurrentLibraryCard();
-  content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore music through the people who collect it.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, lists, albums..."></label><button onclick="openPublicListEditor()">+ Add library / list</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle curatedListenersTitle"><div><strong>Curated by Listeners</strong><small>Libraries and lists created by music fans like you.</small></div></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid"><div class="empty">Curated listener picks could not load. Try refreshing the page.</div></div>`;
+  content.innerHTML=`<div class="mockLibrariesHeader"><div><h2>Libraries</h2><p>Explore music through the people who collect it.</p></div><div class="mockLibraryTools"><label><span aria-hidden="true"><svg class="libraryInlineIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg></span><input value="${escapeHtml(state.librarySearch||"")}" oninput="setLibrarySearch(this.value)" placeholder="Search libraries, suggestions, albums..."></label><button onclick="openPublicListEditor()">+ Add library / suggestion</button></div></div>${ownLibraryHero(displayMine)}<div class="mockCommunityTitle curatedListenersTitle"><div><strong>Curated by Listeners</strong><small>Libraries and suggestions created by music fans like you.</small></div></div><div class="libraryGrid communityLibraryGrid mockCommunityGrid"><div class="empty">Curated listener picks could not load. Try refreshing the page.</div></div>`;
 }
 function publicListView(){
   const list=publicListBySlug(state.publicListSlug||publicListSlugFromPath());
   if(!list){
-    content.innerHTML='<section class="publicListPage"><button class="publicListBack" onclick="navigateToView(\'libraries\')">&larr; Libraries</button><div class="empty">This list is unavailable or private.</div></section>';
+    content.innerHTML='<section class="publicListPage"><button class="publicListBack" onclick="navigateToView(\'libraries\')">&larr; Libraries</button><div class="empty">This suggestion is unavailable or private.</div></section>';
     return;
   }
   const owned=publicListOwnedByUser(list);
@@ -7855,7 +8016,7 @@ function publicListView(){
   const followed=(extras.listFollows||[]).some(row=>String(row.list_id)===String(list.id)&&String(row.user_id)===String(loggedInUser()?.id||""))||localPublicListFollows().includes(String(list.id));
   const items=liveLibraryItems(list.items||[]);
   const followerCount=Number(list.followers_count||0);
-  content.innerHTML='<section class="publicListPage premiumPublicListPage"><button class="publicListBack" onclick="navigateToView(\'libraries\')">&larr; Libraries</button><header class="publicListHero"><div><span class="publicListEyebrow">'+(isLibrary?'PERSONAL LIBRARY':'CURATED COLLECTION')+'</span><h1>'+escapeHtml(list.title||(isLibrary?"Listener library":"Listener list"))+'</h1><p>'+escapeHtml(list.description||(isLibrary?"A listener's personal album library.":"A listener-curated collection of albums."))+'</p><small>'+(isLibrary?'@':'by @')+escapeHtml(list.username||"listener")+' &middot; '+libraryAlbumCountText(items.length)+' &middot; '+followerCount+' follower'+(followerCount===1?'':'s')+'</small></div><div class="publicListHeroActions">'+(canEdit?'<button onclick="'+editAction+'">Edit '+(isLibrary?'library':'list')+'</button>':'<button onclick="followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow '+(isLibrary?'library':'list'))+'</button>')+'</div></header><div class="publicListMetaStrip"><span><i aria-hidden="true">&#9673;</i>'+libraryAlbumCountText(items.length)+'</span><span><i aria-hidden="true">&#9734;</i>'+(isLibrary?'Personal library':'Curated collection')+'</span><span><i aria-hidden="true">&#9675;</i>'+followerCount+' follower'+(followerCount===1?'':'s')+'</span></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,false,false)).join("")||'<div class="empty">No albums have been added yet.</div>')+'</div><div class="libraryDetailFlourish" aria-hidden="true"><span></span><i></i><span></span></div></section>';
+  content.innerHTML='<section class="publicListPage premiumPublicListPage"><button class="publicListBack" onclick="navigateToView(\'libraries\')">&larr; Libraries</button><header class="publicListHero"><div><span class="publicListEyebrow">'+(isLibrary?'PERSONAL LIBRARY':'CURATED COLLECTION')+'</span><h1>'+escapeHtml(list.title||(isLibrary?"Listener library":"Listener suggestion"))+'</h1><p>'+escapeHtml(list.description||(isLibrary?"A listener's personal album library.":"A listener-curated collection of albums."))+'</p><small>'+(isLibrary?'@':'by @')+escapeHtml(list.username||"listener")+' &middot; '+libraryAlbumCountText(items.length)+' &middot; '+followerCount+' follower'+(followerCount===1?'':'s')+'</small></div><div class="publicListHeroActions">'+(canEdit?'<button onclick="'+editAction+'">Edit '+(isLibrary?'library':'suggestion')+'</button>':'<button onclick="followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow '+(isLibrary?'library':'suggestion'))+'</button>')+'</div></header><div class="publicListMetaStrip"><span><i aria-hidden="true">&#9673;</i>'+libraryAlbumCountText(items.length)+'</span><span><i aria-hidden="true">&#9734;</i>'+(isLibrary?'Personal library':'Curated collection')+'</span><span><i aria-hidden="true">&#9675;</i>'+followerCount+' follower'+(followerCount===1?'':'s')+'</span></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,false,false)).join("")||'<div class="empty">No albums have been added yet.</div>')+'</div><div class="libraryDetailFlourish" aria-hidden="true"><span></span><i></i><span></span></div></section>';
 }
 window.openPublicList=function(slug,options={}){
   const clean=publicListSlug(slug);if(!clean)return;
@@ -8988,7 +9149,7 @@ function ensurePublicListModal(){
   if(modal)return modal;
   modal=document.createElement("div");
   modal.id="publicListModal";modal.className="modal publicListModal hidden";
-  modal.innerHTML='<div class="modalPanel publicListEditorPanel" role="dialog" aria-modal="true" aria-labelledby="publicListEditorTitle"><button class="close cleanClose" aria-label="Close list editor" onclick="closePublicListEditor()"><span class="cleanCloseIcon" aria-hidden="true"></span></button><div id="publicListEditorContent"></div></div>';
+  modal.innerHTML='<div class="modalPanel publicListEditorPanel" role="dialog" aria-modal="true" aria-labelledby="publicListEditorTitle"><button class="close cleanClose" aria-label="Close suggestion editor" onclick="closePublicListEditor()"><span class="cleanCloseIcon" aria-hidden="true"></span></button><div id="publicListEditorContent"></div></div>';
   modal.addEventListener("click",event=>{if(event.target===modal)closePublicListEditor()});
   document.body.append(modal);return modal;
 }
@@ -9000,15 +9161,15 @@ function renderPublicListEditor(){
   const candidates=listEditorCandidates().filter(album=>!query||`${album.title||""} ${album.artist||""}`.toLowerCase().includes(query)).slice(0,60);
   const selected=draft.albumIds.map(listDraftAlbum).filter(Boolean);
   const usernameField=draft.canEditUsername?'<label>Username<input id="publicListUsername" maxlength="32" value="'+escapeHtml(draft.username||"")+'" placeholder="listener"></label>':'';
-  const typeField=draft.canEditType?'<label>Content type<select id="publicListCurationType"><option value="list" '+(draft.curation_type==="list"?'selected':'')+'>List</option><option value="library" '+(draft.curation_type==="library"?'selected':'')+'>Library</option></select></label>':'';
-  mount.innerHTML='<p class="eyebrow">'+(draft.canEditUsername?'Admin curation':'Listener curation')+'</p><h2 id="publicListEditorTitle">'+(draft.id?'Edit curation':'Create a public list')+'</h2><div class="publicListForm"><label>Title<input id="publicListTitle" maxlength="70" value="'+escapeHtml(draft.title)+'" placeholder="Summer Breezers"></label>'+usernameField+typeField+'<label>Description<textarea id="publicListDescription" maxlength="220" rows="3" placeholder="What connects these records?">'+escapeHtml(draft.description)+'</textarea></label><label class="publicListVisibility"><input id="publicListVisibility" type="checkbox" '+(draft.is_public?'checked':'')+'> Make this curation public</label><label>Find albums<input value="'+escapeHtml(draft.search||"")+'" oninput="setPublicListAlbumSearch(this.value)" placeholder="Search your library and Muze..."></label><div class="publicListAlbumPicker">'+candidates.map(album=>'<button type="button" class="publicListAlbumChoice '+(draft.albumIds.includes(String(album.id))?'selected':'')+'" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')">'+(album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<span></span>')+'<b>'+escapeHtml(album.title||"Untitled")+'</b><small>'+escapeHtml(album.artist||"")+'</small></button>').join("")+'</div><div class="publicListOrder"><strong>Album order</strong>'+(selected.length?selected.map((album,index)=>'<div><span>'+(index+1)+'. '+escapeHtml(album.title||"Untitled")+'</span><button type="button" onclick="movePublicListDraftAlbum('+index+',-1)" aria-label="Move '+escapeHtml(album.title||"album")+' up">&uarr;</button><button type="button" onclick="movePublicListDraftAlbum('+index+',1)" aria-label="Move '+escapeHtml(album.title||"album")+' down">&darr;</button><button type="button" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')" aria-label="Remove '+escapeHtml(album.title||"album")+'">&times;</button></div>').join(""):'<p>Select at least one album.</p>')+'</div><div class="publicListFormActions">'+(draft.id&&draft.canDelete?'<button type="button" class="publicListDelete" onclick="deletePublicListDraft()">Delete list</button>':'<span></span>')+'<button type="button" onclick="savePublicListDraft()">Save changes</button></div></div>';
+  const typeField=draft.canEditType?'<label>Content type<select id="publicListCurationType"><option value="list" '+(draft.curation_type==="list"?'selected':'')+'>Suggestion</option><option value="library" '+(draft.curation_type==="library"?'selected':'')+'>Library</option></select></label>':'';
+  mount.innerHTML='<p class="eyebrow">'+(draft.canEditUsername?'Admin curation':'Listener curation')+'</p><h2 id="publicListEditorTitle">'+(draft.id?'Edit curation':'Create a public suggestion')+'</h2><div class="publicListForm"><label>Title<input id="publicListTitle" maxlength="70" value="'+escapeHtml(draft.title)+'" placeholder="Summer Breezers"></label>'+usernameField+typeField+'<label>Description<textarea id="publicListDescription" maxlength="220" rows="3" placeholder="What connects these records?">'+escapeHtml(draft.description)+'</textarea></label><label class="publicListVisibility"><input id="publicListVisibility" type="checkbox" '+(draft.is_public?'checked':'')+'> Make this curation public</label><label>Find albums<input value="'+escapeHtml(draft.search||"")+'" oninput="setPublicListAlbumSearch(this.value)" placeholder="Search your library and Muze..."></label><div class="publicListAlbumPicker">'+candidates.map(album=>'<button type="button" class="publicListAlbumChoice '+(draft.albumIds.includes(String(album.id))?'selected':'')+'" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')">'+(album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<span></span>')+'<b>'+escapeHtml(album.title||"Untitled")+'</b><small>'+escapeHtml(album.artist||"")+'</small></button>').join("")+'</div><div class="publicListOrder"><strong>Album order</strong>'+(selected.length?selected.map((album,index)=>'<div><span>'+(index+1)+'. '+escapeHtml(album.title||"Untitled")+'</span><button type="button" onclick="movePublicListDraftAlbum('+index+',-1)" aria-label="Move '+escapeHtml(album.title||"album")+' up">&uarr;</button><button type="button" onclick="movePublicListDraftAlbum('+index+',1)" aria-label="Move '+escapeHtml(album.title||"album")+' down">&darr;</button><button type="button" onclick="togglePublicListDraftAlbum(\''+escapeJsString(album.id)+'\')" aria-label="Remove '+escapeHtml(album.title||"album")+'">&times;</button></div>').join(""):'<p>Select at least one album.</p>')+'</div><div class="publicListFormActions">'+(draft.id&&draft.canDelete?'<button type="button" class="publicListDelete" onclick="deletePublicListDraft()">Delete suggestion</button>':'<span></span>')+'<button type="button" onclick="savePublicListDraft()">Save changes</button></div></div>';
 }
 window.openPublicListEditor=function(listId=""){
   const existing=listId?visiblePublicLists().find(list=>String(list.id)===String(listId)):null;
   const owned=publicListOwnedByUser(existing);
   const adminEditing=Boolean(existing)&&!owned&&isAdminUnlocked();
   if(!adminEditing&&!requireAuth("save",()=>openPublicListEditor(listId)))return;
-  if(existing&&!owned&&!adminEditing){alert("Only the list creator or a Muze admin can edit this list.");return}
+  if(existing&&!owned&&!adminEditing){alert("Only the suggestion creator or a Muze admin can edit this suggestion.");return}
   state.listDraft={id:existing?.id||"",title:existing?.title||"",username:existing?.username||currentUsername()||"listener",description:existing?.description||"",curation_type:publicListCurationType(existing||{}),is_public:existing?.is_public!==false,slug:existing?.slug||"",albumIds:(existing?.items||[]).map(album=>String(album.id)),originalItems:existing?.items||[],adminEditing,canEditUsername:Boolean(existing)&&isAdminUnlocked(),canEditType:Boolean(existing)&&isAdminUnlocked(),canDelete:Boolean(existing)&&owned,search:""};
   ensurePublicListModal().classList.remove("hidden");renderPublicListEditor();
 };
@@ -9031,7 +9192,7 @@ window.savePublicListDraft=async function(){
   const curationType=draft.canEditType?publicListCurationType({curation_type:$("#publicListCurationType")?.value}):"list";
   const description=String($("#publicListDescription")?.value||"").trim();
   const isPublic=Boolean($("#publicListVisibility")?.checked);
-  if(!title){alert("Give this list a title.");return}
+  if(!title){alert("Give this suggestion a title.");return}
   if(draft.canEditUsername&&!/^[a-zA-Z0-9._-]{2,32}$/.test(username)){alert("Use 2-32 letters, numbers, dots, underscores, or hyphens for the username.");return}
   if(!draft.albumIds.length){alert("Choose at least one album.");return}
   const user=loggedInUser();
@@ -9074,8 +9235,8 @@ window.savePublicListDraft=async function(){
 };
 window.deletePublicListDraft=async function(){
   const draft=state.listDraft;if(!draft)return;
-  if(!draft.canDelete){alert("Only the list creator can delete this list.");return}
-  if(!confirm("Delete this list?"))return;
+  if(!draft.canDelete){alert("Only the suggestion creator can delete this suggestion.");return}
+  if(!confirm("Delete this suggestion?"))return;
   if(db&&loggedInUser()&&!String(draft.id).startsWith("local-list-")){
     const {error}=await db.from("lists").delete().eq("id",draft.id).eq("user_id",loggedInUser().id);
     if(error&&!publicListSchemaUnavailable(error)){alert(error.message);return}
@@ -9957,6 +10118,9 @@ window.saveArtistProfile=async function(){
   state.artistProfile={...state.artistProfile,...result.row};state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render()
 };
 
+function albumArtistVerifiedMark(){
+  return '<span class="linerArtistVerified" aria-label="Verified artist"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="linerArtistVerifiedSeal" d="M23 12l-2.44-2.79.34-3.69-3.61-.82L15.4 1.5 12 2.96 8.6 1.5 6.71 4.69 3.1 5.5l.34 3.7L1 12l2.44 2.79-.34 3.7 3.61.81L8.6 22.5l3.4-1.47 3.4 1.47 1.89-3.19 3.61-.82-.34-3.69L23 12z"/><path class="linerArtistVerifiedCheck" d="M10.05 16.15 6.4 12.5l1.5-1.5 2.15 2.15 5.75-5.75 1.5 1.5-7.25 7.25z"/></svg></span>';
+}
 window.openAlbum=async function(id){
   $("#albumModal")?.classList.remove("libraryDetailModal");
   let a=state.albums.find(x=>String(x.id)===String(id));
@@ -10012,15 +10176,18 @@ window.openAlbum=async function(id){
   const soundInfluenceAttrs=soundInfluenceHasMore?` role="button" tabindex="0" aria-expanded="false" onclick="toggleHeroInfluenceCard(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleHeroInfluenceCard(this,event)"`:"";
   const soundInfluenceHint=soundInfluenceHasMore?`<span class="influenceExpandHint"><b>Read more</b><b>Show less</b></span>`:"";
   const heroSideCards=`<aside class="linerHeroSide"><div class="heroSideCard love"><h4><span>&#9825;</span>Why people love it</h4><p>"${formatParagraphText(returnHeadline)}"</p><div class="heroFanRow"><span class="miniAvatars"><i></i><i></i><i></i><i></i></span><b>Fan favorite &#9829;</b></div></div><div class="heroSideCard mood" style="--mood-score:${moodScore}%;--mood-start:${moodStart};--mood-end:${moodEnd};--mood-glow:${moodGlow}"><h4><span>&#12316;</span>Vibe & Mood</h4><p>${albumVibeTags(a).slice(0,3).map(escapeHtml).join(" &middot; ")}</p><div class="moodMeter"><span></span></div><div class="moodScale"><em>Mellow</em><em>Intense</em></div></div><div class="heroSideCard influence${soundInfluenceHasMore?" is-collapsible":""}"${soundInfluenceAttrs}><h4><span>&#9733;</span>Sound & Influence</h4><p class="influencePreview">${formatParagraphText(compactPreviewText(soundInfluenceText))}</p><p class="influenceFull">${formatParagraphText(soundInfluenceText)}</p><div>${albumVibeTags(a).slice(0,3).map(tag=>`<small>${escapeHtml(tag)}</small>`).join("")}</div>${soundInfluenceHint}</div></aside>`;
-  $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} <span>&#9679;</span></h3><p>${formatParagraphText(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="window.scrollAlbumSeeMore()">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${formatParagraphText(returnHeadline)}</h3></div><p>${formatParagraphText(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
+  $("#albumModalContent").innerHTML=`<div class="linerAlbumPage"${pageImageStyle}><div class="linerTabs"><button data-album-tab="overview" onclick="setAlbumPopupTab('overview')">Overview</button><button data-album-tab="tracks" onclick="setAlbumPopupTab('tracks')" class="active">Tracks</button><button data-album-tab="ratings" onclick="setAlbumPopupTab('ratings')">Ratings & Reviews</button></div><section class="linerHero" data-album-id="${albumId}" style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus}">${heroAdmin}<div class="linerCover">${flippableAlbumCover(a,a.id)}${heroSavedStrip}</div><div class="linerHeroCopy"><p class="eyebrow">Album &middot; ${escapeHtml(a.year||"")}</p><h2${albumTitleClassAttr}>${escapeHtml(a.title)}</h2><h3>${escapeHtml(a.artist)} ${albumArtistVerifiedMark()}</h3><p>${formatParagraphText(summary)}</p><div class="linerTags">${tags.map(tag=>`<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="linerMoodTags">${heroMoodTags}</div><div class="linerStats">${scoreStat}${countStat}<button class="linerSocialProof librarySaveStat" onclick="addCurrentAlbumToLibrary('${albumId}')" aria-label="Add this album to your library"><span>Library</span><strong>${isInLibrary?"Saved":"+"}</strong><small>${escapeHtml(libraryLine)}</small></button></div><div class="heroRightAtmosphere" aria-hidden="true">${heroPullQuotes}<i></i><i></i><i></i></div><div class="linerActions"><button onclick="addCurrentAlbumToLibrary('${albumId}')">+ Add to my library</button><a target="_blank" href="${escapeHtml(a.spotify_url||`https://open.spotify.com/search/${encodeURIComponent(a.title+" "+a.artist)}`)}"><span class="spotifyMark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"></circle><path d="M7 9.2c3.4-1 7.3-.7 10.2.9"></path><path d="M7.6 12.1c2.8-.8 6-.5 8.2.7"></path><path d="M8.2 14.8c2.1-.5 4.4-.3 6.2.6"></path></svg></span>Open in Spotify</a></div></div>${heroSideCards}<button type="button" class="albumSeeMorePill" onclick="window.scrollAlbumSeeMore()">See more &#8595;</button><section class="linerHeroSoul"><div class="returnIcon">&#9829;</div><div class="returnHeadline"><span>Why people return</span><h3>${formatParagraphText(returnHeadline)}</h3></div><p>${formatParagraphText(returnBody)}</p><div class="returnTags">${heroMoodTags}</div></section></section><section class="linerContentGrid"><div class="linerPanel trackPanel"><div class="linerPanelTitle"><span>&#9733;</span><div><h3>Why people love this album</h3><p>Community feeling, not just numbers.</p></div></div><div class="linerScoreRow"><div class="scoreRing"><strong>${albumScore}</strong><span>avg. rating &#9733;</span><small>${escapeHtml(scoreMood)}</small></div><div class="ratingBars"><div><span>5 &#9733;</span><b style="--w:72%"></b><em>72%</em></div><div><span>4 &#9733;</span><b style="--w:20%"></b><em>20%</em></div><div><span>3 &#9733;</span><b style="--w:6%"></b><em>6%</em></div><div><span>2 &#9733;</span><b style="--w:1%"></b><em>1%</em></div><div><span>1 &#9733;</span><b style="--w:1%"></b><em>1%</em></div></div></div><div class="trackMoodTags">${vibeTags}</div><div class="communityPulse">${communityPull}</div></div><div id="albumRatingsSection" class="linerPanel reactionsPanel"><div class="linerPanelTitle"><span class="listenerIcon" aria-hidden="true"></span><div><h3>Listener Reactions</h3><p>Real moments from the community.</p></div></div><div class="reactionAtmosphere">${reactionWhispers}<i></i><i></i><i></i></div><div class="linerComposer"><div class="voiceAvatar gold">${initial}</div><textarea id="commentText" maxlength="500" placeholder="Share your moment with this album..."></textarea><input id="commentName" type="hidden" value="${escapeHtml(currentUsername()||"Listener")}"><div><span>&#9786;</span><em>0/500</em><button onclick="addAlbumComment('${albumId}')">Post</button></div></div><div class="reactionFilters"><button class="active">Top</button><button class="recentFilter">Recent</button><button class="friendsFilter">Friends</button></div><div id="listenerPull" class="listenerPull"><strong>0</strong><span>listener reactions so far</span></div><div id="commentsList" class="commentsList"><div class="emptyMini">Loading reactions...</div></div><button id="allReactionsButton" class="allReactions" onclick="toggleAllReactions()"><span>View all reactions</span><span class="allReactionsArrow" aria-hidden="true"></span></button></div></section><div id="trackRatingsList" class="albumTrackSections"><div class="emptyMini">Loading tracks...</div></div><section class="listenerCardsSection"><div class="listenerCardsHead"><h3>Listener reactions</h3><div><button aria-label="Previous reaction">&lsaquo;</button><button aria-label="Next reaction">&rsaquo;</button></div></div><div id="listenerCardsList" class="listenerCardsGrid"><div class="listenerCard empty">Loading reactions...</div></div></section><div class="linerPlayer"><div>${cover(a)}<div><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.artist)} ? ${escapeHtml(a.title)}</span></div></div><div><button>&#9664;</button><button class="playNow" id="albumPreviewPlay" onclick="playFirstAlbumPreview(this)">&#9654;</button><button>&#9654;</button></div></div></div>`;
   const heroDescription=$("#albumModalContent .linerHeroCopy > p:not(.eyebrow)");
   if(heroDescription){
     heroDescription.classList.add("albumHeroDescription");
-    heroDescription._fullDescriptionHtml=heroDescription.innerHTML;
-    heroDescription._fullDescriptionText=heroDescription.textContent.replace(/\s+/g," ").trim();
+    const previewText=heroDescription.textContent.replace(/\s+/g," ").trim();
+    const expandedText=String(customOverview||summary||"").replace(/\s+/g," ").trim();
+    heroDescription._previewDescriptionText=previewText;
+    heroDescription._fullDescriptionHtml=expandedText.length>previewText.length+12?formatParagraphText(expandedText):heroDescription.innerHTML;
+    heroDescription._fullDescriptionText=expandedText.length>previewText.length+12?expandedText:previewText;
   }
   const artistHeading=$("#albumModalContent .linerHeroCopy h3");
-  if(artistHeading)artistHeading.innerHTML=`<button type="button" class="linerArtistLink" onclick="event.stopPropagation();openArtistPage('${escapeJsString(artistSlugForName(a.artist))}')">${escapeHtml(a.artist)}</button> <span>&#9679;</span>`;
+  if(artistHeading)artistHeading.innerHTML=`<button type="button" class="linerArtistLink" onclick="event.stopPropagation();openArtistPage('${escapeJsString(artistSlugForName(a.artist))}')">${escapeHtml(a.artist)}</button> ${albumArtistVerifiedMark()}`;
   const albumTabs=$("#albumModalContent .linerTabs");
   const ratingsTab=albumTabs?.querySelector('[data-album-tab="ratings"]');
   if(ratingsTab)ratingsTab.insertAdjacentHTML("beforebegin",'<button data-album-tab="info" onclick="setAlbumPopupTab(\'info\')">Details &amp; Credits</button>');
@@ -10030,6 +10197,7 @@ window.openAlbum=async function(id){
   if(reviewAtmosphere)reviewAtmosphere.classList.add("reviewAtmosphere");
   if(reviewComposer)reviewComposer.outerHTML=reviewComposerHtml(albumId);
   if(flip)flip.dataset.flipped="0";
+  applyAlbumPerimeterContrast($("#albumModal"),albumCoverUrl(a),a);
   $("#albumModal").classList.remove("hidden");
   applyBackCoverHero(a);
   requestAnimationFrame(()=>{updateAlbumSeeMorePlacement();syncAlbumHeroDescriptionToggle()});
@@ -10049,16 +10217,12 @@ function syncAlbumHeroDescriptionToggle(){
   const fullText=description._fullDescriptionText||description.textContent.replace(/\s+/g," ").trim();
   description._fullDescriptionHtml=fullHtml;
   description._fullDescriptionText=fullText;
-  if(!window.matchMedia("(max-width: 850px)").matches){
-    description.classList.remove("is-expanded");
-    description.innerHTML=fullHtml;
-    return;
-  }
+  const isMobile=window.matchMedia("(max-width: 850px)").matches;
   const toggle='<button type="button" class="albumHeroDescriptionToggle" aria-expanded="false" onclick="toggleAlbumHeroDescription(this)">See more <span aria-hidden="true">&rarr;</span></button>';
   description.classList.remove("is-expanded");
   description.innerHTML=`${escapeHtml(fullText)} ${toggle}`;
   const lineHeight=parseFloat(getComputedStyle(description).lineHeight)||24;
-  const maxHeight=lineHeight*4+.5;
+  const maxHeight=lineHeight*(isMobile?4:3)+.5;
   if(description.scrollHeight<=maxHeight){
     description.innerHTML=fullHtml;
     return;
