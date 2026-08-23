@@ -9149,7 +9149,7 @@ body.light .authPanel .adminOverviewUnlock{
 .muzeReviewSection.lead p,
 .muzeReviewSection.verdict p{
   color:rgba(255,255,255,.86)!important;
-  font-size:15px!important;
+  font-size:15.3px!important;
 }
 .muzeReviewPills{
   display:flex!important;
@@ -10763,6 +10763,7 @@ body{
   display:none!important;
   white-space:normal!important;
 }
+.heroSideCard.influence .influencePreviewDesktop{display:none!important}
 .linerHeroCopy > p,
 .linerHeroSoul p,
 .linerHeroSoul h3,
@@ -10781,6 +10782,9 @@ body{
   display:none!important;
 }
 @media(min-width:1051px){
+  #albumModal .heroSideCard.influence .influencePreview{display:none!important}
+  #albumModal .heroSideCard.influence .influencePreviewDesktop{display:block!important}
+  #albumModal .heroSideCard.influence.is-expanded .influencePreviewDesktop{display:none!important}
   #albumModal .heroSideCard.influence.is-collapsible{
     cursor:pointer!important;
   }
@@ -15249,6 +15253,12 @@ body.chatView .simpleMessengerChat{
   }
   #albumModal .linerHeroSide .heroSideCard.mood{
     order:2!important;
+  }
+  #albumModal .linerHeroSide .heroSideCard.network{
+    order:4!important;
+  }
+  #albumModal .linerHeroSide .heroSideCard.appearances{
+    order:3!important;
   }
   #albumModal .albumTrackSections .linerFeaturedTrack{
     min-height:80px!important;
@@ -20019,12 +20029,12 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   color:#2b1430!important;
   box-shadow:
     0 0 0 2px rgba(238,199,81,.88) inset,
-    0 0 0 8px rgba(var(--album-perimeter-rgb,73,27,69),var(--album-plum-ring-alpha,.90)) inset,
+    0 0 0 8px rgba(73,27,69,.54) inset,
     0 0 22px rgba(214,171,53,.24),
-    0 0 0 7px rgba(var(--album-perimeter-rgb,73,27,69),var(--album-plum-outer-alpha,.72)),
-    -22px 0 54px rgba(var(--album-perimeter-soft-rgb,91,45,85),var(--album-plum-side-alpha,.32)),
-    22px 0 54px rgba(var(--album-perimeter-soft-rgb,91,45,85),var(--album-plum-side-alpha,.32)),
-    0 0 76px rgba(var(--album-perimeter-soft-rgb,91,45,85),var(--album-plum-glow-alpha,.28)),
+    0 0 0 7px rgba(73,27,69,.28),
+    -22px 0 54px rgba(91,45,85,.15),
+    22px 0 54px rgba(91,45,85,.15),
+    0 0 76px rgba(91,45,85,.13),
     0 30px 80px rgba(45,20,42,.24)!important;
 }
 #albumModal:not(.libraryDetailModal) .modalPanel:after{
@@ -20041,6 +20051,7 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
 #albumModal:not(.libraryDetailModal) .linerAlbumPage{
   color:#2b1430!important;
   background:
+    radial-gradient(circle at 18% 42%,rgba(var(--album-perimeter-rgb,73,27,69),.035),transparent 30%),
     radial-gradient(circle at 0% 50%,rgba(91,45,85,.10),transparent 25%),
     radial-gradient(circle at 100% 50%,rgba(91,45,85,.10),transparent 25%),
     radial-gradient(circle at 50% 0%,rgba(214,171,53,.065),transparent 24%),
@@ -20095,13 +20106,26 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
 #albumModal:not(.libraryDetailModal) .linerCoverFlipCard{
   border-radius:16px!important;
   border-color:rgba(214,171,53,.55)!important;
-  box-shadow:0 10px 30px rgba(60,40,30,.10),0 0 18px rgba(214,171,53,.07)!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.22),0 0 14px rgba(214,171,53,.05)!important;
 }
 #albumModal:not(.libraryDetailModal) .linerCover .cover:hover{transform:translateY(-2px)!important}
 #albumModal:not(.libraryDetailModal) .heroSavedStrip{
   color:rgba(55,42,50,.72)!important;
   background:rgba(255,255,255,.34)!important;
   border-color:rgba(70,50,60,.10)!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars i{
+  width:8px!important;
+  height:8px!important;
+  margin-left:0!important;
+  border-color:rgba(70,50,60,.20)!important;
+  background:rgba(70,50,60,.14)!important;
+  box-shadow:none!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars{gap:9px!important}
+#albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars i:first-child{
+  border-color:rgba(180,135,20,.54)!important;
+  background:#d6ab35!important;
 }
 #albumModal:not(.libraryDetailModal) .linerHeroCopy{
   transform:scale(.92)!important;
@@ -20173,9 +20197,10 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   font-size:16px!important;
   font-weight:400!important;
   line-height:1.55!important;
+  margin-bottom:18px!important;
 }
 #albumModal:not(.libraryDetailModal) .linerTags,
-#albumModal:not(.libraryDetailModal) .linerMoodTags{gap:8px!important}
+#albumModal:not(.libraryDetailModal) .linerMoodTags{gap:8px!important;margin-bottom:16px!important}
 #albumModal:not(.libraryDetailModal) .linerTags span,
 #albumModal:not(.libraryDetailModal) .linerMoodTags span{
   color:rgba(55,42,50,.72)!important;
@@ -20188,7 +20213,10 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   grid-template-columns:repeat(3,minmax(0,1fr))!important;
   gap:0!important;
   overflow:hidden!important;
-  border:1px solid rgba(214,171,53,.20)!important;
+  width:calc(100% + 18px)!important;
+  max-width:720px!important;
+  margin:20px 0 22px!important;
+  border:1px solid rgba(214,171,53,.14)!important;
   border-radius:16px!important;
   background:rgba(255,255,255,.32)!important;
   box-shadow:none!important;
@@ -20196,8 +20224,8 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
 #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>* ,
 #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>*:first-child{
   min-width:0!important;
-  min-height:106px!important;
-  padding:16px 18px!important;
+  min-height:96px!important;
+  padding:10px 12px!important;
   border:0!important;
   border-right:1px solid rgba(70,50,60,.10)!important;
   border-radius:0!important;
@@ -20221,8 +20249,59 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
 }
 #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats small{
   color:rgba(55,42,50,.62)!important;
-  font-size:11px!important;
+  font-size:10.5px!important;
   font-weight:500!important;
+  margin-top:5px!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats.linerStatsTwo{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  max-width:520px!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .statValueWithIcon{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  white-space:nowrap!important;
+  justify-content:flex-start!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .statValueWithIcon b{font:inherit!important;color:inherit!important}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .exceptionalStatus{
+  display:block!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  letter-spacing:.13em!important;
+  line-height:1!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .exceptionalStatus b{
+  color:inherit!important;
+  font:inherit!important;
+  letter-spacing:inherit!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .exceptionalFeather{
+  width:10px!important;
+  height:17px!important;
+  flex:0 0 10px!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.05!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .exceptionalFeatherRight{transform:scaleX(-1)!important}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .albumStatIcon{
+  width:15px!important;
+  height:15px!important;
+  flex:0 0 15px!important;
+  color:#d6ab35!important;
+  fill:#d6ab35!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .albumScoreStat,
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .linerAccoladeStat,
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .linerMemberCollectionStat{
+  text-align:left!important;
 }
 #albumModal:not(.libraryDetailModal) .linerActions button{
   border:1px solid rgba(180,135,20,.28)!important;
@@ -20231,16 +20310,18 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   color:#1b1717!important;
   box-shadow:0 8px 22px rgba(214,171,53,.14)!important;
 }
+#albumModal:not(.libraryDetailModal) .linerHeroCopy .linerActions{margin-bottom:0!important}
 #albumModal:not(.libraryDetailModal) .linerActions a{
   border:1px solid rgba(91,45,85,.30)!important;
   border-radius:999px!important;
-  background:#3a2136!important;
+  background:#352632!important;
   color:#f7f2ea!important;
   box-shadow:none!important;
 }
 #albumModal:not(.libraryDetailModal) .linerActions .spotifyMark{color:#f0c94d!important}
 #albumModal:not(.libraryDetailModal) .heroRightAtmosphere{display:none!important}
 #albumModal:not(.libraryDetailModal) .linerHeroSide{
+  gap:14px!important;
   transform:translateY(-18px) scale(.9292)!important;
   transform-origin:top right!important;
 }
@@ -20251,7 +20332,64 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   color:#2b1430!important;
   box-shadow:0 8px 22px rgba(45,30,40,.035)!important;
 }
-#albumModal:not(.libraryDetailModal) .heroSideCard h4{
+#albumModal:not(.libraryDetailModal) .heroSideCard.influence{padding:18px 20px!important}
+#albumModal:not(.libraryDetailModal) .heroSideCard.network{padding:17px 20px!important}
+#albumModal:not(.libraryDetailModal) .heroSideCard.appearances{padding:16px 20px 17px!important}
+#albumModal:not(.libraryDetailModal) .heroSideCard.appearances{display:none!important}
+#albumModal:not(.libraryDetailModal) .appearanceMetric{
+  display:flex!important;
+  align-items:baseline!important;
+  gap:9px!important;
+  margin:11px 0 3px!important;
+}
+#albumModal:not(.libraryDetailModal) .appearanceMetric strong{
+  color:#2b1430!important;
+  font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  font-size:32px!important;
+  font-weight:500!important;
+  line-height:1!important;
+}
+#albumModal:not(.libraryDetailModal) .appearanceMetric span,
+#albumModal:not(.libraryDetailModal) .heroSideCard.appearances p{
+  color:rgba(55,42,50,.64)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:11px!important;
+  font-weight:600!important;
+  font-style:normal!important;
+  line-height:1.35!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSideCard.appearances p{margin:0!important}
+#albumModal:not(.libraryDetailModal) .heroNetworkRow{
+  display:flex!important;
+  align-items:center!important;
+  margin:13px 0 10px!important;
+}
+#albumModal:not(.libraryDetailModal) .heroNetworkAvatar,
+#albumModal:not(.libraryDetailModal) .heroNetworkMore{
+  display:grid!important;
+  place-items:center!important;
+  width:34px!important;
+  height:34px!important;
+  margin-left:-7px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(214,171,53,.34)!important;
+  border-radius:50%!important;
+  background:#171117!important;
+  color:#d6ab35!important;
+  font:700 10px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+}
+#albumModal:not(.libraryDetailModal) .heroNetworkAvatar:first-child{margin-left:0!important}
+#albumModal:not(.libraryDetailModal) .heroNetworkAvatar img,
+#albumModal:not(.libraryDetailModal) .heroNetworkAvatar svg{display:block!important;width:100%!important;height:100%!important;object-fit:cover!important}
+#albumModal:not(.libraryDetailModal) .heroSideCard.network p{
+  margin:0!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  font-style:normal!important;
+  line-height:1.45!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSideCard.influence h4{
   color:#9a6c0c!important;
   font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
   font-size:12px!important;
@@ -20285,6 +20423,41 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   color:#744f08!important;
   box-shadow:none!important;
   text-transform:none!important;
+}
+#albumModal:not(.libraryDetailModal) .linerHeroCopy>.albumSeeMorePill{
+  position:relative!important;
+  inset:auto!important;
+  left:50%!important;
+  bottom:auto!important;
+  width:max-content!important;
+  min-height:22px!important;
+  margin:32px auto 0!important;
+  padding:0 8px!important;
+  transform:translateX(-50%)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  letter-spacing:.04em!important;
+  z-index:2!important;
+}
+#albumModal:not(.libraryDetailModal) .albumSeeMorePill:before{
+  content:""!important;
+  position:absolute!important;
+  left:50%!important;
+  bottom:calc(100% + 12px)!important;
+  width:190px!important;
+  height:1px!important;
+  transform:translateX(-50%)!important;
+  background:linear-gradient(90deg,transparent,rgba(214,171,53,.38) 28%,rgba(214,171,53,.38) 72%,transparent)!important;
+}
+#albumModal:not(.libraryDetailModal) .albumSeeMorePill:after{
+  content:""!important;
+  position:absolute!important;
+  left:50%!important;
+  bottom:calc(100% + 9px)!important;
+  width:7px!important;
+  height:7px!important;
+  transform:translateX(-50%) rotate(45deg)!important;
+  background:#d6ab35!important;
 }
 #albumModal:not(.libraryDetailModal) .albumSeeMorePill:hover{background:rgba(214,171,53,.06)!important;color:#2b1430!important}
 #albumModal:not(.libraryDetailModal) .linerContentGrid .linerPanel,
@@ -20340,6 +20513,7 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .modalPanel{
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerAlbumPage{
   color:#f7f2ea!important;
   background:
+    radial-gradient(circle at 18% 42%,rgba(var(--album-perimeter-rgb,73,27,69),.035),transparent 30%),
     radial-gradient(circle at 0% 48%,rgba(91,45,85,.24),transparent 27%),
     radial-gradient(circle at 100% 48%,rgba(91,45,85,.20),transparent 27%),
     radial-gradient(circle at 50% 0%,rgba(214,171,53,.08),transparent 25%),
@@ -20349,9 +20523,9 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .linerAlbumPage:after{
   background:radial-gradient(circle at 50% 0%,rgba(214,171,53,.035),transparent 35%)!important;
 }
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerTabs{
-  background:rgba(8,8,10,.90)!important;
-  border-color:rgba(247,242,234,.18)!important;
-  box-shadow:0 5px 22px rgba(0,0,0,.34)!important;
+  background:rgba(32,20,31,.72)!important;
+  border-color:rgba(255,255,255,.07)!important;
+  box-shadow:0 5px 18px rgba(0,0,0,.24)!important;
 }
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerTabs button{color:#f7f2ea!important}
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerTabs button.active{
@@ -20368,6 +20542,14 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .heroSavedStrip{
   color:rgba(247,242,234,.72)!important;
   background:rgba(8,8,10,.62)!important;
   border-color:rgba(247,242,234,.12)!important;
+}
+body:not(.light) #albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars i{
+  border-color:rgba(247,242,234,.16)!important;
+  background:rgba(255,255,255,.14)!important;
+}
+body:not(.light) #albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars i:first-child{
+  border-color:rgba(214,171,53,.72)!important;
+  background:#d6ab35!important;
 }
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerHeroCopy{color:#f7f2ea!important}
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerHeroCopy>.eyebrow{
@@ -20386,9 +20568,11 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .linerMoodTags span{
   background:rgba(255,255,255,.055)!important;
   border-color:rgba(247,242,234,.12)!important;
 }
+#albumModal .linerTags .albumFilterTag{cursor:pointer!important}
+#albumModal .linerTags .albumFilterTag:focus-visible{outline:2px solid rgba(214,171,53,.72)!important;outline-offset:3px!important}
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats{
   background:rgba(8,8,10,.58)!important;
-  border-color:rgba(214,171,53,.28)!important;
+  border-color:rgba(214,171,53,.14)!important;
 }
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>* ,
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>*:first-child{border-right-color:rgba(247,242,234,.11)!important}
@@ -20404,6 +20588,9 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard{
   box-shadow:0 10px 28px rgba(0,0,0,.22)!important;
 }
 body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard h4{color:#d6ab35!important}
+body:not(.light) #albumModal:not(.libraryDetailModal) .appearanceMetric strong{color:#f7f2ea!important}
+body:not(.light) #albumModal:not(.libraryDetailModal) .appearanceMetric span,
+body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard.appearances p{color:rgba(247,242,234,.62)!important}
 body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard p,
 body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard .influencePreview,
 body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard .influenceFull{color:rgba(247,242,234,.76)!important}
@@ -20416,6 +20603,57 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .heroFanRow,
 body:not(.light) #albumModal:not(.libraryDetailModal) .moodScale,
 body:not(.light) #albumModal:not(.libraryDetailModal) .moodScale em{color:rgba(247,242,234,.62)!important}
 body:not(.light) #albumModal:not(.libraryDetailModal) .moodMeter{background:rgba(247,242,234,.14)!important}
+
+/* Editorial typography hierarchy for Sound & Influence and Vibe & Mood. */
+#albumModal:not(.libraryDetailModal) .heroSideCard h4{
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  line-height:1.1!important;
+  letter-spacing:.10em!important;
+  text-transform:uppercase!important;
+  color:var(--muze-gold,#d6ab35)!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSideCard.influence .influencePreview,
+#albumModal:not(.libraryDetailModal) .heroSideCard.influence .influencePreviewDesktop,
+#albumModal:not(.libraryDetailModal) .heroSideCard.influence .influenceFull{
+  margin:0 0 16px!important;
+  color:rgba(55,42,50,.74)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:15.3px!important;
+  font-weight:500!important;
+  font-style:normal!important;
+  line-height:1.5!important;
+  text-shadow:none!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSideCard.influence div{
+  margin-top:0!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSideCard.mood p{
+  font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  font-size:18px!important;
+  font-weight:500!important;
+  font-style:normal!important;
+  line-height:1.3!important;
+  letter-spacing:-.01em!important;
+}
+#albumModal:not(.libraryDetailModal) .heroSideCard.influence small{
+  color:rgba(55,42,50,.58)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:10px!important;
+  font-weight:600!important;
+  font-style:normal!important;
+  line-height:1!important;
+  letter-spacing:.01em!important;
+}
+body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard.influence .influencePreview,
+body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard.influence .influencePreviewDesktop,
+body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard.influence .influenceFull{
+  color:rgba(245,240,232,.74)!important;
+}
+body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard.influence small{
+  color:rgba(245,240,232,.58)!important;
+}
 body:not(.light) #albumModal:not(.libraryDetailModal) .albumSeeMorePill{color:#e8bd46!important}
 body:not(.light) #albumModal:not(.libraryDetailModal) .albumSeeMorePill:hover{color:#f7f2ea!important;background:rgba(214,171,53,.07)!important}
 body:not(.light) #albumModal:not(.libraryDetailModal) .linerContentGrid .linerPanel,
@@ -20433,12 +20671,12 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .listenerCardsSection{
     border:1px solid rgba(224,183,62,.96)!important;
     box-shadow:
       0 0 0 2px rgba(238,199,81,.88) inset,
-      0 0 0 8px rgba(var(--album-perimeter-rgb,73,27,69),var(--album-plum-ring-alpha,.90)) inset,
+      0 0 0 8px rgba(73,27,69,.54) inset,
       0 0 22px rgba(214,171,53,.24),
-      0 0 0 7px rgba(var(--album-perimeter-rgb,73,27,69),var(--album-plum-outer-alpha,.72)),
-      -22px 0 54px rgba(var(--album-perimeter-soft-rgb,91,45,85),var(--album-plum-side-alpha,.32)),
-      22px 0 54px rgba(var(--album-perimeter-soft-rgb,91,45,85),var(--album-plum-side-alpha,.32)),
-      0 0 76px rgba(var(--album-perimeter-soft-rgb,91,45,85),var(--album-plum-glow-alpha,.28)),
+      0 0 0 7px rgba(73,27,69,.28),
+      -22px 0 54px rgba(91,45,85,.15),
+      22px 0 54px rgba(91,45,85,.15),
+      0 0 76px rgba(91,45,85,.13),
       0 34px 120px rgba(0,0,0,.62)!important;
   }
 }
