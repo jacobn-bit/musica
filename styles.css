@@ -20434,7 +20434,7 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   margin:32px auto 0!important;
   padding:0 8px!important;
   transform:translateX(-50%)!important;
-  font-size:12px!important;
+  font-size:12.6px!important;
   font-weight:700!important;
   letter-spacing:.04em!important;
   z-index:2!important;
@@ -20664,6 +20664,71 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .listenerCardsSection{
   background:rgba(12,10,13,.76)!important;
 }
 
+/* Final editorial depth and continuity pass for the desktop album popup. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .linerCover .cover,
+  #albumModal:not(.libraryDetailModal) .linerCoverFlip,
+  #albumModal:not(.libraryDetailModal) .linerCoverFlipCard{
+    box-shadow:0 16px 36px rgba(0,0,0,.24),0 0 14px rgba(214,171,53,.045)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars{
+    gap:8px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars i{
+    width:7px!important;
+    height:7px!important;
+    background:rgba(255,255,255,.14)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .heroSavedStrip .miniAvatars i:first-child{
+    background:var(--muze-gold,#d6ab35)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats{
+    width:calc(100% + 36px)!important;
+    max-width:756px!important;
+    margin:28px 0 30px!important;
+    border-color:rgba(214,171,53,.14)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroSide{
+    gap:14px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .heroSideCard.definingTracks{
+    order:3!important;
+    padding:16px 20px 17px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .heroSideCard.definingTracks ol{
+    display:grid!important;
+    gap:0!important;
+    margin:10px 0 0!important;
+    padding:0!important;
+    list-style:none!important;
+  }
+  #albumModal:not(.libraryDetailModal) .heroSideCard.definingTracks li{
+    display:grid!important;
+    grid-template-columns:18px minmax(0,1fr)!important;
+    gap:8px!important;
+    align-items:center!important;
+    min-height:27px!important;
+    border-top:1px solid rgba(214,171,53,.10)!important;
+    color:rgba(55,42,50,.68)!important;
+    font:600 11px/1.25 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .heroSideCard.definingTracks li:first-child{border-top:0!important}
+  #albumModal:not(.libraryDetailModal) .heroSideCard.definingTracks li b{
+    color:var(--muze-gold,#d6ab35)!important;
+    font:700 10px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy>.albumSeeMorePill{
+    margin-top:44px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerContentGrid{
+    margin-top:-4px!important;
+  }
+  body:not(.light) #albumModal:not(.libraryDetailModal) .heroSideCard.definingTracks li{
+    color:rgba(247,242,234,.68)!important;
+    border-top-color:rgba(214,171,53,.12)!important;
+  }
+}
+
 /* Carry the album-color-and-gold perimeter into its companion views. */
 @media(min-width:701px){
   #albumOverviewPopup .albumOverviewPopupPanel,
@@ -20753,4 +20818,792 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .listenerCardsSection{
   }
   .albumOverviewSleeve .overviewScoreStrip{order:3!important}
   .albumOverviewSleeve .overviewAdminControls{order:4!important}
+}
+
+/* Muze track journey: cinematic feature, editorial song sequence, optional curated arc. */
+#albumModal:not(.libraryDetailModal) .albumTrackSections{
+  display:grid!important;
+  gap:16px!important;
+  color:#f3eee6!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyHeart{
+  isolation:isolate!important;
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:minmax(340px,1.1fr) minmax(300px,.9fr) minmax(180px,.55fr)!important;
+  column-gap:48px!important;
+  row-gap:26px!important;
+  align-items:center!important;
+  min-height:304px!important;
+  margin:0!important;
+  padding:30px 34px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(214,171,53,.25)!important;
+  border-radius:16px!important;
+  background:#0b0b0e!important;
+  box-shadow:none!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyHeart:before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:-2!important;
+  background:
+    linear-gradient(90deg,rgba(7,7,9,.97) 0%,rgba(7,7,9,.89) 42%,rgba(14,8,14,.70) 72%,rgba(7,7,9,.88) 100%),
+    radial-gradient(circle at 64% 45%,rgba(91,45,85,.22),transparent 46%),
+    var(--hero-scene,var(--album-cover)) center var(--moment-focus,50%)/cover no-repeat!important;
+  filter:saturate(.72) contrast(.96)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyHeart:after{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:-1!important;
+  pointer-events:none!important;
+  background:linear-gradient(110deg,transparent 48%,rgba(91,45,85,.10),transparent 78%)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartCopy{
+  min-width:0!important;
+  max-width:560px!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartEyebrow{
+  margin:0 0 13px!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font:700 11px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartType{
+  display:block!important;
+  margin:0 0 7px!important;
+  color:rgba(245,240,232,.48)!important;
+  font:600 10px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.10em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyHeart h4{
+  margin:0!important;
+  color:#f3eee6!important;
+  font:500 clamp(34px,3vw,48px)/1 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  letter-spacing:-.02em!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPulse{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+  margin:10px 0 0!important;
+  color:rgba(245,240,232,.58)!important;
+  font:700 10px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.11em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartInsight{
+  position:relative!important;
+  z-index:1!important;
+  align-self:center!important;
+  min-width:0!important;
+  padding:20px 0 24px!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartInsight:after{
+  content:""!important;
+  position:absolute!important;
+  left:0!important;
+  right:-28px!important;
+  bottom:5px!important;
+  height:1px!important;
+  background:linear-gradient(90deg,rgba(214,171,53,.35),rgba(91,45,85,.14),transparent)!important;
+  pointer-events:none!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartNumber{
+  position:absolute!important;
+  right:2%!important;
+  top:50%!important;
+  z-index:-1!important;
+  color:rgba(91,45,85,.08)!important;
+  font:500 clamp(100px,10vw,170px)/.8 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  transform:translateY(-50%)!important;
+  pointer-events:none!important;
+  user-select:none!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartInsightLabel,
+#albumModal:not(.libraryDetailModal) .trackHeartPulseLabel{
+  margin:0!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font:700 10px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.13em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPulseLabel{margin-top:20px!important}
+#albumModal:not(.libraryDetailModal) .trackHeartPulse>strong{
+  color:var(--muze-gold,#d6ab35)!important;
+  font:600 14px/1 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartDescription{
+  max-width:420px!important;
+  margin:11px 0 0!important;
+  color:rgba(245,240,232,.74)!important;
+  font:500 17px/1.45 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPlay{
+  display:flex!important;
+  align-items:center!important;
+  gap:14px!important;
+  margin-top:22px!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse{
+  position:relative!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  flex:0 0 auto!important;
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  padding:0!important;
+  border:1px solid rgba(245,240,232,.18)!important;
+  border-radius:50%!important;
+  background:transparent!important;
+  color:rgba(245,240,232,.68)!important;
+  font-size:11px!important;
+  box-shadow:none!important;
+  cursor:pointer!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay{
+  width:48px!important;
+  height:48px!important;
+  min-width:48px!important;
+  border-color:rgba(214,171,53,.76)!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font-size:16px!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay:hover,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:hover,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:focus-visible{
+  border-color:rgba(214,171,53,.68)!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  outline:0!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay.isPreviewing,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse.isPreviewing{
+  border-color:var(--muze-gold,#d6ab35)!important;
+  color:var(--muze-gold,#d6ab35)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPlay>b{
+  color:var(--muze-gold,#d6ab35)!important;
+  font:700 11px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartPlay>time{
+  margin-left:12px!important;
+  color:rgba(245,240,232,.46)!important;
+  font:500 12px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-variant-numeric:tabular-nums!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartArtwork{
+  align-self:center!important;
+  justify-self:end!important;
+  width:clamp(180px,16vw,230px)!important;
+  min-width:0!important;
+  color:#f3eee6!important;
+  text-align:center!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartArtwork>img,
+#albumModal:not(.libraryDetailModal) .trackHeartArtwork>strong{
+  display:grid!important;
+  place-items:center!important;
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:1!important;
+  object-fit:cover!important;
+  overflow:hidden!important;
+  border:1px solid rgba(214,171,53,.40)!important;
+  border-radius:11px!important;
+  background:#111!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.36)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartArtwork>div{margin-top:10px!important}
+#albumModal:not(.libraryDetailModal) .trackHeartArtwork>div strong{
+  display:block!important;
+  overflow:hidden!important;
+  color:rgba(245,240,232,.88)!important;
+  font:500 15px/1.2 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#albumModal:not(.libraryDetailModal) .trackHeartArtwork>div span{
+  display:block!important;
+  margin-top:4px!important;
+  color:rgba(245,240,232,.48)!important;
+  font:500 11px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackCommunityPulse{
+  display:inline-grid!important;
+  grid-template-columns:repeat(10,11px)!important;
+  gap:3px!important;
+  align-items:center!important;
+}
+#albumModal:not(.libraryDetailModal) .trackCommunityPulse i{
+  display:block!important;
+  width:11px!important;
+  height:5px!important;
+  border:1px solid rgba(214,171,53,.33)!important;
+  border-radius:2px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#albumModal:not(.libraryDetailModal) .trackCommunityPulse i.filled{
+  border-color:rgba(224,183,62,.82)!important;
+  background:linear-gradient(180deg,#e2bd55,#c99427)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackCommunityPulse.large{
+  grid-template-columns:repeat(10,13px)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackCommunityPulse.large i{width:13px!important;height:6px!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyList{
+  display:block!important;
+  overflow:hidden!important;
+  border:1px solid rgba(214,171,53,.16)!important;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#0b0b0e!important;
+  box-shadow:none!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:38px 34px minmax(190px,1fr) 170px 54px 122px!important;
+  gap:12px!important;
+  align-items:center!important;
+  min-height:56px!important;
+  width:100%!important;
+  padding:9px 16px!important;
+  overflow:visible!important;
+  border:0!important;
+  border-bottom:1px solid rgba(255,255,255,.05)!important;
+  border-left:2px solid transparent!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  scroll-snap-type:none!important;
+  transition:background .18s ease!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:last-of-type{border-bottom:0!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:hover,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:focus-within,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:focus-visible{
+  background:rgba(91,45,85,.075)!important;
+  outline:0!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:has(.trackPulse.isPreviewing){
+  border-left-color:var(--muze-gold,#d6ab35)!important;
+  background:linear-gradient(90deg,rgba(91,45,85,.18),rgba(91,45,85,.05),transparent 78%)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow .trackNo{
+  color:rgba(244,239,230,.38)!important;
+  font:600 15px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-variant-numeric:tabular-nums!important;
+  letter-spacing:.02em!important;
+  text-align:center!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:has(.trackPulse.isPreviewing) .trackNo{color:var(--muze-gold,#d6ab35)!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyTitle{
+  display:flex!important;
+  align-items:center!important;
+  min-width:0!important;
+  gap:10px!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyTitle>strong{
+  display:block!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  color:rgba(244,239,230,.88)!important;
+  font:500 17px/1.2 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  letter-spacing:-.008em!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:hover .trackJourneyTitle>strong,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:focus-within .trackJourneyTitle>strong,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:has(.trackPulse.isPreviewing) .trackJourneyTitle>strong{color:#f5efe5!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyTitle>em{
+  display:none!important;
+  color:rgba(245,240,232,.40)!important;
+  font:500 10px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-style:normal!important;
+}
+#albumModal:not(.libraryDetailModal) .trackDistinction{
+  flex:0 0 auto!important;
+  padding:3px 6px!important;
+  border:1px solid rgba(214,171,53,.22)!important;
+  border-radius:4px!important;
+  color:rgba(214,171,53,.82)!important;
+  background:transparent!important;
+  font:700 9px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyPulseButton{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:8px!important;
+  min-width:0!important;
+  padding:6px 0!important;
+  border:0!important;
+  background:transparent!important;
+  color:rgba(245,240,232,.46)!important;
+  cursor:pointer!important;
+  opacity:.84!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:hover .trackJourneyPulseButton,
+#albumModal:not(.libraryDetailModal) .trackJourneyPulseButton:focus-visible{opacity:1!important;outline:0!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyPulseButton small{
+  color:rgba(214,171,53,.72)!important;
+  font:600 11px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow>time{
+  color:rgba(244,239,230,.42)!important;
+  font:500 12px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-variant-numeric:tabular-nums!important;
+  text-align:right!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:4px!important;
+  opacity:1!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:hover .trackJourneyActions,
+#albumModal:not(.libraryDetailModal) .trackJourneyRow:focus-within .trackJourneyActions{opacity:1!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions>button,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow button{
+  position:relative!important;
+  display:grid!important;
+  place-items:center!important;
+  width:31px!important;
+  height:31px!important;
+  min-width:31px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:transparent!important;
+  color:rgba(244,239,230,.22)!important;
+  box-shadow:none!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions>button:hover,
+#albumModal:not(.libraryDetailModal) .trackJourneyActions>button:focus-visible,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow button:hover,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow button:focus-visible{
+  color:rgba(244,239,230,.58)!important;
+  background:rgba(214,171,53,.07)!important;
+  outline:0!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions .trackShareButton svg,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow .trackShareButton svg{width:15px!important;height:15px!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions .trackLove.hasUserRating,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow .trackLove.hasUserRating{color:var(--muze-gold,#d6ab35)!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions .trackLove,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow .trackLove{font-size:17px!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions .trackLove:before,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow .trackLove:before{content:none!important;display:none!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions .trackCommentEmoji,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow .trackCommentEmoji{font-size:12px!important;filter:grayscale(1)!important;opacity:.78!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyActions .trackCommentBadge,
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow .trackCommentBadge{top:-2px!important;right:-2px!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow{display:none!important;position:relative!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow summary{list-style:none!important;cursor:pointer!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyOverflow summary::-webkit-details-marker{display:none!important}
+#albumModal:not(.libraryDetailModal) .trackJourneySide{
+  display:grid!important;
+  grid-template-columns:58px max-content 1fr!important;
+  gap:12px!important;
+  align-items:center!important;
+  min-height:52px!important;
+  padding:10px 18px 8px!important;
+  color:var(--muze-gold,#d6ab35)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneySide>span{
+  display:grid!important;
+  place-items:center!important;
+  width:38px!important;
+  height:38px!important;
+  border:1px solid rgba(214,171,53,.42)!important;
+  border-radius:50%!important;
+  font:500 18px/1 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneySide>b{
+  font:700 10px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.18em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneySide>i{height:1px!important;background:linear-gradient(90deg,rgba(214,171,53,.28),transparent)!important}
+#albumModal:not(.libraryDetailModal) .trackJourneyList>.viewTracklist{
+  width:100%!important;
+  min-height:48px!important;
+  border:0!important;
+  border-top:1px solid rgba(255,255,255,.055)!important;
+  background:rgba(91,45,85,.035)!important;
+  color:rgba(245,240,232,.62)!important;
+  font:700 11px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.10em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .trackJourneyList>.viewTracklist:hover{color:var(--muze-gold,#d6ab35)!important;background:rgba(91,45,85,.08)!important}
+#albumModal:not(.libraryDetailModal) .albumJourneyArc{
+  display:grid!important;
+  grid-template-columns:minmax(220px,.7fr) minmax(0,1.3fr)!important;
+  gap:38px!important;
+  align-items:center!important;
+  min-height:154px!important;
+  padding:25px 34px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(214,171,53,.16)!important;
+  border-radius:16px!important;
+  background:radial-gradient(circle at 65% 40%,rgba(91,45,85,.12),transparent 42%),linear-gradient(180deg,rgba(255,255,255,.016),rgba(255,255,255,.006)),#0b0b0e!important;
+}
+#albumModal:not(.libraryDetailModal) .albumJourneyArcCopy p{
+  margin:0 0 10px!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font:700 10px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .albumJourneyArcCopy h3{
+  margin:0!important;
+  color:#f3eee6!important;
+  font:500 22px/1.2 var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+}
+#albumModal:not(.libraryDetailModal) .albumJourneyArc ol{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:repeat(var(--arc-count,4),minmax(0,1fr))!important;
+  grid-auto-flow:column!important;
+  gap:14px!important;
+  margin:0!important;
+  padding:0!important;
+  list-style:none!important;
+}
+#albumModal:not(.libraryDetailModal) .albumJourneyArc ol:before{
+  content:""!important;
+  position:absolute!important;
+  top:12px!important;
+  left:8%!important;
+  right:8%!important;
+  height:1px!important;
+  background:linear-gradient(90deg,rgba(214,171,53,.52),rgba(91,45,85,.52),rgba(214,171,53,.20))!important;
+}
+#albumModal:not(.libraryDetailModal) .albumJourneyArc li{position:relative!important;display:grid!important;justify-items:center!important;text-align:center!important}
+#albumModal:not(.libraryDetailModal) .albumJourneyArc li>span{
+  position:relative!important;
+  z-index:1!important;
+  width:25px!important;
+  height:25px!important;
+  margin-bottom:9px!important;
+  border:1px solid rgba(214,171,53,.48)!important;
+  border-radius:50%!important;
+  background:#161018!important;
+  box-shadow:inset 0 0 0 5px #0b0b0e!important;
+}
+#albumModal:not(.libraryDetailModal) .albumJourneyArc li>strong{
+  color:rgba(214,171,53,.84)!important;
+  font:700 9px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+}
+#albumModal:not(.libraryDetailModal) .albumJourneyArc li>small{
+  margin-top:5px!important;
+  color:rgba(245,240,232,.44)!important;
+  font:500 10px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+}
+@media(max-width:1050px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart{
+    grid-template-columns:minmax(0,1fr) 160px!important;
+    grid-template-areas:"identity artwork" "insight insight"!important;
+    column-gap:30px!important;
+    row-gap:14px!important;
+    min-height:0!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartCopy{grid-area:identity!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartInsight{grid-area:insight!important;padding:12px 0 20px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork{grid-area:artwork!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow{grid-template-columns:34px 32px minmax(150px,1fr) 132px 48px 98px!important;gap:9px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse{grid-template-columns:repeat(10,8px)!important;gap:2px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse i{width:8px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork{width:150px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>img,
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>strong{width:150px!important;height:150px!important}
+}
+@media(max-width:700px){
+  #albumModal:not(.libraryDetailModal) .albumTrackSections{gap:12px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart{
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-areas:"identity" "insight" "artwork"!important;
+    gap:18px!important;
+    min-height:0!important;
+    padding:22px 18px!important;
+    border-radius:14px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart:before{background:linear-gradient(90deg,rgba(7,7,9,.97),rgba(7,7,9,.84)),var(--hero-scene,var(--album-cover)) center var(--moment-focus,50%)/cover no-repeat!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart h4{font-size:30px!important;line-height:1.02!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartInsight{padding:8px 0 18px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartNumber{right:4px!important;font-size:88px!important;color:rgba(91,45,85,.05)!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPulse{flex-wrap:wrap!important;gap:8px!important;margin-top:10px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse.large{grid-template-columns:repeat(10,7px)!important;gap:2px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse.large i{width:7px!important;height:5px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartDescription{display:block!important;font-size:15px!important;line-height:1.4!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay{margin-top:16px!important;gap:10px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay{width:40px!important;height:40px!important;min-width:40px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay>time{margin-left:0!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork{width:112px!important;align-self:center!important;justify-self:center!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>img,
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>strong{width:112px!important;height:112px!important;border-radius:9px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div{display:block!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyList{border-radius:14px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow{
+    grid-template-columns:27px 30px minmax(0,1fr) 35px!important;
+    grid-template-rows:auto auto!important;
+    gap:7px 9px!important;
+    min-height:76px!important;
+    padding:10px 11px!important;
+    overflow:visible!important;
+    scroll-snap-align:none!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackNo{grid-column:1;grid-row:1;font-size:13px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse{grid-column:2;grid-row:1}
+  #albumModal:not(.libraryDetailModal) .trackJourneyTitle{grid-column:3;grid-row:1;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:5px 7px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyTitle>strong{font-size:15px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyTitle>em{display:block!important;grid-column:1!important}
+  #albumModal:not(.libraryDetailModal) .trackDistinction{grid-column:2!important;grid-row:1 / span 2!important;align-self:center!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyPulseButton{grid-column:3;grid-row:2;justify-self:start!important;padding:2px 0!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse{grid-template-columns:repeat(10,7px)!important;gap:2px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse i{width:7px!important;height:4px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow>time{grid-column:4;grid-row:2;font-size:10px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyActions{display:none!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow{display:block!important;grid-column:4;grid-row:1;justify-self:end!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow summary{color:rgba(245,240,232,.58)!important;font-size:11px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow[open]>div{
+    position:absolute!important;
+    top:24px!important;
+    right:0!important;
+    z-index:12!important;
+    display:flex!important;
+    padding:5px!important;
+    border:1px solid rgba(214,171,53,.20)!important;
+    border-radius:999px!important;
+    background:#161218!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.46)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneySide{grid-template-columns:38px max-content 1fr!important;min-height:42px!important;padding:7px 12px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneySide>span{width:29px!important;height:29px!important;font-size:14px!important}
+  #albumModal:not(.libraryDetailModal) .albumJourneyArc{grid-template-columns:1fr!important;gap:22px!important;padding:22px 18px!important}
+  #albumModal:not(.libraryDetailModal) .albumJourneyArc ol{grid-auto-flow:row!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:18px 10px!important}
+  #albumModal:not(.libraryDetailModal) .albumJourneyArc ol:before{display:none!important}
+}
+
+@media(min-width:701px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow{
+    grid-template-columns:30.78px 27.54px minmax(153.9px,1fr) 137.7px 43.74px 98.82px!important;
+    gap:9.72px!important;
+    min-height:45.36px!important;
+    padding:7.29px 12.96px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackNo{font-size:13px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse{
+    width:24.3px!important;
+    height:24.3px!important;
+    min-width:24.3px!important;
+    font-size:9px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyTitle{gap:8px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyTitle>strong{font-size:16px!important}
+  #albumModal:not(.libraryDetailModal) .trackDistinction{
+    padding:3px 6px!important;
+    font-size:9px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse{
+    grid-template-columns:repeat(10,8.91px)!important;
+    gap:2.43px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse i{
+    width:8.91px!important;
+    height:4.05px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyPulseButton{gap:6.48px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyPulseButton small{font-size:11px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow>time{font-size:12px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyActions{gap:3.24px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyActions>button{
+    width:25.11px!important;
+    height:25.11px!important;
+    min-width:25.11px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyActions .trackLove{font-size:13.77px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyActions .trackShareButton svg{width:12.15px!important;height:12.15px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyActions .trackCommentEmoji{font-size:9.72px!important}
+}
+
+/* Retain the new journey layout with the former playlist typography for song titles only. */
+#albumModal:not(.libraryDetailModal) .trackJourneyTitle>strong{
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+  letter-spacing:normal!important;
+}
+#albumModal:not(.libraryDetailModal) .trackDistinction{
+  padding:2px 5px!important;
+  border-radius:3px!important;
+  font-size:8px!important;
+  letter-spacing:.11em!important;
+}
+#albumModal:not(.libraryDetailModal) .trackDefiningDot{
+  position:absolute!important;
+  left:5px!important;
+  top:50%!important;
+  width:4px!important;
+  height:4px!important;
+  border-radius:50%!important;
+  background:rgba(245,240,232,.68)!important;
+  box-shadow:none!important;
+  transform:translateY(-50%)!important;
+  pointer-events:none!important;
+}
+@media(max-width:700px){
+  #albumModal:not(.libraryDetailModal) .trackDefiningDot{left:3px!important}
+}
+
+@media(min-width:769px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse{
+    width:30px!important;
+    height:30px!important;
+    min-width:30px!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+    border-radius:50%!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse.isPreviewing:before,
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse.isPreviewing:after{
+    top:50%!important;
+    width:2px!important;
+    height:10px!important;
+    border-radius:1px!important;
+    background:rgba(245,240,232,.70)!important;
+    transform:translateY(-50%)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse.isPreviewing:before{left:calc(50% - 4px)!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse.isPreviewing:after{left:calc(50% + 2px)!important}
+}
+
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .albumTrackSections{gap:10px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart{
+    min-height:176px!important;
+    padding:10px 42px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartEyebrow{margin-bottom:5px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartType{margin-bottom:3px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart h4{margin-top:14px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay{margin-top:10px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+    padding:0 0 0 2px!important;
+    font-size:13px!important;
+    line-height:1!important;
+    text-align:center!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartInsight{padding:4px 0 6px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartDescription{margin-top:7px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPulseLabel{margin-top:9px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartNumber{font-size:clamp(76px,6.5vw,108px)!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork{width:clamp(132px,10.5vw,150px)!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div{margin-top:4px!important}
+}
+
+/* Keep the premium score, ranking and member metrics legible on mobile. */
+@media(max-width:768px){
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats,
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats.linerStatsTwo{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    width:100%!important;
+    max-width:none!important;
+    gap:0!important;
+    margin:16px 0 20px!important;
+    overflow:hidden!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>* ,
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>*:first-child{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    min-width:0!important;
+    min-height:98px!important;
+    margin:0!important;
+    padding:10px 8px!important;
+    overflow:hidden!important;
+    border:0!important;
+    border-right:1px solid rgba(247,242,234,.10)!important;
+    border-bottom:0!important;
+    background:transparent!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>*:last-child{border-right:0!important}
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats strong,
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats>*:first-child strong,
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .linerSocialProof strong{
+    width:auto!important;
+    max-width:100%!important;
+    margin:0!important;
+    font-size:24px!important;
+    line-height:1!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats .statValueWithIcon{
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:4px!important;
+    min-height:24px!important;
+    overflow:visible!important;
+    white-space:nowrap!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats svg.albumStatIcon{
+    display:block!important;
+    width:12px!important;
+    height:12px!important;
+    min-width:12px!important;
+    max-width:12px!important;
+    max-height:12px!important;
+    flex:0 0 12px!important;
+    color:var(--muze-gold,#d6ab35)!important;
+    fill:currentColor!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats svg.exceptionalFeather{
+    display:block!important;
+    width:8px!important;
+    height:14px!important;
+    min-width:8px!important;
+    max-width:8px!important;
+    max-height:14px!important;
+    flex:0 0 8px!important;
+    color:var(--muze-gold,#d6ab35)!important;
+    fill:none!important;
+    stroke:currentColor!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats svg.exceptionalFeatherRight{
+    transform:scaleX(-1)!important;
+    transform-origin:center!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats span{
+    margin:5px 0 0!important;
+    font-size:8px!important;
+    line-height:1.15!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerStats small{
+    margin-top:6px!important;
+    font-size:9px!important;
+    line-height:1.25!important;
+  }
 }
