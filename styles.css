@@ -1170,6 +1170,7 @@ body.light .tinyAdminOverview:hover{color:rgba(138,101,0,.75)}
   .muzeSearchOptionCopy em{font-size:12px}
   .muzeSearchRuntime{font-size:11px}
 }
+
 @media(max-width:850px){
   .muzeSearchSuggest{
     max-height:min(48vh,360px);
@@ -8433,7 +8434,7 @@ body.light .authPanel .adminOverviewUnlock{
 .listenerReplyBox>div{
   display:flex!important;
   justify-content:flex-end!important;
-  gap:8px!important;
+  gap:7px!important;
   margin-top:8px!important;
 }
 .listenerReplyBox button{
@@ -18819,7 +18820,7 @@ body.libraryView .libraryRecoPanel .standardReco em{
   --artist-page-inset:max(48px,calc((100vw - 1450px) / 2 + 48px));
   grid-template-columns:1fr!important;
   justify-content:stretch!important;
-  gap:8px!important;
+  gap:7px!important;
   align-items:stretch!important;
   position:relative!important;
   left:calc(50% - 50vw + var(--artist-page-inset))!important;
@@ -18829,12 +18830,12 @@ body.libraryView .libraryRecoPanel .standardReco em{
 .artistListCard.artistCard{
   position:relative!important;
   display:grid!important;
-  grid-template-columns:40px 72px minmax(0,1fr) 165px 44px!important;
+  grid-template-columns:36px 65px minmax(0,1fr) 149px 40px!important;
   align-items:center!important;
-  column-gap:18px!important;
-  min-height:92px!important;
-  padding:12px 20px!important;
-  border-radius:14px!important;
+  column-gap:16px!important;
+  min-height:83px!important;
+  padding:11px 18px!important;
+  border-radius:13px!important;
   background:
     radial-gradient(circle at 0% 50%,rgba(75,51,72,.025),transparent 32%),
     rgba(255,255,255,.012)!important;
@@ -18890,8 +18891,8 @@ body.libraryView .libraryRecoPanel .standardReco em{
   outline-offset:3px!important;
 }
 .artistListMark{
-  width:22px!important;
-  height:28px!important;
+  width:20px!important;
+  height:25px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
@@ -18904,12 +18905,12 @@ body.libraryView .libraryRecoPanel .standardReco em{
   border-radius:999px!important;
   background:linear-gradient(180deg,#d6ab35 0%,#d6ab35 65%,#4b3348 100%)!important;
 }
-.artistListMark i:nth-child(1){height:13px!important}
-.artistListMark i:nth-child(2){height:22px!important}
-.artistListMark i:nth-child(3){height:17px!important}
+.artistListMark i:nth-child(1){height:12px!important}
+.artistListMark i:nth-child(2){height:20px!important}
+.artistListMark i:nth-child(3){height:15px!important}
 .artistListCover{
-  width:72px!important;
-  height:72px!important;
+  width:65px!important;
+  height:65px!important;
   border-radius:50%!important;
   overflow:hidden!important;
   background:rgba(255,255,255,.04)!important;
@@ -18919,7 +18920,7 @@ body.libraryView .libraryRecoPanel .standardReco em{
   place-items:center!important;
   color:rgba(214,171,53,.75)!important;
   font-family:Georgia,"Times New Roman",serif!important;
-  font-size:18px!important;
+  font-size:16px!important;
   font-weight:700!important;
   transition:border-color .18s ease!important;
 }
@@ -18935,7 +18936,7 @@ body.libraryView .libraryRecoPanel .standardReco em{
   margin:0!important;
   color:#f3efe6!important;
   font-family:Georgia,"Times New Roman",serif!important;
-  font-size:24px!important;
+  font-size:22px!important;
   line-height:1.05!important;
   font-weight:600!important;
   letter-spacing:-.02em!important;
@@ -18943,10 +18944,10 @@ body.libraryView .libraryRecoPanel .standardReco em{
 }
 .artistListCard.artistCard:hover .artistListCopy h3{color:#fff7df!important}
 .artistListCopy p{
-  max-width:540px!important;
-  margin:6px 0 0!important;
+  max-width:486px!important;
+  margin:5px 0 0!important;
   color:rgba(235,235,235,.58)!important;
-  font-size:14px!important;
+  font-size:13px!important;
   line-height:1.35!important;
   font-weight:500!important;
   letter-spacing:0!important;
@@ -18957,11 +18958,11 @@ body.libraryView .libraryRecoPanel .standardReco em{
 }
 .artistListCard .artistTags{
   margin-top:4px!important;
-  gap:6px!important;
+  gap:5px!important;
 }
 .artistListCard .artistTags span{
-  padding:4px 8px!important;
-  font-size:11px!important;
+  padding:4px 7px!important;
+  font-size:10px!important;
   line-height:1!important;
   font-weight:600!important;
   letter-spacing:0!important;
@@ -18981,7 +18982,7 @@ body.libraryView .libraryRecoPanel .standardReco em{
 .artistListMeta strong{
   display:block!important;
   color:#d6ab35!important;
-  font-size:14px!important;
+  font-size:13px!important;
   line-height:1.2!important;
   font-weight:600!important;
   letter-spacing:-.01em!important;
@@ -18991,7 +18992,7 @@ body.libraryView .libraryRecoPanel .standardReco em{
   display:block!important;
   margin-top:3px!important;
   color:rgba(235,235,235,.45)!important;
-  font-size:11px!important;
+  font-size:10px!important;
   line-height:1.2!important;
   font-weight:600!important;
   letter-spacing:.10em!important;
@@ -18999,8 +19000,8 @@ body.libraryView .libraryRecoPanel .standardReco em{
   white-space:nowrap!important;
 }
 .artistListArrow{
-  width:40px!important;
-  height:40px!important;
+  width:36px!important;
+  height:36px!important;
   border:1px solid rgba(214,171,53,.55)!important;
   border-radius:50%!important;
   display:grid!important;
@@ -19008,7 +19009,7 @@ body.libraryView .libraryRecoPanel .standardReco em{
   color:#d6ab35!important;
   background:transparent!important;
   font-family:Georgia,"Times New Roman",serif!important;
-  font-size:18px!important;
+  font-size:16px!important;
   line-height:1!important;
   transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease!important;
 }
@@ -19681,6 +19682,74 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   font-size:14px!important;
   font-weight:500!important;
 }
+#albumModal.libraryDetailModal .suggestionHeader{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:end!important;
+  gap:36px!important;
+  margin:0!important;
+}
+#albumModal.libraryDetailModal .suggestionHeaderCopy{
+  min-width:0!important;
+}
+#albumModal.libraryDetailModal .suggestionEyebrow{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  margin:0 0 16px!important;
+  color:var(--muze-gold,#a8750d)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase!important;
+}
+#albumModal.libraryDetailModal .suggestionEyebrow i{
+  font-size:12px!important;
+  font-style:normal!important;
+  line-height:1!important;
+}
+#albumModal.libraryDetailModal .suggestionTitle{
+  margin:0!important;
+  color:#2b1430!important;
+  font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  font-size:clamp(38px,3vw,52px)!important;
+  font-weight:500!important;
+  line-height:1!important;
+  letter-spacing:-.02em!important;
+}
+#albumModal.libraryDetailModal .suggestionDescription{
+  display:-webkit-box!important;
+  max-width:620px!important;
+  margin:14px 0 10px!important;
+  overflow:hidden!important;
+  color:rgba(55,42,50,.66)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:15px!important;
+  font-weight:400!important;
+  line-height:1.45!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+}
+#albumModal.libraryDetailModal .suggestionMeta{
+  display:block!important;
+  color:rgba(55,42,50,.55)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:13px!important;
+  font-weight:500!important;
+  line-height:1.35!important;
+}
+#albumModal.libraryDetailModal .suggestionActions{
+  align-self:end!important;
+  padding-bottom:2px!important;
+}
+#albumModal.libraryDetailModal .suggestionDivider{
+  width:100%!important;
+  height:1px!important;
+  margin-top:24px!important;
+  background:linear-gradient(90deg,rgba(214,171,53,.38),rgba(91,45,85,.14),rgba(214,171,53,.12))!important;
+}
 #albumModal.libraryDetailModal .libraryMetaStrip{
   display:flex!important;
   align-items:center!important;
@@ -19691,6 +19760,11 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   padding:18px 0!important;
   border-top:1px solid rgba(60,45,55,.08)!important;
   border-bottom:1px solid rgba(60,45,55,.08)!important;
+}
+#albumModal.libraryDetailModal .suggestionStatRow{
+  gap:14px 34px!important;
+  padding:17px 0!important;
+  border-top:0!important;
 }
 #albumModal.libraryDetailModal .libraryMetaItem{
   display:inline-flex!important;
@@ -19850,6 +19924,10 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
   #albumModal.libraryDetailModal .libraryDetailBrand{margin-bottom:12px!important}
   #albumModal.libraryDetailModal .libraryDetailTitle{align-items:flex-start!important;flex-direction:column!important;gap:12px!important}
   #albumModal.libraryDetailModal .libraryDetailTitle h2{font-size:36px!important}
+  #albumModal.libraryDetailModal .suggestionHeader{grid-template-columns:1fr!important;align-items:start!important;gap:18px!important}
+  #albumModal.libraryDetailModal .suggestionTitle{font-size:36px!important}
+  #albumModal.libraryDetailModal .suggestionActions{align-self:start!important;padding-bottom:0!important}
+  #albumModal.libraryDetailModal .suggestionDivider{margin-top:20px!important}
   #albumModal.libraryDetailModal .libraryMetaStrip{gap:12px 22px!important;padding:15px 0!important}
   #albumModal.libraryDetailModal .libraryFullGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;margin-top:22px!important}
   #albumModal.libraryDetailModal .libraryAlbumCard .cardBody{padding:11px 10px 13px!important}
@@ -19858,12 +19936,15 @@ body.libraryView .publicListPage .libraryAlbumCard .artist{color:rgba(43,31,41,.
 /* Give routed public Lists the same premium collector-profile hierarchy. */
 .premiumPublicListPage{
   position:relative!important;
-  width:100%!important;
-  max-width:1660px!important;
+  width:min(1120px,92vw)!important;
+  max-width:none!important;
   margin-left:auto!important;
   margin-right:auto!important;
   color:#2b1f29!important;
   font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+}
+body.libraryView:has(.premiumPublicListPage) .topbar{
+  width:min(1120px,92vw)!important;
 }
 .premiumPublicListPage .publicListBack{
   margin:0 0 38px!important;
@@ -21605,5 +21686,75 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .listenerCardsSection{
     margin-top:6px!important;
     font-size:9px!important;
     line-height:1.25!important;
+  }
+}
+
+/* Album popup playback controls: keep the glyphs, remove circular chrome. */
+#albumModal:not(.libraryDetailModal) .albumTrackSections .featurePlay,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .featurePlay:hover,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse:hover,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .featurePlay:focus-visible,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse:focus-visible,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .featurePlay.isPreviewing,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing{
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  outline:0!important;
+}
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse{
+  color:transparent!important;
+  font-size:0!important;
+  line-height:0!important;
+  text-indent:0!important;
+}
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse:not(.isPreviewing)::after{
+  content:none!important;
+}
+#albumModal:not(.libraryDetailModal) .albumTrackSections .linerTrackRow:hover .trackPulse:not(.isPreviewing)::before,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse:not(.isPreviewing):hover::before,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse:not(.isPreviewing):focus-visible::before{
+  border-left-color:var(--muze-gold,#d6ab35)!important;
+}
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::before,
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::after{
+  top:4px!important;
+  width:4px!important;
+  height:16px!important;
+  border:0!important;
+  border-radius:1px!important;
+  background:var(--muze-gold,#d6ab35)!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::before{
+  left:8px!important;
+}
+#albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::after{
+  left:16px!important;
+}
+
+/* Compact desktop track-row playback glyphs without shifting their column. */
+@media(min-width:769px){
+  #albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse:not(.isPreviewing)::before{
+    left:10px!important;
+    top:8px!important;
+    border-top-width:7px!important;
+    border-bottom-width:7px!important;
+    border-left-width:10px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::before,
+  #albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::after{
+    top:9px!important;
+    width:3px!important;
+    height:12px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::before{
+    left:10px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumTrackSections .trackPulse.isPreviewing::after{
+    left:17px!important;
   }
 }

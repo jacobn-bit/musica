@@ -51,9 +51,9 @@ function mergeLocalOverviewRows(serverRows={},localRows={}){
   Object.entries(localRows||{}).forEach(([key,row])=>{
     if(!row||typeof row!=="object")return;
     // A manual_override is a server-side editorial flag, not proof that the
-    // browser copy is newer. Only genuine local-only drafts may override a
-    // row that was just loaded from Supabase.
-    if(row.__localOnly||row.localOnly)merged[key]={...(merged[key]||{}),...row};
+    // browser copy is newer. Keep a genuine local-only draft only when the
+    // server has no corresponding row; current Supabase editorial data wins.
+    if((row.__localOnly||row.localOnly)&&!merged[key])merged[key]={...row};
   });
   return merged;
 }
@@ -1723,12 +1723,21 @@ function mergeDuplicateOverviewRows(rows=[]){
     return leftTime-rightTime;
   });
   const merged={};
+  const protectedFields=new Set();
+  const manualOverviewFields=new Set(["overview","intro_summary","sound_summary","impact_summary","legacy_summary","quote_headline","defining_tracks","admin_score","admin_ratings_count","manual_genre","mood_score","hero_image","moment_image","hero_focus","moment_focus"]);
+  const reviewFieldNames={overview:"review_overview",sound:"review_sound",impact:"review_impact",legacy:"review_legacy",tagline:"review_tagline",alternativeTaglines:"review_alternative_taglines",definingMoments:"review_defining_moments",muzeScore:"review_muze_score",minimumRaters:"review_minimum_raters",closingVerdict:"review_closing_verdict",mostPopularTrack:"review_most_popular_track",factualWarnings:"review_factual_warnings"};
   ordered.forEach(row=>{
     Object.entries(row||{}).forEach(([field,value])=>{
       if(field==="manual_override")return;
+      if(protectedFields.has(field)&&!row?.manual_override)return;
       // Duplicate legacy keys are common. A newer sparse row must not erase
       // an older manual score, rater count, image, focus, or editorial field.
       if(overviewFieldHasValue(value)||!Object.prototype.hasOwnProperty.call(merged,field))merged[field]=value;
+    });
+    if(row?.manual_override)manualOverviewFields.forEach(field=>{if(overviewFieldHasValue(row[field]))protectedFields.add(field)});
+    normalizeOverviewList(row?.review_manual_fields).forEach(field=>{
+      const storedField=reviewFieldNames[field];
+      if(storedField&&overviewFieldHasValue(row[storedField]))protectedFields.add(storedField);
     });
     if(row?.manual_override)merged.manual_override=true;
     else if(!Object.prototype.hasOwnProperty.call(merged,"manual_override"))merged.manual_override=false;
@@ -1949,6 +1958,12 @@ async function loadCustomOverviews(){
             review_manual_fields:albumReviewFieldNames
           };
           const existing=extras.overviews[item.album_key]||{};
+          const protectedReviewFields=new Set(normalizeOverviewList(existing.review_manual_fields));
+          const reviewFieldNames={review_overview:"overview",review_sound:"sound",review_impact:"impact",review_legacy:"legacy",review_tagline:"tagline",review_alternative_taglines:"alternativeTaglines",review_defining_moments:"definingMoments",review_muze_score:"muzeScore",review_minimum_raters:"minimumRaters",review_closing_verdict:"closingVerdict",review_most_popular_track:"mostPopularTrack",review_factual_warnings:"factualWarnings"};
+          Object.entries(reviewFieldNames).forEach(([field,manualField])=>{
+            if(protectedReviewFields.has(manualField)&&overviewFieldHasValue(existing[field]))reviewFields[field]=existing[field];
+          });
+          reviewFields.review_manual_fields=normalizeOverviewList(existing.review_manual_fields);
           extras.overviews[item.album_key]={...existing,...reviewFields,album_id:item.album_id||existing.album_id};
         });
       }
@@ -1971,6 +1986,31 @@ async function loadCustomOverviews(){
   return text||beautifulAlbumDescription(a);
 }
 function albumCustomOverview(a){return albumBaseOverview(a)}
+function albumDescriptionSegment(text,row={}){
+  const value=String(text||"").replace(/\s+/g," ").trim();
+  if(!value)return "";
+  const intro=String(row.intro_summary||"").replace(/\s+/g," ").trim();
+  if(intro&&value.toLowerCase().startsWith(intro.toLowerCase())&&value.length>intro.length+12)return intro;
+  let end=value.length;
+  [row.sound_summary,row.impact_summary,row.legacy_summary].forEach(section=>{
+    const boundary=String(section||"").replace(/\s+/g," ").trim();
+    if(!boundary)return;
+    const index=value.toLowerCase().indexOf(boundary.toLowerCase());
+    if(index>0)end=Math.min(end,index);
+  });
+  return value.slice(0,end).trim();
+}
+function albumManualDescriptionOverride(a){
+  const row=albumOverviewRowReadOnly(a);
+  const manualFields=new Set(normalizeOverviewList(row.review_manual_fields));
+  const overview=String(row.overview||"").trim();
+  const reviewOverview=String(row.review_overview||"").trim();
+  const intro=String(row.intro_summary||"").trim();
+  if(reviewOverview&&manualFields.has("overview"))return albumDescriptionSegment(reviewOverview,row);
+  if(row.manual_override&&intro)return intro;
+  if(row.manual_override&&overview)return albumDescriptionSegment(overview,row);
+  return "";
+}
 function albumOverviewRow(a){
   for(const key of overviewKeyCandidates(a)){
     const row=extras.overviews[key];
@@ -8232,8 +8272,34 @@ function publicListView(){
   const followerCount=Number(list.followers_count||0);
   content.innerHTML='<section class="publicListPage premiumPublicListPage"><button class="publicListBack" onclick="navigateToView(\'libraries\')">&larr; Libraries</button><header class="publicListHero"><div><span class="publicListEyebrow">'+(isLibrary?'PERSONAL LIBRARY':'CURATED COLLECTION')+'</span><h1>'+escapeHtml(list.title||(isLibrary?"Listener library":"Listener suggestion"))+'</h1><p>'+escapeHtml(list.description||(isLibrary?"A listener's personal album library.":"A listener-curated collection of albums."))+'</p><small>'+(isLibrary?'@':'by @')+escapeHtml(list.username||"listener")+' &middot; '+libraryAlbumCountText(items.length)+' &middot; '+followerCount+' follower'+(followerCount===1?'':'s')+'</small></div><div class="publicListHeroActions">'+(canEdit?'<button onclick="'+editAction+'">Edit '+(isLibrary?'library':'suggestion')+'</button>':'<button onclick="followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow '+(isLibrary?'library':'suggestion'))+'</button>')+'</div></header><div class="publicListMetaStrip"><span><i aria-hidden="true">&#9673;</i>'+libraryAlbumCountText(items.length)+'</span><span><i aria-hidden="true">&#9734;</i>'+(isLibrary?'Personal library':'Curated collection')+'</span><span><i aria-hidden="true">&#9675;</i>'+followerCount+' follower'+(followerCount===1?'':'s')+'</span></div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,false,false)).join("")||'<div class="empty">No albums have been added yet.</div>')+'</div><div class="libraryDetailFlourish" aria-hidden="true"><span></span><i></i><span></span></div></section>';
 }
+function openPublicListDetails(list){
+  if(!list)return;
+  const modal=$("#albumModal");
+  const items=liveLibraryItems(Array.isArray(list.items)?list.items:[]);
+  const isLibrary=publicListCurationType(list)==="library";
+  const owned=publicListOwnedByUser(list);
+  const canEdit=owned||isAdminUnlocked();
+  const seedIndex=seededLibraryIndexFor(list);
+  const editAction=seedIndex>=0?'editSeededLibraryIdentity('+seedIndex+')':'openPublicListEditor(\''+escapeJsString(list.id)+'\')';
+  const followed=(extras.listFollows||[]).some(row=>String(row.list_id)===String(list.id)&&String(row.user_id)===String(loggedInUser()?.id||""))||localPublicListFollows().includes(String(list.id));
+  const followerCount=Number(list.followers_count||0);
+  const albumCount=items.length;
+  const action=canEdit
+    ?'<button class="libraryDetailAddBtn" onclick="event.stopPropagation();'+editAction+'">Edit '+(isLibrary?'library':'suggestion')+'</button>'
+    :'<button class="libraryDetailAddBtn '+(followed?'following':'')+'" onclick="event.stopPropagation();followPublicList(\''+escapeJsString(list.id)+'\')">'+(followed?'Following':'Follow '+(isLibrary?'library':'suggestion'))+'</button>';
+  const meta='<button type="button" class="libraryMetaItem"><span aria-hidden="true">&#9673;</span><small>'+libraryAlbumCountText(albumCount)+'</small></button><button type="button" class="libraryMetaItem"><span aria-hidden="true">&#9734;</span><small>'+(isLibrary?'Personal library':'Curated suggestion')+'</small></button><button type="button" class="libraryMetaItem"><span aria-hidden="true">&#9675;</span><small>'+followerCount+' follower'+(followerCount===1?'':'s')+'</small></button>';
+  const brand=isLibrary?'<div class="libraryDetailBrand"><img src="/Muze%20correct%20logo%20dark-word.png?v=dark-word-v1" alt="Muze"></div>':'';
+  const header=isLibrary
+    ?'<div class="sectionTitle libraryDetailTitle"><div><h2>'+escapeHtml(list.title||"Listener library")+'</h2><span class="muted">@'+escapeHtml(list.username||"listener")+' &middot; '+albumCount+' album'+(albumCount===1?'':'s')+'</span></div><div class="libraryDetailActions">'+action+'</div></div>'
+    :'<header class="suggestionHeader"><div class="suggestionHeaderCopy"><span class="suggestionEyebrow"><i aria-hidden="true">&#10022;</i> Listener suggestion</span><h2 class="suggestionTitle">'+escapeHtml(list.title||"Listener suggestion")+'</h2><p class="suggestionDescription">'+escapeHtml(list.description||"A listener-curated collection of albums.")+'</p><span class="suggestionMeta">by @'+escapeHtml(list.username||"listener")+' &middot; '+libraryAlbumCountText(albumCount)+' &middot; '+followerCount+' follower'+(followerCount===1?'':'s')+'</span></div><div class="libraryDetailActions suggestionActions">'+action+'</div></header><div class="suggestionDivider" aria-hidden="true"></div>';
+  modal.classList.add("libraryDetailModal");
+  $("#albumModalContent").innerHTML='<div class="librarySuggestionDetail '+(isLibrary?'isLibrary':'isSuggestion')+'" data-public-list-slug="'+escapeHtml(list.slug||publicListSlug(list.title))+'">'+brand+header+'<div class="libraryMetaStrip '+(isLibrary?'':'suggestionStatRow')+'">'+meta+'</div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,false,false)).join("")||'<div class="empty">No albums yet.</div>')+'</div><div class="libraryDetailFlourish" aria-hidden="true"><span></span><i></i><span></span></div></div>';
+  modal.classList.remove("hidden");
+}
 window.openPublicList=function(slug,options={}){
   const clean=publicListSlug(slug);if(!clean)return;
+  const list=publicListBySlug(clean);
+  if(list&&state.view==="libraries"&&!options.route){openPublicListDetails(list);return}
   state.publicListSlug=clean;state.view="public-list";
   const url=`/list/${encodeURIComponent(clean)}`;
   if(options.replace)history.replaceState({musica:"list",listSlug:clean},"",url);else history.pushState({musica:"list",listSlug:clean},"",url);
@@ -9337,6 +9403,7 @@ window.setLibrarySearch=function(value){state.librarySearch=value;state.libraryS
 window.toggleCommunityLibraries=function(){state.libraryShowAll=!state.libraryShowAll;librariesView()}
 window.followPublicList=async function(listId){
   if(!requireAuth("follow",()=>followPublicList(listId)))return;
+  const openListSlug=$("#albumModalContent .librarySuggestionDetail")?.dataset.publicListSlug||"";
   const id=String(listId||"");
   const alreadyFollowed=(extras.listFollows||[]).some(row=>String(row.list_id)===id&&String(row.user_id)===String(loggedInUser()?.id||""))||localPublicListFollows().includes(id);
   if(db&&!id.startsWith("seed-list-")){
@@ -9351,7 +9418,13 @@ window.followPublicList=async function(listId){
   extras.listFollows=alreadyFollowed
     ?(extras.listFollows||[]).filter(row=>!(String(row.list_id)===id&&String(row.user_id)===String(loggedInUser()?.id||"")))
     :[...(extras.listFollows||[]),{list_id:id,user_id:loggedInUser()?.id||state.deviceId}];
-  if(state.view==="libraries")librariesView();
+  if(state.view==="libraries"){
+    librariesView();
+    if(openListSlug){
+      const openList=publicListBySlug(openListSlug);
+      if(openList)openPublicListDetails(openList);
+    }
+  }
   if(state.view==="public-list")publicListView();
 };
 function listEditorCandidates(){
@@ -10357,8 +10430,9 @@ window.openAlbum=async function(id){
   const momentCoverUrl=escapeHtml(albumMomentImage(a)||albumCoverUrl(a)||heroSceneUrl||"");
   const pageImageStyle=` style="--album-cover:url('${coverUrl}');--hero-scene:url('${heroSceneUrl}');--hero-position:${heroFocus};--moment-cover:url('${momentCoverUrl}')${albumAmbientStyleVars(a)}"`;
   const structuredOverview=albumStructuredOverview(a);
-  const summary=structuredOverview.intro_summary||albumHeroLine(a);
-  const customOverview=albumCustomOverview(a);
+  const manualDescription=albumManualDescriptionOverride(a);
+  const summary=manualDescription||structuredOverview.intro_summary||albumHeroLine(a);
+  const customOverview=manualDescription||albumCustomOverview(a);
   const canEditOverview=isAdminUnlocked();
   const tags=[albumGenreLabel(a),a.year?String(a.year):"Classic","Community pick"].filter(Boolean).slice(0,4);
   const heroTags=tags.map((tag,index)=>{
@@ -10458,7 +10532,10 @@ window.openAlbum=async function(id){
   if(heroDescription){
     heroDescription.classList.add("albumHeroDescription");
     const previewText=heroDescription.textContent.replace(/\s+/g," ").trim();
-    const expandedText=String(customOverview||summary||"").replace(/\s+/g," ").trim();
+    // Expanding the hero copy must reveal only the album description. The
+    // complete editorial overview also contains Sound, Impact, and Legacy,
+    // which belong in their own popup sections.
+    const expandedText=String(summary||"").replace(/\s+/g," ").trim();
     heroDescription._previewDescriptionText=previewText;
     heroDescription._fullDescriptionHtml=expandedText.length>previewText.length+12?formatParagraphText(expandedText):heroDescription.innerHTML;
     heroDescription._fullDescriptionText=expandedText.length>previewText.length+12?expandedText:previewText;
