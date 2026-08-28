@@ -2501,6 +2501,7 @@ function overviewSentences(text){return String(text||"").replace(/\s+/g," ").spl
 function overviewFilterPill(label,type){
   const clean=String(label||"").trim();
   if(!clean)return "";
+  if(type==="artist")return `<button type="button" onclick="openAlbumOverviewArtist('${escapeJsString(clean)}')">${escapeHtml(clean)}</button>`;
   return `<button type="button" onclick="openAlbumOverviewFilter('${type}','${escapeJsString(clean)}')">${escapeHtml(clean)}</button>`;
 }
 function titleVisualWeight(text){
@@ -6549,31 +6550,19 @@ window.saveAlbumMoodScoreAdmin=async function(albumId){
   const payload={...adminAlbumPayload(album,"set_mood_score"),overview:albumBaseOverview(album),mood_score:rounded};
   const data=await adminOverviewRequest(payload);
   if(!data)return;
-  let savedMood=Number(data.row?.mood_score ?? rounded);
-  if(db&&!data.localOnly){
-    const verify=await db.from("album_overviews").select("mood_score").eq("album_key",key).maybeSingle();
-    if(verify.error){
-      setAdminInlineStatus(`Mood bar save could not be verified: ${verify.error.message}`,"error");
-      return;
-    }
-    if(!verify.data){
-      setAdminInlineStatus("Mood bar save did not update any album overview row. Check the album key in Supabase.","error");
-      return;
-    }
-    savedMood=Number(verify.data.mood_score);
-  }
+  const savedMood=Number(data.row?.mood_score ?? (data.localOnly?rounded:NaN));
   if(!Number.isFinite(savedMood)){
     setAdminInlineStatus("Mood bar save returned an invalid value. Make sure the mood_score column exists in album_overviews.","error");
     return;
   }
-  extras.overviews[key]={...previous,...(data.row||{}),album_key:key,title:album.title,artist:album.artist||"",overview:data.row?.overview ?? previous.overview ?? payload.overview,mood_score:savedMood};
+  const savedRow={...previous,...(data.row||{}),album_key:key,title:album.title,artist:album.artist||"",overview:data.row?.overview ?? previous.overview ?? payload.overview,mood_score:savedMood,manual_override:true};
+  cacheOverviewAliases(album,savedRow);
   if(!db||data.localOnly)localStorage.setItem("musicaCustomOverviews",JSON.stringify(extras.overviews));
-  if(db&&!data.localOnly)clearLocalOverviewOverride(key);
-  if(!data.localOnly)await loadCustomOverviews();
-  extras.overviews[key]={...(extras.overviews[key]||{}),album_key:key,title:album.title,artist:album.artist||"",overview:extras.overviews[key]?.overview ?? previous.overview ?? payload.overview,mood_score:savedMood};
+  if(db&&!data.localOnly)clearLocalOverviewOverridesForAlbum(album);
   setAdminInlineStatus(`Mood bar saved at ${Math.round(savedMood)}%.`,"success");
   closeAlbumMoodSlider();
-  openAlbum(albumId);
+  await openAlbum(albumId);
+  cacheOverviewAliases(album,savedRow);
   openAlbumOverviewPopup();
 }
 window.setMostLovedTrackAdmin=async function(albumId,trackKeyValue){
@@ -9849,6 +9838,12 @@ window.openAlbumOverviewFilter=function(type,value){
   render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
+window.openAlbumOverviewArtist=function(artistName){
+  const slug=artistSlugForName(artistName);
+  if(!slug)return;
+  closeAlbumOverviewPopup();
+  return openArtistPage(slug);
+}
 function genres(){return["All",...new Set([...state.albums.map(albumGenreLabel).filter(Boolean),"Classical","Soundtracks","International"])]}
 function filtered(){const q=state.search.trim();let a=state.albums.filter(x=>{const label=cachedAlbumGenreLabel(x);const genreOk=state.genre==="All"?label!=="Greatest hits":label===state.genre;const yearOk=!state.yearFilter||String(x.year||"")===String(state.yearFilter);return genreOk&&yearOk&&albumMatchesSearch(x,q)});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
 function muzeSearchSuggestions(query){
@@ -10445,7 +10440,7 @@ function artistFallbackRecord(slug){
   const name=artistNames().find(item=>artistSlugForName(item)===slug)||"";
   if(!name)return null;
   const albums=state.albums.filter(album=>albumHasArtistCredit(album,slug));
-  return {id:null,name,slug,image_url:"",image_source_url:"",image_author:"",image_license:"",image_license_url:"",image_attribution:"",bio:"",bio_sources:[],bio_generated_at:null,bio_generation_model:"",country:"",artist_type:"",genres:[...new Set(albums.map(albumGenreLabel).filter(label=>label&&label!=="Album"))],formed_year:null,disbanded_year:null,birth_date:null,death_date:null}
+  return {id:null,name,slug,image_url:"",image_source_url:"",image_author:"",image_license:"",image_license_url:"",image_attribution:"",image_position_x:null,image_position_y:null,image_zoom:null,bio:"",bio_sources:[],bio_generated_at:null,bio_generation_model:"",country:"",artist_type:"",genres:[...new Set(albums.map(albumGenreLabel).filter(label=>label&&label!=="Album"))],formed_year:null,disbanded_year:null,birth_date:null,death_date:null}
 }
 function artistProfileMeta(profile){
   const parts=[];
@@ -10506,9 +10501,15 @@ function artistProfilePortraitMarkup(profile){
   if(!source)return "";
   const profileName=normalizeAlbumName(profile.name);
   const focalClass=profileName==="jimi hendrix"?" isJimiHendrix":profileName==="eric clapton"?" isEricClapton":profileName==="john lennon"?" isJohnLennon":profileName==="leonard cohen"?" isLeonardCohen":"";
-  if(source.type==="profile")return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait${focalClass}"><img src="${escapeHtml(source.image_url)}" alt="${escapeHtml(profile.name)}" decoding="async" onload="enhanceArtistPortraitImage(this)"></div>${artistImageCreditMarkup(source)}</figure>`;
+  const hasSavedCrop=[profile.image_position_x,profile.image_position_y,profile.image_zoom].some(value=>value!==null&&value!==undefined&&value!=="");
+  const positionX=Math.max(0,Math.min(100,Number(profile.image_position_x)||50));
+  const positionY=Math.max(0,Math.min(100,Number(profile.image_position_y)||50));
+  const zoom=Math.max(1,Math.min(3,Number(profile.image_zoom)||1));
+  const cropStyle=hasSavedCrop?` style="object-position:${positionX}% ${positionY}%;transform:scale(${zoom})"`:"";
+  const cropAction=isAdminUnlocked()?`<button type="button" class="muzeArtistCropAction" onclick="openArtistImageCrop()"><span aria-hidden="true">&#10022;</span> Adjust crop</button>`:"";
+  if(source.type==="profile")return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait${focalClass}"><img src="${escapeHtml(source.image_url)}" alt="${escapeHtml(profile.name)}" decoding="async" onload="enhanceArtistPortraitImage(this)"${cropStyle}></div>${cropAction}${artistImageCreditMarkup(source)}</figure>`;
   const collage=source.portraits.length>1;
-  return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait isCreditPortrait${collage?` isMemberCollage count-${source.portraits.length}`:""}">${source.portraits.map(row=>`<img src="${escapeHtml(row.image_url)}" alt="${escapeHtml(collage?row.person_name:profile.name)}" loading="lazy" decoding="async" onload="enhanceArtistPortraitImage(this)">`).join("")}</div>${artistImageCreditMarkup(source)}</figure>`;
+  return `<figure class="muzeArtistPortraitFrame"><div class="muzeArtistPortrait isCreditPortrait${collage?` isMemberCollage count-${source.portraits.length}`:""}">${source.portraits.map((row,index)=>`<img src="${escapeHtml(row.image_url)}" alt="${escapeHtml(collage?row.person_name:profile.name)}" loading="lazy" decoding="async" onload="enhanceArtistPortraitImage(this)"${!collage&&index===0?cropStyle:""}>`).join("")}</div>${!collage?cropAction:""}${artistImageCreditMarkup(source)}</figure>`;
 }
 function artistProfileAlbumCard(album){
   const image=albumCoverUrl(album);
@@ -10735,6 +10736,50 @@ window.rejectArtistProfileImage=async function(){
     render();
   }catch(error){if(status)status.textContent=error.message||"Artist image could not be rejected."}
   finally{if(button){button.disabled=false;button.textContent="Reject current image"}}
+};
+window.closeArtistImageCrop=function(){document.getElementById("artistImageCropModal")?.remove()};
+window.openArtistImageCrop=function(){
+  if(!isAdminUnlocked()||!state.artistProfile)return;
+  const source=artistProfilePortraitSource(state.artistProfile);
+  if(!source?.image_url||source.type==="collage")return;
+  closeArtistImageCrop();
+  const profile=state.artistProfile;
+  const crop={
+    x:Math.max(0,Math.min(100,Number(profile.image_position_x)||50)),
+    y:Math.max(0,Math.min(100,Number(profile.image_position_y)||50)),
+    zoom:Math.max(1,Math.min(3,Number(profile.image_zoom)||1))
+  };
+  const modal=document.createElement("div");
+  modal.id="artistImageCropModal";
+  modal.className="modal artistImageCropModal";
+  modal.innerHTML=`<div class="artistImageCropPanel" role="dialog" aria-modal="true" aria-labelledby="artistImageCropTitle"><button type="button" class="artistImageCropClose" aria-label="Close" onclick="closeArtistImageCrop()">&times;</button><p class="eyebrow">Artist image</p><h2 id="artistImageCropTitle">Position and crop</h2><p class="artistImageCropHelp">Drag the image to frame it. Use zoom for a tighter crop.</p><div class="artistImageCropViewport"><img src="${escapeHtml(source.image_url)}" alt="Crop preview for ${escapeHtml(profile.name)}" draggable="false"></div><label class="artistImageCropZoom"><span>Zoom</span><input type="range" min="1" max="3" step="0.01" value="${crop.zoom}" aria-label="Image zoom"><output>${crop.zoom.toFixed(2)}&times;</output></label><div class="artistImageCropActions"><button type="button" class="secondary artistImageCropReset">Reset</button><span id="artistImageCropStatus"></span><button type="button" class="secondary" onclick="closeArtistImageCrop()">Cancel</button><button type="button" class="artistImageCropSave">Save crop</button></div></div>`;
+  modal.addEventListener("click",event=>{if(event.target===modal)closeArtistImageCrop()});
+  document.body.appendChild(modal);
+  const viewport=modal.querySelector(".artistImageCropViewport");
+  const image=viewport.querySelector("img");
+  const slider=modal.querySelector("input[type=range]");
+  const output=modal.querySelector("output");
+  const apply=()=>{image.style.objectPosition=`${crop.x}% ${crop.y}%`;image.style.transform=`scale(${crop.zoom})`;slider.value=String(crop.zoom);output.textContent=`${crop.zoom.toFixed(2)}×`};
+  let drag=null;
+  viewport.addEventListener("pointerdown",event=>{drag={pointerId:event.pointerId,x:event.clientX,y:event.clientY,startX:crop.x,startY:crop.y};viewport.setPointerCapture(event.pointerId);viewport.classList.add("isDragging");event.preventDefault()});
+  viewport.addEventListener("pointermove",event=>{if(!drag||event.pointerId!==drag.pointerId)return;const rect=viewport.getBoundingClientRect();crop.x=Math.max(0,Math.min(100,drag.startX-(event.clientX-drag.x)/Math.max(1,rect.width)*100/crop.zoom));crop.y=Math.max(0,Math.min(100,drag.startY-(event.clientY-drag.y)/Math.max(1,rect.height)*100/crop.zoom));apply()});
+  const endDrag=event=>{if(!drag||event.pointerId!==drag.pointerId)return;drag=null;viewport.classList.remove("isDragging")};
+  viewport.addEventListener("pointerup",endDrag);viewport.addEventListener("pointercancel",endDrag);
+  slider.addEventListener("input",()=>{crop.zoom=Math.max(1,Math.min(3,Number(slider.value)||1));apply()});
+  modal.querySelector(".artistImageCropReset").addEventListener("click",()=>{crop.x=50;crop.y=50;crop.zoom=1;apply()});
+  modal.querySelector(".artistImageCropSave").addEventListener("click",event=>saveArtistImageCrop(event.currentTarget,crop));
+  apply();
+};
+window.saveArtistImageCrop=async function(button,crop){
+  if(!isAdminUnlocked()||!state.artistProfile)return;
+  const status=document.getElementById("artistImageCropStatus");
+  button.disabled=true;button.textContent="Saving…";if(status)status.textContent="";
+  try{
+    const result=await adminOverviewRequest({action:"save_artist_crop",artist_id:state.artistProfile.id,slug:state.artistProfile.slug,image_position_x:Number(crop.x.toFixed(2)),image_position_y:Number(crop.y.toFixed(2)),image_zoom:Number(crop.zoom.toFixed(2))});
+    if(!result?.ok)throw new Error("The crop could not be saved.");
+    state.artistProfile={...state.artistProfile,...result.row};
+    closeArtistImageCrop();render();
+  }catch(error){if(status)status.textContent=error.message||"The crop could not be saved.";button.disabled=false;button.textContent="Save crop"}
 };
 window.generateArtistBioDraft=async function(){
   if(!isAdminUnlocked()||!state.artistProfile)return;
