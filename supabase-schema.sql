@@ -22,7 +22,7 @@ create table if not exists ratings (
   id uuid primary key default gen_random_uuid(),
   album_id uuid references albums(id) on delete cascade,
   device_id text not null,
-  rating int not null check (rating between 1 and 10),
+  rating numeric(3,1) not null check (rating between 0.5 and 10 and rating * 2 = trunc(rating * 2)),
   created_at timestamptz default now(),
   unique(album_id, device_id)
 );

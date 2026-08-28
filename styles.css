@@ -20814,6 +20814,308 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .albumReviewContribution{
 .albumOverviewPopupPanel .overviewDescriptionForm>div{display:flex!important;gap:8px!important;flex-wrap:wrap!important}
 .albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution)>div>p{display:none!important}
 .albumOverviewPopupPanel .overviewDescriptionContribution>button{color:#fff!important}
+
+/* Quiet editorial empty states for Sound / Impact / Legacy. */
+.albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution){
+  grid-template-columns:76px minmax(0,1fr)!important;
+  padding:22px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+}
+.albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution)+.overviewPoint:has(.overviewDescriptionContribution){
+  border-top:1px solid rgba(255,255,255,.05)!important;
+}
+.albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution)>.overviewIcon{
+  width:58px!important;
+  height:58px!important;
+}
+.albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution)>div{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  column-gap:20px!important;
+  row-gap:8px!important;
+  align-items:center!important;
+  min-width:0!important;
+}
+.albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution)>div>strong{
+  grid-column:1/-1!important;
+  margin:0!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase!important;
+  color:var(--muze-gold,#d6ab35)!important;
+}
+.albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution)>div>p{
+  display:block!important;
+  grid-column:1!important;
+  margin:0!important;
+  overflow:visible!important;
+  font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  font-size:16px!important;
+  font-weight:400!important;
+  font-style:italic!important;
+  line-height:1.45!important;
+  color:rgba(245,240,232,.38)!important;
+  -webkit-line-clamp:unset!important;
+}
+.albumOverviewPopupPanel .overviewDescriptionContribution{
+  display:contents!important;
+}
+.albumOverviewPopupPanel .overviewDescriptionContribution>button{
+  grid-column:2!important;
+  grid-row:2!important;
+  align-self:center!important;
+  padding:2px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+}
+.albumOverviewPopupPanel .overviewDescriptionPending{
+  grid-column:1/-1!important;
+  color:rgba(214,171,53,.72)!important;
+  font-size:11px!important;
+}
+.albumOverviewPopupPanel .overviewDescriptionForm{
+  grid-column:1/-1!important;
+  width:min(620px,100%)!important;
+}
+.albumOverviewPopupPanel .overviewSourceLink{
+  position:relative!important;
+  margin:0 0 22px!important;
+  padding-bottom:8px!important;
+  color:rgba(214,171,53,.58)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:11px!important;
+  font-weight:650!important;
+  letter-spacing:.04em!important;
+  text-decoration:none!important;
+}
+.albumOverviewPopupPanel .overviewSourceLink:after{
+  content:""!important;
+  position:absolute!important;
+  left:0!important;
+  bottom:0!important;
+  width:44px!important;
+  height:1px!important;
+  background:linear-gradient(90deg,rgba(214,171,53,.62),rgba(214,171,53,0))!important;
+}
+@media(max-width:700px){
+  .albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution){grid-template-columns:48px minmax(0,1fr)!important;padding:18px 0!important;gap:14px!important}
+  .albumOverviewPopupPanel .overviewPoint:has(.overviewDescriptionContribution)>.overviewIcon{width:42px!important;height:42px!important}
+}
+
+/* Defining Tracks uses the same quiet editorial empty-state language. */
+.albumOverviewPopupPanel .overviewMomentChips:has(.defining-tracks-empty){
+  display:block!important;
+  width:100%!important;
+  margin:0!important;
+}
+.albumOverviewPopupPanel .defining-tracks-empty{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+  width:100%!important;
+}
+.albumOverviewPopupPanel .overviewMomentChips .defining-tracks-empty>span{
+  display:block!important;
+  min-height:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  color:rgba(245,240,232,.38)!important;
+  font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+  font-size:16px!important;
+  font-weight:400!important;
+  font-style:italic!important;
+  line-height:1.45!important;
+  cursor:default!important;
+}
+.albumOverviewPopupPanel .overviewMomentChips .defining-tracks-add{
+  display:inline-block!important;
+  min-height:0!important;
+  padding:2px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+  cursor:pointer!important;
+}
+.albumOverviewPopupPanel .overviewMomentChips .defining-tracks-add:hover,
+.albumOverviewPopupPanel .overviewMomentChips .defining-tracks-add:focus-visible{
+  background:none!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  box-shadow:none!important;
+  outline:0!important;
+}
+
+/* When empty, place the Defining Tracks action beside its gold heading. */
+.albumOverviewPopupPanel .overviewMood>div:has(.defining-tracks-empty){
+  display:grid!important;
+  grid-template-columns:max-content max-content!important;
+  align-items:center!important;
+  justify-content:start!important;
+  column-gap:12px!important;
+}
+.albumOverviewPopupPanel .overviewMood>div:has(.defining-tracks-empty)>p{
+  grid-column:1!important;
+  grid-row:1!important;
+  margin:0!important;
+}
+.albumOverviewPopupPanel .overviewMood>div:has(.defining-tracks-empty)>.overviewMomentChips,
+.albumOverviewPopupPanel .overviewMood>div:has(.defining-tracks-empty) .defining-tracks-empty{
+  display:contents!important;
+}
+.albumOverviewPopupPanel .overviewMood>div:has(.defining-tracks-empty) .defining-tracks-empty>span{
+  grid-column:1/-1!important;
+  grid-row:2!important;
+  margin-top:12px!important;
+}
+.albumOverviewPopupPanel .overviewMood>div:has(.defining-tracks-empty) .defining-tracks-add{
+  grid-column:2!important;
+  grid-row:1!important;
+  align-self:center!important;
+  padding:2px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  color:var(--muze-gold,#d6ab35)!important;
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+}
+
+/* Five-star album rating control; each star exposes two 1–10 scale steps. */
+.albumRatingPanel .albumStarRating{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  margin:2px 0 18px;
+  padding:8px 0 18px;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.albumRatingPanel .albumStarRating:focus-visible{outline:1px solid rgba(255,213,31,.58);outline-offset:5px;border-radius:4px}
+.albumRatingPanel .albumStarRating[data-dragging="true"]{cursor:pointer}
+.albumRatingPanel .albumStarChoice{
+  --star-fill:0%;
+  position:relative;
+  display:inline-grid;
+  place-items:center;
+  width:30px;
+  height:34px;
+  flex:0 0 30px;
+  border-radius:8px;
+  color:rgba(214,171,53,.40);
+}
+.albumRatingPanel .albumStarChoice.hasRating{
+  background:transparent;
+}
+.albumRatingPanel>.eyebrow{text-align:center!important;color:#ffd51f!important}
+.albumRatingPanel>h3{margin:8px 42px 18px!important;text-align:center!important}
+.albumRatingPanel .albumStarBase,
+.albumRatingPanel .albumStarFill{
+  display:block;
+  font-family:Arial,sans-serif;
+  font-size:24px;
+  line-height:1;
+  pointer-events:none;
+  user-select:none;
+}
+.albumRatingPanel .albumStarBase{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  color:rgba(245,240,232,.58);
+}
+.albumRatingPanel .albumStarFillWrap{
+  position:absolute;
+  z-index:1;
+  left:0;
+  top:0;
+  bottom:0;
+  width:var(--star-fill);
+  overflow:hidden;
+  pointer-events:none;
+}
+.albumRatingPanel .albumStarFill{
+  position:absolute;
+  left:3px;
+  top:50%;
+  width:24px;
+  transform:translateY(-50%);
+  color:#ffd51f;
+  text-align:center;
+  white-space:nowrap;
+}
+body.light .albumRatingPanel .albumStarBase{color:rgba(55,42,50,.52)}
+body.light .albumRatingPanel .albumStarFill{color:#c89505}
+body.light .albumRatingPanel .albumStarChoice.hasRating{background:transparent}
+
+/* Community artist-biography contribution. */
+.artist-bio-contribute{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  width:max-content;
+  margin:18px auto 0;
+  padding:8px 14px;
+  border:1px solid rgba(214,171,53,.42);
+  border-radius:999px;
+  background:rgba(214,171,53,.025);
+  color:var(--muze-gold,#d6ab35);
+  font-family:var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:background 160ms ease,border-color 160ms ease,transform 160ms ease;
+}
+.artist-bio-contribute:hover,.artist-bio-contribute:focus-visible{background:rgba(214,171,53,.07);border-color:rgba(214,171,53,.72);transform:translateY(-1px);outline:0}
+.artistBioContributionConfirmation{margin:10px 0 0;color:rgba(214,171,53,.74);font:700 12px/1.4 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif);text-align:center}
+.artistBioContributionModal{z-index:12000}
+.artistBioContributionPanel{width:min(680px,calc(100vw - 32px));padding:30px;border:1px solid rgba(214,171,53,.24);border-radius:22px;background:#171720;color:#f5f0e8}
+.artistBioContributionPanel>.eyebrow{margin:0 44px 8px 0;color:var(--muze-gold,#d6ab35)}
+.artistBioContributionPanel h2{margin:0 44px 8px 0;color:#f5f0e8;font-family:var(--muze-serif,Georgia,"Times New Roman",serif);font-size:30px}
+.artistBioContributionPanel>p{margin:0 0 22px;color:rgba(245,240,232,.64);font:500 14px/1.55 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)}
+.artistBioContributionPanel>label{display:block;margin-bottom:8px;color:rgba(245,240,232,.78);font:700 11px/1.3 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif);letter-spacing:.08em;text-transform:uppercase}
+.artistBioContributionPanel textarea{box-sizing:border-box;width:100%;min-height:260px;resize:vertical;border:1px solid rgba(214,171,53,.24);border-radius:14px;background:rgba(255,255,255,.035);color:#f5f0e8;padding:14px 16px;font:500 15px/1.65 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)}
+.artistBioContributionPanel>small{display:block;margin-top:8px;color:rgba(245,240,232,.45);font:500 11px/1.4 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)}
+.artistBioContributionActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.artistBioContributionActions button{padding:9px 15px;border:1px solid rgba(214,171,53,.55);border-radius:999px;background:rgba(214,171,53,.12);color:var(--muze-gold,#d6ab35);font:700 12px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif);cursor:pointer}
+.artistBioContributionActions button.secondary{border-color:rgba(115,70,98,.55);background:rgba(115,70,98,.10);color:rgba(245,240,232,.72)}
+#artistBioContributionStatus{display:block;min-height:16px;margin-top:10px;color:#e9a5ae;font:600 12px/1.4 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)}
+.artistBioSubmissionQueue{grid-column:1/-1;margin-top:18px;padding-top:18px;border-top:1px solid rgba(214,171,53,.18)}
+.artistBioSubmissionQueue>strong{display:block;margin-bottom:10px;color:var(--muze-gold,#d6ab35);font:800 11px/1.3 var(--muze-sans);letter-spacing:.1em;text-transform:uppercase}
+.artistBioSubmissionQueue article{margin-top:10px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.025)}
+.artistBioSubmissionQueue article p{white-space:pre-wrap;color:rgba(245,240,232,.72);font-size:13px;line-height:1.55}
+.artistBioSubmissionQueue article div{display:flex;gap:8px}.artistBioSubmissionQueue article button{border:1px solid rgba(214,171,53,.42);border-radius:999px;background:transparent;color:var(--muze-gold,#d6ab35);padding:7px 11px;cursor:pointer}
+body.light .artistBioContributionPanel{background:#f4f2ec;color:#171717}body.light .artistBioContributionPanel h2{color:#171717}body.light .artistBioContributionPanel>p,body.light .artistBioContributionPanel>label{color:rgba(23,23,23,.68)}body.light .artistBioContributionPanel textarea{background:#fff;color:#171717}
+@media(max-width:560px){.artistBioContributionPanel{padding:24px 18px}.artistBioContributionPanel textarea{min-height:220px}.artistBioContributionActions{flex-direction:column-reverse}.artistBioContributionActions button{width:100%}}
 #albumModal:not(.libraryDetailModal) .albumReviewByline{
   margin:-5px 0 12px!important;
   color:#d6ab35!important;

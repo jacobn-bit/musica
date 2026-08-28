@@ -2111,7 +2111,7 @@ function researchPlaceholderOverview(a,row={}){
   if(row.__generationError){
     return {intro_summary:`Muze could not finish the overview for ${title}. Check the console or Netlify function logs for the API error.`,sound_summary:"The custom overview did not save, so Muze is holding back generic filler here.",impact_summary:"Regenerate the AI overview after fixing the logged error.",legacy_summary:"This section will update once a finished Muze overview is saved.",quote_headline:"Waiting for the full Muze story."};
   }
-  return {intro_summary:`${title} by ${artist}.`,sound_summary:`No description written yet. Be the first to write a sound description for ${title}.`,impact_summary:`No description written yet. Be the first to write an impact description for ${title}.`,legacy_summary:`No description written yet. Be the first to write a legacy description for ${title}.`,quote_headline:"Writing the record into focus."};
+  return {intro_summary:`${title} by ${artist}.`,sound_summary:"No sound description yet.",impact_summary:"No impact note yet.",legacy_summary:"No legacy note yet.",quote_headline:"Writing the record into focus."};
 }
 function normalizeOverviewList(value){
   if(Array.isArray(value))return value.map(item=>typeof item==="string"?item:(item?.name||item?.title||item?.trackTitle||item?.url||"")).map(item=>String(item||"").trim()).filter(Boolean);
@@ -2241,7 +2241,7 @@ function emptyOverviewDescriptionMarkup(album,type){
   const pending=extras.communityDescriptionSubmissions[communityAlbumReviewKey(album)]?.[type]||null;
   const albumId=escapeJsString(album.id);
   const pendingText=pending?`<span class="overviewDescriptionPending">Your ${label} description is awaiting Muze approval.</span>`:"";
-  return `<div class="albumReviewContribution overviewDescriptionContribution" onclick="event.stopPropagation()">${pendingText}<button type="button" onclick="openOverviewDescriptionForm(this,'${albumId}','${type}')">${pending?"Edit your submission":`Describe the ${label}`}</button><div class="albumReviewSubmissionForm overviewDescriptionForm" hidden><label>Your ${label} description</label><textarea minlength="80" maxlength="4000" placeholder="Write a ${label} description for ${escapeHtml(album.title||"this album")}…">${escapeHtml(pending?.review_text||"")}</textarea><small>80–4,000 characters. Your description will appear after Muze admin approval.</small><div><button type="button" onclick="submitOverviewDescription(this,'${albumId}','${type}')">Submit for approval</button><button type="button" onclick="this.closest('.overviewDescriptionForm').hidden=true">Cancel</button></div><em class="albumReviewSubmissionStatus overviewDescriptionStatus"></em></div></div>`;
+  return `<div class="albumReviewContribution overviewDescriptionContribution" onclick="event.stopPropagation()">${pendingText}<button type="button" onclick="openOverviewDescriptionForm(this,'${albumId}','${type}')">${pending?"Edit":"+ Add"}</button><div class="albumReviewSubmissionForm overviewDescriptionForm" hidden><label>Your ${label} description</label><textarea minlength="80" maxlength="4000" placeholder="Write a ${label} description for ${escapeHtml(album.title||"this album")}…">${escapeHtml(pending?.review_text||"")}</textarea><small>80–4,000 characters. Your description will appear after Muze admin approval.</small><div><button type="button" onclick="submitOverviewDescription(this,'${albumId}','${type}')">Submit for approval</button><button type="button" onclick="this.closest('.overviewDescriptionForm').hidden=true">Cancel</button></div><em class="albumReviewSubmissionStatus overviewDescriptionStatus"></em></div></div>`;
 }
 window.openOverviewDescriptionForm=function(button,albumId,type){
   if(!loggedInUser()){openAuthModal(`Log in or sign up to submit a ${type} description.`);return}
@@ -2527,7 +2527,7 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const sourceUrl=wikipediaSourceUrl(structured.sources_used)||String(a.wikipedia_url||a.source_url||"").trim();
   const displaySource=structured.isGenerating?"generating":(structured.row?.fallback_generated?"fallback":(structured.row?.source_summary?"supabase researched cache":(overviewGenerationError(structured.row)?"generation error":"local placeholder")));
   console.info("[Muze overview] displayed content source",{title:a.title,artist:a.artist,source:displaySource,fallback_generated:structured.row?.fallback_generated,has_source_summary:Boolean(structured.row?.source_summary),generation_model:structured.row?.generation_model||"",contains_generic:[intro,sound,impact,legacy,quote].some(genericOverviewText)});
-  const sourceLink=overviewGenerationError(structured.row)?`<span class="overviewSourceLink">Overview generation failed</span>`:(structured.isGenerating?`<span class="overviewSourceLink">Generating Muze overview...</span>`:"");
+  const sourceLink="";
   const storedOverviewFocus=String(structured.row?.overview_focus||"50% 28%").trim();
   const overviewHorizontalFocus=storedOverviewFocus.match(/^([0-9.]+)%/)?.[1]||"50";
   const overviewFocus=escapeHtml(`${overviewHorizontalFocus}% 20%`);
@@ -2543,7 +2543,7 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const album=state.albums.find(x=>albumRef(x.id)===albumRef(albumId));
   const savedNames=album?albumStructuredOverview(album).defining_tracks:[];
   const names=savedNames.length?savedNames:(tracks||[]).slice(0,5).map(track=>track.name).filter(Boolean);
-  host.innerHTML=names.length?names.map(name=>`<button type="button" class="overviewMomentChip" data-track-name="${escapeHtml(name)}" onclick="playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(name)}',this)">${escapeHtml(name)}</button>`).join(""):`<span>No defining tracks yet</span>`;
+  host.innerHTML=names.length?names.map(name=>`<button type="button" class="overviewMomentChip" data-track-name="${escapeHtml(name)}" onclick="playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(name)}',this)">${escapeHtml(name)}</button>`).join(""):`<div class="defining-tracks-empty"><span>No defining tracks yet.</span><button type="button" class="defining-tracks-add" onclick="editAlbumOverview('${escapeJsString(albumId)}')">+ Add</button></div>`;
 }
 function localAlbums(){return JSON.parse(localStorage.getItem("musicaLocalAlbums")||"[]")}
 function saveLocalAlbums(a){localStorage.setItem("musicaLocalAlbums",JSON.stringify(a))}
@@ -5114,6 +5114,70 @@ window.openTrackRating=function(albumId,trackKeyValue,trackName){
   popup.classList.remove("hidden");
 }
 window.closeTrackRating=function(){const popup=$("#trackRatingPopup");if(popup)popup.classList.add("hidden")}
+function albumStarValueFromPointer(event,control){
+  const rect=control.getBoundingClientRect();
+  const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
+  return Math.max(.5,Math.min(10,Math.ceil(ratio*20)/2));
+}
+function paintAlbumStarRating(control,value){
+  const selected=Math.max(0,Math.min(10,Number(value)||0));
+  control.dataset.value=String(selected);
+  control.setAttribute("aria-valuenow",String(selected||.5));
+  control.setAttribute("aria-valuetext",selected?`${selected} out of 10 stars`:"Not rated");
+  control.querySelectorAll(".albumStarChoice").forEach((star,index)=>{
+    const number=index+1;
+    const fill=selected>=number?100:(selected===number-.5?50:0);
+    star.style.setProperty("--star-fill",`${fill}%`);
+    star.classList.toggle("hasRating",fill>0);
+  });
+}
+window.startAlbumStarDrag=function(event,albumId){
+  if(event.button!==undefined&&event.button!==0)return;
+  const control=event.currentTarget;
+  event.preventDefault();
+  control.dataset.dragging="true";
+  control.setPointerCapture?.(event.pointerId);
+  paintAlbumStarRating(control,albumStarValueFromPointer(event,control));
+};
+window.moveAlbumStarDrag=function(event){
+  const control=event.currentTarget;
+  if(control.dataset.dragging!=="true"&&event.pointerType!=="mouse")return;
+  if(control.dataset.dragging==="true")event.preventDefault();
+  paintAlbumStarRating(control,albumStarValueFromPointer(event,control));
+};
+window.leaveAlbumStarRating=function(event){
+  const control=event.currentTarget;
+  if(control.dataset.dragging==="true")return;
+  paintAlbumStarRating(control,Number(control.dataset.current||0));
+};
+window.finishAlbumStarDrag=function(event,albumId){
+  const control=event.currentTarget;
+  if(control.dataset.dragging!=="true")return;
+  event.preventDefault();
+  paintAlbumStarRating(control,albumStarValueFromPointer(event,control));
+  control.dataset.dragging="false";
+  control.releasePointerCapture?.(event.pointerId);
+  const value=Number(control.dataset.value||0);
+  if(value){rateAlbum(albumId,value);closeAlbumRating()}
+};
+window.cancelAlbumStarDrag=function(event){
+  const control=event.currentTarget;
+  if(control.dataset.dragging!=="true")return;
+  control.dataset.dragging="false";
+  paintAlbumStarRating(control,Number(control.dataset.current||0));
+};
+window.handleAlbumStarRatingKey=function(event,albumId){
+  const control=event.currentTarget;
+  let value=Number(control.dataset.value||control.dataset.current||0);
+  if(event.key==="ArrowRight"||event.key==="ArrowUp")value=Math.min(10,(value||0)+.5);
+  else if(event.key==="ArrowLeft"||event.key==="ArrowDown")value=Math.max(.5,(value||1)-.5);
+  else if(event.key==="Home")value=.5;
+  else if(event.key==="End")value=10;
+  else if((event.key==="Enter"||event.key===" ")&&value){event.preventDefault();rateAlbum(albumId,value);closeAlbumRating();return}
+  else return;
+  event.preventDefault();
+  paintAlbumStarRating(control,value);
+};
 window.openAlbumRating=function(albumId){
   if(!requireAuth("rate",()=>window.openAlbumRating(albumId)))return;
   const album=state.albums.find(a=>String(a.id)===String(albumId));
@@ -5127,7 +5191,11 @@ window.openAlbumRating=function(albumId){
     popup.addEventListener("click",e=>{if(e.target.id==="albumRatingPopup")closeAlbumRating()});
   }
   const current=userScore(album);
-  popup.innerHTML=`<div class="trackRatingPanel albumRatingPanel"><button class="close" onclick="closeAlbumRating()">&times;</button><p class="eyebrow">Album Rating</p><h3>${escapeHtml(album.title)}</h3><div class="songRatingBar popupChoices">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="songRateBtn ${current==n?"selected":""}" onclick="rateAlbum('${escapeJsString(albumId)}',${n});closeAlbumRating()" aria-label="Rate ${escapeHtml(album.title)} ${n} out of 10"><span class="songRateNumber">${n}</span><span class="songRateCircle"></span></button>`).join("")}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('albumRatingDetails',this)">See ratings</button><div id="albumRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div></div>`;
+  const stars=[1,2,3,4,5,6,7,8,9,10].map(star=>{
+    const fill=Number(current)>=star?100:(Number(current)===star-.5?50:0);
+    return `<span class="albumStarChoice ${fill?"hasRating":""}" style="--star-fill:${fill}%"><span class="albumStarBase" aria-hidden="true">☆</span><span class="albumStarFillWrap" aria-hidden="true"><span class="albumStarFill">★</span></span></span>`;
+  }).join("");
+  popup.innerHTML=`<div class="trackRatingPanel albumRatingPanel"><button class="close" onclick="closeAlbumRating()">&times;</button><p class="eyebrow">Rate Album</p><h3>${escapeHtml(album.title)}</h3><div class="albumStarRating" role="slider" tabindex="0" aria-label="Rate ${escapeHtml(album.title)} out of 10 stars" aria-valuemin="0.5" aria-valuemax="10" aria-valuestep="0.5" aria-valuenow="${Number(current)||.5}" aria-valuetext="${current?`${Number(current)} out of 10 stars`:"Not rated"}" data-current="${Number(current)||0}" data-value="${Number(current)||0}" onpointerdown="startAlbumStarDrag(event,'${escapeJsString(albumId)}')" onpointermove="moveAlbumStarDrag(event)" onpointerleave="leaveAlbumStarRating(event)" onpointerup="finishAlbumStarDrag(event,'${escapeJsString(albumId)}')" onpointercancel="cancelAlbumStarDrag(event)" onkeydown="handleAlbumStarRatingKey(event,'${escapeJsString(albumId)}')">${stars}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('albumRatingDetails',this)">See ratings</button><div id="albumRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div></div>`;
   loadRatingDetails(albumId).then(()=>renderRatingDetails(albumId));
   popup.classList.remove("hidden");
 }
@@ -6086,6 +6154,11 @@ async function adminOverviewRequest(payload){
     const data=await res.json().catch(()=>({}));
     adminDebug("request response",{action:payload.action,status:res.status,ok:res.ok,serverDebug:data.debug||null});
     if(!res.ok){
+      const errorText=String(data.error||data.message||"");
+      if(["list_album_review_submissions","list_artist_bio_submissions"].includes(payload?.action)){
+        console.warn("Community submission queue is unavailable",errorText);
+        return {ok:false,rows:[],queueUnavailable:true};
+      }
       const fallback=localAdminFallbackResponse(payload,`http ${res.status}`);
       if(fallback)return fallback;
       setAdminInlineStatus(data.error||"Admin action failed.","error");
@@ -10447,33 +10520,83 @@ function artistProfilePage(){
   const adminButton=isAdminUnlocked()?`<button class="muzeArtistEditButton" onclick="editArtistProfile()">Edit Artist</button>`:"";
   const activeRange=profile.formed_year?`${profile.formed_year} - ${profile.disbanded_year||"Present"}`:"";
   const heroMeta=[profile.country,(profile.genres||[])[0],activeRange?`Active ${activeRange}`:""].filter(Boolean);
-  const biography=profile.bio?artistBiographyMarkup(profile.bio):isAdminUnlocked()?`<p class="muzeArtistHeroBioEmpty">No Muze biography has been written yet.</p>`:"";
-  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${adminButton}</div></section>${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"}</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
+  const hasBiography=Boolean(String(profile.bio||"").trim());
+  const biography=hasBiography?artistBiographyMarkup(profile.bio):`<p class="muzeArtistHeroBioEmpty">No Muze biography has been written yet.</p>`;
+  const contributionAction=!hasBiography?`<button type="button" class="artist-bio-contribute" onclick="openArtistBioContribution()"><span aria-hidden="true">&#10022;</span> Write Artist Bio</button>`:"";
+  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${contributionAction}${adminButton}</div></section>${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"}</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
 }
+window.closeArtistBioContribution=function(){document.getElementById("artistBioContributionModal")?.remove()};
+window.openArtistBioContribution=async function(){
+  if(!requireAuth("review",()=>window.openArtistBioContribution()))return;
+  let artist=state.artistProfile;
+  const user=loggedInUser();
+  if(!user)return;
+  if(!artist?.id){
+    const artistDb=publicDataDb||db;
+    const slug=String(artist?.slug||"").trim();
+    if(artistDb&&slug){
+      const lookup=await artistDb.from("artists").select("*").eq("slug",slug).maybeSingle();
+      if(!lookup.error&&lookup.data){artist={...artist,...lookup.data};state.artistProfile=artist}
+    }
+  }
+  if(!artist?.id){alert("Artist biography submissions are unavailable for this profile right now.");return}
+  let existing=null;
+  if(db){
+    const result=await db.from("artist_bio_submissions").select("id,bio_text,status,created_at").eq("artist_id",artist.id).eq("user_id",user.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();
+    if(!result.error)existing=result.data||null;
+  }
+  closeArtistBioContribution();
+  const modal=document.createElement("div");
+  modal.id="artistBioContributionModal";
+  modal.className="modal artistBioContributionModal";
+  modal.addEventListener("click",event=>{if(event.target===modal)closeArtistBioContribution()});
+  modal.innerHTML=`<div class="modalPanel artistBioContributionPanel" role="dialog" aria-modal="true" aria-labelledby="artistBioContributionTitle"><button type="button" class="close" aria-label="Close" onclick="closeArtistBioContribution()">&times;</button><p class="eyebrow">Community contribution</p><h2 id="artistBioContributionTitle">Write an artist bio</h2><p>Help the Muze community complete this artist profile.</p><label for="artistBioContributionText">Biography for ${escapeHtml(artist.name||"this artist")}</label><textarea id="artistBioContributionText" minlength="150" placeholder="Write a thoughtful biography…">${escapeHtml(existing?.bio_text||"")}</textarea><small>Minimum 150 characters. Submissions are reviewed before publication.</small><div class="artistBioContributionActions"><button type="button" class="secondary" onclick="closeArtistBioContribution()">Cancel</button><button type="button" onclick="submitArtistBioContribution(this,'${escapeJsString(existing?.id||"")}')">${existing?"Update submission":"Submit bio"}</button></div><em id="artistBioContributionStatus"></em></div>`;
+  document.body.appendChild(modal);
+  requestAnimationFrame(()=>modal.querySelector("textarea")?.focus());
+};
+window.submitArtistBioContribution=async function(button,existingId=""){
+  const artist=state.artistProfile;
+  const user=loggedInUser();
+  const textarea=document.getElementById("artistBioContributionText");
+  const status=document.getElementById("artistBioContributionStatus");
+  const bioText=String(textarea?.value||"").replace(/\r\n?/g,"\n").split("\n").map(line=>line.replace(/[ \t]+/g," ").trim()).join("\n").trim();
+  if(!user){closeArtistBioContribution();openAuthModal("Log in to submit an artist biography.");return}
+  if(bioText.length<150){if(status)status.textContent="Please write at least 150 characters.";return}
+  if(!artist?.id||!db){if(status)status.textContent="Biography submissions are unavailable right now.";return}
+  button.disabled=true;if(status)status.textContent="Submitting…";
+  const payload={artist_id:artist.id,user_id:user.id,bio_text:bioText,status:"pending",updated_at:new Date().toISOString()};
+  const result=existingId?await db.from("artist_bio_submissions").update(payload).eq("id",existingId).eq("user_id",user.id).eq("status","pending").select().single():await db.from("artist_bio_submissions").insert({...payload,created_at:new Date().toISOString()}).select().single();
+  button.disabled=false;
+  if(result.error){if(status)status.textContent=/artist_bio_submissions|schema cache|PGRST205/i.test(result.error.message||"")?"The artist biography submission migration still needs to be applied.":result.error.message||"Biography submission failed.";return}
+  closeArtistBioContribution();
+  const action=document.querySelector(".artist-bio-contribute");
+  if(action){const confirmation=document.createElement("p");confirmation.className="artistBioContributionConfirmation";confirmation.textContent="Bio submitted for review.";action.insertAdjacentElement("afterend",confirmation)}
+};
 async function loadArtistProfile(slug){
   const cleanSlug=artistSlugForName(slug);
   state.artistProfileLoading=true;state.artistProfileError="";state.artistProfile=null;state.artistProfileAlbums=[];state.artistProfilePortraits=[];state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render();
   let profile=null;let albums=[];
-  if(db&&cleanSlug){
+  const artistDb=publicDataDb||db;
+  if(artistDb&&cleanSlug){
     try{
-      const profileResult=await db.from("artists").select("*").eq("slug",cleanSlug).maybeSingle();
+      const profileResult=await artistDb.from("artists").select("*").eq("slug",cleanSlug).maybeSingle();
       if(profileResult.error)throw profileResult.error;
       profile=profileResult.data||null;
       if(profile?.id){
-        const linksResult=await db.from("album_artists").select("album_id,role,sort_order").eq("artist_id",profile.id).order("sort_order",{ascending:true});
+        const linksResult=await artistDb.from("album_artists").select("album_id,role,sort_order").eq("artist_id",profile.id).order("sort_order",{ascending:true});
         if(linksResult.error)throw linksResult.error;
         const ids=[...new Set((linksResult.data||[]).map(row=>row.album_id).filter(Boolean))];
         if(ids.length){
-          let albumsResult=await db.from("album_scores").select("*").in("id",ids);
-          if(albumsResult.error)albumsResult=await db.from("albums").select("id,title,artist,year,genre,cover_url,spotify_url,summary,spotify_id,wikipedia_url,source_url").in("id",ids);
+          let albumsResult=await artistDb.from("album_scores").select("*").in("id",ids);
+          if(albumsResult.error)albumsResult=await artistDb.from("albums").select("id,title,artist,year,genre,cover_url,spotify_url,summary,spotify_id,wikipedia_url,source_url").in("id",ids);
           if(albumsResult.error)throw albumsResult.error;
           albums=albumsResult.data||[];
-          const overviewResult=await db.from("album_overviews").select("*").in("album_id",ids);
+          const overviewResult=await artistDb.from("album_overviews").select("*").in("album_id",ids);
           if(!overviewResult.error&&(overviewResult.data||[]).length){
             overviewResult.data.forEach(row=>{if(row?.album_key)extras.overviews[row.album_key]=row});
             indexOverviewRows();
           }
-          const portraitsResult=await db.from("album_credits").select("album_id,person_name,person_wikidata_id,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_status,image_approved,credit_type,role,sort_order").in("album_id",ids).eq("credit_type","performer").eq("image_approved",true).not("image_url","is",null);
+          const portraitsResult=await artistDb.from("album_credits").select("album_id,person_name,person_wikidata_id,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_status,image_approved,credit_type,role,sort_order").in("album_id",ids).eq("credit_type","performer").eq("image_approved",true).not("image_url","is",null);
           if(!portraitsResult.error)state.artistProfilePortraits=portraitsResult.data||[];
         }
       }
@@ -10499,8 +10622,27 @@ async function navigateToArtist(slug,{replace=false}={}){
   await loadArtistProfile(cleanSlug)
 }
 window.openArtistPage=function(slug){return navigateToArtist(slug)};
-window.editArtistProfile=function(){if(!isAdminUnlocked())return;state.artistBioDraftSources=artistBioSources(state.artistProfile?.bio_sources);state.artistBioDraftModel=String(state.artistProfile?.bio_generation_model||"");state.artistBioDraftedAt=String(state.artistProfile?.bio_generated_at||"");state.artistEditing=true;render()};
+window.editArtistProfile=function(){if(!isAdminUnlocked())return;state.artistBioDraftSources=artistBioSources(state.artistProfile?.bio_sources);state.artistBioDraftModel=String(state.artistProfile?.bio_generation_model||"");state.artistBioDraftedAt=String(state.artistProfile?.bio_generated_at||"");state.artistEditing=true;render();loadArtistBioSubmissionQueue()};
 window.cancelArtistEdit=function(){state.artistEditing=false;state.artistBioDraftSources=[];state.artistBioDraftModel="";state.artistBioDraftedAt="";render()};
+window.loadArtistBioSubmissionQueue=async function(){
+  if(!isAdminUnlocked()||!state.artistProfile?.id)return;
+  const parent=document.querySelector(".muzeArtistAdminBio");
+  if(!parent)return;
+  let host=document.getElementById("artistBioSubmissionQueue");
+  if(!host){host=document.createElement("div");host.id="artistBioSubmissionQueue";host.className="artistBioSubmissionQueue";parent.appendChild(host)}
+  host.innerHTML="<strong>Pending community biographies</strong><p>Loading submissions…</p>";
+  const result=await adminOverviewRequest({action:"list_artist_bio_submissions",artist_id:state.artistProfile.id});
+  if(!result?.ok){host.innerHTML="<strong>Pending community biographies</strong><p>Submission queue unavailable.</p>";return}
+  const rows=Array.isArray(result.rows)?result.rows:[];
+  host.innerHTML=`<strong>Pending community biographies</strong>${rows.length?rows.map(row=>`<article><small>${escapeHtml(new Date(row.created_at||Date.now()).toLocaleDateString())}</small><p>${formatParagraphText(row.bio_text||"")}</p><div><button type="button" onclick="moderateArtistBioSubmission('${escapeJsString(row.id)}','approve')">Approve</button><button type="button" onclick="moderateArtistBioSubmission('${escapeJsString(row.id)}','reject')">Reject</button></div></article>`).join(""):'<p>No pending biography submissions.</p>'}`;
+};
+window.moderateArtistBioSubmission=async function(submissionId,decision){
+  if(!isAdminUnlocked()||!state.artistProfile)return;
+  const result=await adminOverviewRequest({action:decision==="approve"?"approve_artist_bio_submission":"reject_artist_bio_submission",artist_id:state.artistProfile.id,submission_id:submissionId});
+  if(!result?.ok)return;
+  if(decision==="approve"&&result.artist){state.artistProfile={...state.artistProfile,...result.artist};state.artistEditing=false;render();return}
+  loadArtistBioSubmissionQueue();
+};
 window.rejectArtistProfileImage=async function(){
   if(!isAdminUnlocked()||!state.artistProfile)return;
   const source=artistProfilePortraitSource(state.artistProfile);
