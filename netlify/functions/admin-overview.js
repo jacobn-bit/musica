@@ -344,6 +344,30 @@ exports.handler = async function(event) {
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows[0] }) };
     }
 
+    if (action === "save_artist_crop") {
+      const artistId = cleanText(body.artist_id);
+      const artistSlug = cleanText(body.slug);
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value)));
+      if (!artistId && !artistSlug) return { statusCode: 400, headers, body: JSON.stringify({ error: "Artist id or slug is required." }) };
+      const imagePositionX = clamp(body.image_position_x, 0, 100);
+      const imagePositionY = clamp(body.image_position_y, 0, 100);
+      const imageZoom = clamp(body.image_zoom, 1, 3);
+      if (![imagePositionX, imagePositionY, imageZoom].every(Number.isFinite)) return { statusCode: 400, headers, body: JSON.stringify({ error: "Crop values are invalid." }) };
+      let rows;
+      try {
+        rows = await api(`artists?${artistId ? `id=eq.${encodeURIComponent(artistId)}` : `slug=eq.${encodeURIComponent(artistSlug)}`}`, {
+          method: "PATCH",
+          headers: { "Prefer": "return=representation" },
+          body: JSON.stringify({ image_position_x: imagePositionX, image_position_y: imagePositionY, image_zoom: imageZoom, updated_at: new Date().toISOString() })
+        });
+      } catch (error) {
+        if (missingColumnFromError(error)) throw new Error("Apply the artist image crop migration before saving image framing.");
+        throw error;
+      }
+      if (!rows?.length) return { statusCode: 404, headers, body: JSON.stringify({ error: "Artist profile was not found." }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows[0] }) };
+    }
+
     if (action === "save_artist") {
       const artistName = cleanText(body.name).slice(0, 180);
       const slugify = value => cleanText(value)
@@ -573,7 +597,7 @@ exports.handler = async function(event) {
       if (!album_key || !title || mood_score === null || !Number.isFinite(mood_score)) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Album key, title, and mood value from 0 to 100 are required." }) };
       }
-      const { rows } = await postAlbumOverview(overviewPatchPayload({ mood_score }));
+      const { rows } = await postAlbumOverview(overviewPatchPayload({ mood_score, manual_override: true }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows ? rows[0] : null }) };
     }
 
