@@ -118,6 +118,7 @@ exports.handler = async function(event) {
     const reply_id = String(body.reply_id || "").trim();
     const library_id = String(body.library_id || "").trim();
     const submission_id = String(body.submission_id || "").trim();
+    const artist_id = String(body.artist_id || "").trim();
     const album_item = body.album_item && typeof body.album_item === "object" ? body.album_item : null;
     const loved_track_key = String(body.loved_track_key || "").trim();
     const loved_track_name = String(body.loved_track_name || "").trim();
@@ -251,6 +252,95 @@ exports.handler = async function(event) {
         body: JSON.stringify({ status: "rejected", reviewed_at: now, updated_at: now })
       });
       if (!Array.isArray(rows) || !rows.length) return { statusCode: 404, headers, body: JSON.stringify({ error: "Pending review submission was not found." }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows[0] }) };
+    }
+
+    if (action === "list_defining_track_submissions") {
+      if (!album_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album id is required." }) };
+      const rows = await api(`album_defining_track_submissions?album_id=eq.${encodeURIComponent(album_id)}&status=eq.pending&select=id,album_id,album_key,album_title,artist_name,user_id,username,track_names,status,created_at&order=created_at.asc`);
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, rows: rows || [] }) };
+    }
+
+    if (action === "approve_defining_track_submission") {
+      if (!submission_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Defining-track submission id is required." }) };
+      const submissions = await api(`album_defining_track_submissions?id=eq.${encodeURIComponent(submission_id)}&status=eq.pending&select=*`);
+      const submission = Array.isArray(submissions) ? submissions[0] : null;
+      if (!submission) return { statusCode: 404, headers, body: JSON.stringify({ error: "Pending defining-track submission was not found." }) };
+      const trackNames = cleanTextList(submission.track_names).slice(0, 5);
+      if (trackNames.length !== 5) return { statusCode: 400, headers, body: JSON.stringify({ error: "Submission must contain exactly five tracks." }) };
+      const now = new Date().toISOString();
+      const overviewRows = await api("album_overviews?on_conflict=album_key", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ album_key: submission.album_key, album_id: submission.album_id, title: submission.album_title, artist: submission.artist_name, defining_tracks: trackNames, manual_override: true, updated_at: now })
+      });
+      await api(`album_defining_track_submissions?album_id=eq.${encodeURIComponent(submission.album_id)}&status=eq.pending`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=minimal" },
+        body: JSON.stringify({ status: "rejected", reviewed_at: now, updated_at: now })
+      });
+      const rows = await api(`album_defining_track_submissions?id=eq.${encodeURIComponent(submission_id)}`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ status: "approved", reviewed_at: now, updated_at: now })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: Array.isArray(rows) ? rows[0] : rows, overview: Array.isArray(overviewRows) ? overviewRows[0] : overviewRows }) };
+    }
+
+    if (action === "reject_defining_track_submission") {
+      if (!submission_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Defining-track submission id is required." }) };
+      const now = new Date().toISOString();
+      const rows = await api(`album_defining_track_submissions?id=eq.${encodeURIComponent(submission_id)}&status=eq.pending`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ status: "rejected", reviewed_at: now, updated_at: now })
+      });
+      if (!Array.isArray(rows) || !rows.length) return { statusCode: 404, headers, body: JSON.stringify({ error: "Pending defining-track submission was not found." }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows[0] }) };
+    }
+
+    if (action === "list_artist_bio_submissions") {
+      if (!artist_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Artist id is required." }) };
+      const rows = await api(`artist_bio_submissions?artist_id=eq.${encodeURIComponent(artist_id)}&status=eq.pending&select=id,artist_id,user_id,bio_text,status,created_at,updated_at&order=created_at.asc`);
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, rows: rows || [] }) };
+    }
+
+    if (action === "approve_artist_bio_submission") {
+      if (!submission_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Biography submission id is required." }) };
+      const submissions = await api(`artist_bio_submissions?id=eq.${encodeURIComponent(submission_id)}&status=eq.pending&select=*`);
+      const submission = Array.isArray(submissions) ? submissions[0] : null;
+      if (!submission) return { statusCode: 404, headers, body: JSON.stringify({ error: "Pending biography submission was not found." }) };
+      const bio = cleanParagraphText(submission.bio_text);
+      if (bio.length < 150) return { statusCode: 400, headers, body: JSON.stringify({ error: "Biography submission is too short." }) };
+      const now = new Date().toISOString();
+      const artistRows = await api(`artists?id=eq.${encodeURIComponent(submission.artist_id)}`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ bio, updated_at: now })
+      });
+      if (!Array.isArray(artistRows) || !artistRows.length) return { statusCode: 404, headers, body: JSON.stringify({ error: "Artist was not found." }) };
+      await api(`artist_bio_submissions?artist_id=eq.${encodeURIComponent(submission.artist_id)}&status=eq.pending`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=minimal" },
+        body: JSON.stringify({ status: "rejected", reviewed_at: now, updated_at: now })
+      });
+      const rows = await api(`artist_bio_submissions?id=eq.${encodeURIComponent(submission_id)}`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ status: "approved", reviewed_at: now, updated_at: now })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: Array.isArray(rows) ? rows[0] : rows, artist: artistRows[0] }) };
+    }
+
+    if (action === "reject_artist_bio_submission") {
+      if (!submission_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Biography submission id is required." }) };
+      const now = new Date().toISOString();
+      const rows = await api(`artist_bio_submissions?id=eq.${encodeURIComponent(submission_id)}&status=eq.pending`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ status: "rejected", reviewed_at: now, updated_at: now })
+      });
+      if (!Array.isArray(rows) || !rows.length) return { statusCode: 404, headers, body: JSON.stringify({ error: "Pending biography submission was not found." }) };
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows[0] }) };
     }
 
