@@ -117,6 +117,7 @@ exports.handler = async function(event) {
     const comment_id = String(body.comment_id || "").trim();
     const reply_id = String(body.reply_id || "").trim();
     const library_id = String(body.library_id || "").trim();
+    const submission_id = String(body.submission_id || "").trim();
     const album_item = body.album_item && typeof body.album_item === "object" ? body.album_item : null;
     const loved_track_key = String(body.loved_track_key || "").trim();
     const loved_track_name = String(body.loved_track_name || "").trim();
@@ -200,6 +201,59 @@ exports.handler = async function(event) {
       return patch;
     };
 
+    if (action === "list_album_review_submissions") {
+      if (!album_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Album id is required." }) };
+      const rows = await api(`album_review_submissions?album_id=eq.${encodeURIComponent(album_id)}&status=eq.pending&select=id,album_id,album_key,album_title,artist_name,user_id,username,review_text,submission_type,status,created_at&order=created_at.asc`);
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, rows: rows || [] }) };
+    }
+
+    if (action === "approve_album_review_submission") {
+      if (!submission_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Review submission id is required." }) };
+      const submissions = await api(`album_review_submissions?id=eq.${encodeURIComponent(submission_id)}&status=eq.pending&select=*`);
+      const submission = Array.isArray(submissions) ? submissions[0] : null;
+      if (!submission) return { statusCode: 404, headers, body: JSON.stringify({ error: "Pending review submission was not found." }) };
+      const now = new Date().toISOString();
+      const submissionType = ["sound", "impact", "legacy"].includes(submission.submission_type) ? submission.submission_type : "bio";
+      await api(`album_review_submissions?album_id=eq.${encodeURIComponent(submission.album_id)}&submission_type=eq.${encodeURIComponent(submissionType)}&status=eq.approved`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=minimal" },
+        body: JSON.stringify({ status: "superseded", reviewed_at: now, updated_at: now })
+      });
+      const rows = await api(`album_review_submissions?id=eq.${encodeURIComponent(submission_id)}&status=eq.pending`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ status: "approved", reviewed_at: now, updated_at: now })
+      });
+      if (submissionType !== "bio") {
+        await api("album_overviews?on_conflict=album_key", {
+          method: "POST",
+          headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify({
+            album_key: submission.album_key,
+            album_id: submission.album_id,
+            title: submission.album_title,
+            artist: submission.artist_name,
+            [`${submissionType}_summary`]: cleanParagraphText(submission.review_text),
+            manual_override: true,
+            updated_at: now
+          })
+        });
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: Array.isArray(rows) ? rows[0] : rows }) };
+    }
+
+    if (action === "reject_album_review_submission") {
+      if (!submission_id) return { statusCode: 400, headers, body: JSON.stringify({ error: "Review submission id is required." }) };
+      const now = new Date().toISOString();
+      const rows = await api(`album_review_submissions?id=eq.${encodeURIComponent(submission_id)}&status=eq.pending`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ status: "rejected", reviewed_at: now, updated_at: now })
+      });
+      if (!Array.isArray(rows) || !rows.length) return { statusCode: 404, headers, body: JSON.stringify({ error: "Pending review submission was not found." }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows[0] }) };
+    }
+
     if (action === "save_artist") {
       const artistName = cleanText(body.name).slice(0, 180);
       const slugify = value => cleanText(value)
@@ -240,6 +294,7 @@ exports.handler = async function(event) {
         image_license: cleanText(body.image_license) || null,
         image_license_url: cleanText(body.image_license_url) || null,
         image_attribution: cleanText(body.image_attribution) || null,
+        image_rejected_urls: stringArray(body.image_rejected_urls),
         bio: cleanParagraphText(body.bio) || null,
         bio_sources: cleanSourceRows(body.bio_sources),
         bio_generated_at: cleanTimestamp(body.bio_generated_at),
