@@ -73,7 +73,7 @@ function clearLocalOverviewOverride(key){
   }catch(error){}
 }
 const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
 const initialPublicListSlug=publicListSlugFromPath();
 if(initialPublicListSlug){state.view="public-list";state.publicListSlug=initialPublicListSlug}
@@ -2219,9 +2219,13 @@ async function loadCommunityAlbumReview(album){
   extras.communityReviews[key]=approved;
   extras.communityReviewSubmissions[key]=pending;
   if(isAdminUnlocked()){
-    const result=await adminOverviewRequest({...adminAlbumPayload(album,"list_album_review_submissions")});
+    const [result,trackResult]=await Promise.all([
+      adminOverviewRequest({...adminAlbumPayload(album,"list_album_review_submissions")}),
+      adminOverviewRequest({...adminAlbumPayload(album,"list_defining_track_submissions")})
+    ]);
     if(result?.ok)adminQueue=Array.isArray(result.rows)?result.rows:[];
     extras.communityReviewAdminQueues[key]=adminQueue;
+    extras.communityDefiningTrackAdminQueues[key]=trackResult?.ok&&Array.isArray(trackResult.rows)?trackResult.rows:[];
   }
   return {approved,pending,adminQueue};
 }
@@ -2229,6 +2233,11 @@ function communityReviewAdminQueueMarkup(album,rows=[]){
   if(!isAdminUnlocked()||!rows.length)return "";
   const albumId=escapeJsString(album.id);
   return `<div class="albumReviewAdminQueue"><strong>Pending community submissions</strong>${rows.map(row=>`<article><header><b>@${escapeHtml(row.username||"listener")} · ${escapeHtml(row.submission_type||"bio")}</b><small>${escapeHtml(new Date(row.created_at||Date.now()).toLocaleDateString())}</small></header><p>${formatParagraphText(row.review_text||"")}</p><div><button type="button" onclick="moderateCommunityAlbumReview('${albumId}','${escapeJsString(row.id)}','approve')">Approve</button><button type="button" onclick="moderateCommunityAlbumReview('${albumId}','${escapeJsString(row.id)}','reject')">Reject</button></div></article>`).join("")}</div>`;
+}
+function definingTrackAdminQueueMarkup(album,rows=[]){
+  if(!isAdminUnlocked()||!rows.length)return "";
+  const albumId=escapeJsString(album.id);
+  return `<div class="albumReviewAdminQueue definingTrackAdminQueue"><strong>Pending defining-track submissions</strong>${rows.map(row=>`<article><header><b>@${escapeHtml(row.username||"listener")}</b><small>${escapeHtml(new Date(row.created_at||Date.now()).toLocaleDateString())}</small></header><p>${normalizeOverviewList(row.track_names).map((name,index)=>`${index+1}. ${escapeHtml(name)}`).join("<br>")}</p><div><button type="button" onclick="moderateDefiningTrackSubmission('${albumId}','${escapeJsString(row.id)}','approve')">Approve</button><button type="button" onclick="moderateDefiningTrackSubmission('${albumId}','${escapeJsString(row.id)}','reject')">Reject</button></div></article>`).join("")}</div>`;
 }
 function emptyAlbumReviewMarkup(album,pending=null,adminQueue=[]){
   const albumId=escapeJsString(album.id);
@@ -2299,6 +2308,14 @@ window.moderateCommunityAlbumReview=async function(albumId,submissionId,decision
   if(!album||!isAdminUnlocked())return;
   const result=await adminOverviewRequest({...adminAlbumPayload(album,decision==="approve"?"approve_album_review_submission":"reject_album_review_submission"),submission_id:submissionId});
   if(!result?.ok)return;
+  await openAlbum(album.id);
+};
+window.moderateDefiningTrackSubmission=async function(albumId,submissionId,decision){
+  const album=state.albums.find(item=>String(item.id)===String(albumId));
+  if(!album||!isAdminUnlocked())return;
+  const result=await adminOverviewRequest({...adminAlbumPayload(album,decision==="approve"?"approve_defining_track_submission":"reject_defining_track_submission"),submission_id:submissionId});
+  if(!result?.ok)return;
+  if(decision==="approve"&&result.overview){extras.overviews[overviewKey(album)]={...albumOverviewRowReadOnly(album),...result.overview};indexOverviewRows()}
   await openAlbum(album.id);
 };
 function wikipediaSourceUrl(sources){
@@ -2535,7 +2552,7 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const testRegenerate="";
   const libraryUsers=albumLibrarySaveUsers(a);
   const libraryUserRows=libraryUsers.length?libraryUsers.map(user=>`<div class="overviewLibraryUser"><span class="overviewLibraryUserAvatar">${libraryAvatarMarkup(user)}</span><span class="overviewLibraryUserText"><b>${escapeHtml(user.username)}</b><small>${escapeHtml(user.title||"Muze library")}</small></span></div>`).join(""):`<div class="overviewLibraryUser empty">No public library saves yet.</div>`;
-  const reviewHtml=albumReviewHtml(structured.row||{},a)+communityReviewAdminQueueMarkup(a,(extras.communityReviewAdminQueues[communityAlbumReviewKey(a)]||[]).filter(row=>["sound","impact","legacy"].includes(row.submission_type)));
+  const reviewHtml=albumReviewHtml(structured.row||{},a)+communityReviewAdminQueueMarkup(a,(extras.communityReviewAdminQueues[communityAlbumReviewKey(a)]||[]).filter(row=>["sound","impact","legacy"].includes(row.submission_type)))+definingTrackAdminQueueMarkup(a,extras.communityDefiningTrackAdminQueues[communityAlbumReviewKey(a)]||[]);
   return `<section id="albumOverviewSection" class="linerOverview albumOverviewSleeve" data-album-id="${albumId}" style="--overview-cover:url('${coverUrl}');--overview-position:${overviewFocus}"><div class="overviewFeatureTop"><div class="overviewFeatureCopy"><p class="overviewMeta">${metadata}</p><div class="overviewTitleRow"><h3${headingClass}>${heading}</h3><span class="overviewMobileTitleArt${mobileArtClass}" aria-hidden="true"><img src="${coverUrl}" alt=""></span></div><div class="overviewFeatureTags">${overviewTags}</div><p class="overviewIntro${introClass}">${escapeHtml(intro)}</p><button type="button" class="overviewReadMore" aria-expanded="false" onclick="toggleOverviewIntro(event,this)">Read More &#8594;</button>${sourceLink}</div><div class="overviewFeatureArt"><img src="${coverUrl}" alt=""><blockquote aria-expanded="false" onclick="toggleOverviewQuote(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewQuote(event,this)"><span class="overviewQuoteText">${escapeHtml(quote)}</span></blockquote><div class="overviewQuotePopover hidden">${escapeHtml(quote)}</div></div></div>${reviewHtml}<div class="overviewBodyGrid"><div class="overviewCopy"><div class="overviewPoints"><div class="overviewPoint" aria-expanded="false" onclick="toggleOverviewPoint(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewPoint(event,this)"><span class="overviewIcon soundIcon" aria-hidden="true"></span><div><strong>The sound</strong><p>${escapeHtml(sound)}</p>${soundContribution}</div></div><div class="overviewPoint" aria-expanded="false" onclick="toggleOverviewPoint(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewPoint(event,this)"><span class="overviewIcon impactIcon" aria-hidden="true"></span><div><strong>The impact</strong><p>${escapeHtml(impact)}</p>${impactContribution}</div></div><div class="overviewPoint" aria-expanded="false" onclick="toggleOverviewPoint(event,this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOverviewPoint(event,this)"><span class="overviewIcon legacyIcon" aria-hidden="true"></span><div><strong>The legacy</strong><p>${escapeHtml(legacy)}</p>${legacyContribution}</div></div></div><div class="overviewScoreStrip"><span>Muze Community Score</span><strong>${escapeHtml(albumScore)}</strong><em>/10</em><small>Based on ${escapeHtml(total)} ratings</small></div>${edit}${testRegenerate}</div><div class="overviewMood"><div><p>Defining tracks</p><div id="overviewMomentChips" class="overviewMomentChips"><span>Loading tracks...</span></div></div></div></div></section>`;
 }function renderAlbumOverviewMoments(albumId,tracks){
   const host=$("#overviewMomentChips");
@@ -2543,8 +2560,59 @@ function albumOverviewHtml(a,{albumId,coverUrl,albumScore,total,customOverview,c
   const album=state.albums.find(x=>albumRef(x.id)===albumRef(albumId));
   const savedNames=album?albumStructuredOverview(album).defining_tracks:[];
   const names=savedNames.length?savedNames:(tracks||[]).slice(0,5).map(track=>track.name).filter(Boolean);
-  host.innerHTML=names.length?names.map(name=>`<button type="button" class="overviewMomentChip" data-track-name="${escapeHtml(name)}" onclick="playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(name)}',this)">${escapeHtml(name)}</button>`).join(""):`<div class="defining-tracks-empty"><span>No defining tracks yet.</span><button type="button" class="defining-tracks-add" onclick="editAlbumOverview('${escapeJsString(albumId)}')">+ Add</button></div>`;
+  host.innerHTML=names.length?names.map(name=>`<button type="button" class="overviewMomentChip" data-track-name="${escapeHtml(name)}" onclick="playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(name)}',this)">${escapeHtml(name)}</button>`).join(""):`<div class="defining-tracks-empty"><span>No defining tracks yet.</span><button type="button" class="defining-tracks-add" onclick="openDefiningTracksContribution('${escapeJsString(albumId)}')">+ Add</button></div>`;
 }
+window.closeDefiningTracksContribution=function(){document.getElementById("definingTracksContributionModal")?.remove()};
+window.openDefiningTracksContribution=async function(albumId){
+  if(!requireAuth("review",()=>window.openDefiningTracksContribution(albumId)))return;
+  const album=state.albums.find(item=>String(item.id)===String(albumId));
+  const user=loggedInUser();
+  if(!album||!user)return;
+  const ref=albumRef(album.id);
+  const tracks=(extras.tracks[ref]&&extras.tracks[ref].length)?extras.tracks[ref]:await fetchAlbumTracks(album);
+  const trackNames=(tracks||[]).map(track=>String(track.name||"").trim()).filter(Boolean);
+  if(trackNames.length<5){alert("This album does not have five available tracks to choose from.");return}
+  let existing=null;
+  if(db){
+    const result=await db.from("album_defining_track_submissions").select("id,track_names,status,created_at").eq("album_id",String(album.id)).eq("user_id",user.id).eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();
+    if(!result.error)existing=result.data||null;
+  }
+  const selected=new Set(normalizeOverviewList(existing?.track_names));
+  closeDefiningTracksContribution();
+  const modal=document.createElement("div");
+  modal.id="definingTracksContributionModal";
+  modal.className="modal definingTracksContributionModal";
+  modal.addEventListener("click",event=>{if(event.target===modal)closeDefiningTracksContribution()});
+  modal.innerHTML=`<div class="modalPanel definingTracksContributionPanel" role="dialog" aria-modal="true" aria-labelledby="definingTracksContributionTitle"><button type="button" class="close" aria-label="Close" onclick="closeDefiningTracksContribution()">&times;</button><p class="eyebrow">Community contribution</p><h2 id="definingTracksContributionTitle">Choose five defining tracks</h2><p>Select exactly five tracks from ${escapeHtml(album.title||"this album")}. Muze moderators will review your submission.</p><div class="definingTracksSelectionList">${trackNames.map((name,index)=>`<label><input type="checkbox" value="${escapeHtml(name)}" ${selected.has(name)?"checked":""} onchange="changeDefiningTrackSelection(this)"><span><b>${String(index+1).padStart(2,"0")}</b>${escapeHtml(name)}</span></label>`).join("")}</div><div class="definingTracksSelectionFoot"><strong id="definingTracksSelectionCount">${selected.size}/5 selected</strong><div><button type="button" class="secondary" onclick="closeDefiningTracksContribution()">Cancel</button><button type="button" id="submitDefiningTracksButton" onclick="submitDefiningTracksContribution(this,'${escapeJsString(album.id)}','${escapeJsString(existing?.id||"")}')" ${selected.size===5?"":"disabled"}>${existing?"Update submission":"Submit tracks"}</button></div></div><em id="definingTracksContributionStatus"></em></div>`;
+  document.body.appendChild(modal);
+  changeDefiningTrackSelection();
+};
+window.changeDefiningTrackSelection=function(input){
+  const modal=document.getElementById("definingTracksContributionModal");
+  if(!modal)return;
+  let checked=[...modal.querySelectorAll('.definingTracksSelectionList input:checked')];
+  if(checked.length>5&&input){input.checked=false;checked=[...modal.querySelectorAll('.definingTracksSelectionList input:checked')]}
+  modal.querySelectorAll('.definingTracksSelectionList input:not(:checked)').forEach(item=>item.disabled=checked.length>=5);
+  const count=modal.querySelector("#definingTracksSelectionCount");if(count)count.textContent=`${checked.length}/5 selected`;
+  const submit=modal.querySelector("#submitDefiningTracksButton");if(submit)submit.disabled=checked.length!==5;
+};
+window.submitDefiningTracksContribution=async function(button,albumId,existingId=""){
+  const album=state.albums.find(item=>String(item.id)===String(albumId));
+  const user=loggedInUser();
+  const modal=document.getElementById("definingTracksContributionModal");
+  const status=modal?.querySelector("#definingTracksContributionStatus");
+  const trackNames=[...(modal?.querySelectorAll('.definingTracksSelectionList input:checked')||[])].map(input=>input.value);
+  if(trackNames.length!==5){if(status)status.textContent="Select exactly five tracks.";return}
+  if(!album||!user||!db){if(status)status.textContent="Track submissions are unavailable right now.";return}
+  button.disabled=true;if(status)status.textContent="Submitting…";
+  const payload={album_id:String(album.id),album_key:overviewKey(album),album_title:String(album.title||""),artist_name:String(album.artist||""),user_id:user.id,username:currentUsername()||authDisplayName()||"Listener",track_names:trackNames,status:"pending",updated_at:new Date().toISOString()};
+  const result=existingId?await db.from("album_defining_track_submissions").update(payload).eq("id",existingId).eq("user_id",user.id).eq("status","pending").select().single():await db.from("album_defining_track_submissions").insert({...payload,created_at:new Date().toISOString()}).select().single();
+  button.disabled=false;
+  if(result.error){if(status)status.textContent=/album_defining_track_submissions|schema cache|PGRST205/i.test(result.error.message||"")?"The defining-track submission migration still needs to be applied.":result.error.message||"Track submission failed.";return}
+  closeDefiningTracksContribution();
+  const host=document.getElementById("overviewMomentChips");
+  if(host)host.insertAdjacentHTML("afterend",'<p class="definingTracksContributionConfirmation">Tracks submitted for review.</p>');
+};
 function localAlbums(){return JSON.parse(localStorage.getItem("musicaLocalAlbums")||"[]")}
 function saveLocalAlbums(a){localStorage.setItem("musicaLocalAlbums",JSON.stringify(a))}
 function localRatings(){return JSON.parse(localStorage.getItem("musicaLocalRatings")||"{}")}
@@ -4797,9 +4865,9 @@ function renderTrackList(albumId,suppliedTracks=null){
   const singleArtUrl=featuredTrackArtworkUrl(first,album,album.cover_url||momentCover||heroScene||"");
   const singleArtHtml=singleArtUrl?`<img src="${escapeHtml(singleArtUrl)}" alt="${escapeHtml(first.name)} artwork">`:coverHtml;
   const editorialDescription=String(savedOverview.loved_track_description||savedOverview.loved_track_note||first.editorial_description||first.description||"").trim();
-  const featureLabel=lovedKey?"Most loved track":"Album opener";
+  const featureLabel="Most loved track";
   const featuredTrackNumber=String(Math.max(1,tracks.indexOf(first)+1)).padStart(2,"0");
-  const featuredHtml=`<section class="linerFeaturedTrack trackJourneyHeart ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="trackHeartCopy"><p class="trackHeartEyebrow">The heart of the album</p><span class="trackHeartType">${featureLabel}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="trackHeartPlay"><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><b>Play</b>${firstDuration?`<time>${escapeHtml(firstDuration)}</time>`:""}</div>${lovedAdmin}</div><div class="trackHeartInsight"><span class="trackHeartNumber" aria-hidden="true">${featuredTrackNumber}</span>${editorialDescription?`<p class="trackHeartInsightLabel">Why listeners return to it</p><p class="trackHeartDescription">${escapeHtml(editorialDescription)}</p>`:""}<p class="trackHeartPulseLabel">Community pulse</p><div class="trackHeartPulse">${communityPulseHtml(firstScoreValue,first.name,"large")}${firstScore?`<strong>${escapeHtml(firstScore)}</strong>`:""}</div></div><div class="trackHeartArtwork" aria-label="${escapeHtml(first.name)} artwork">${singleArtHtml}<div><strong>${escapeHtml(album.title||"")}</strong><span>${escapeHtml(album.artist||"")}</span></div></div></section>`;
+  const featuredHtml=`<section class="linerFeaturedTrack trackJourneyHeart ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="trackHeartCopy"><span class="trackHeartType">${featureLabel}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="trackHeartPlay"><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><b>Play</b>${firstDuration?`<time>${escapeHtml(firstDuration)}</time>`:""}</div>${lovedAdmin}</div><div class="trackHeartInsight"><span class="trackHeartNumber" aria-hidden="true">${featuredTrackNumber}</span>${editorialDescription?`<p class="trackHeartInsightLabel">Why listeners return to it</p><p class="trackHeartDescription">${escapeHtml(editorialDescription)}</p>`:""}<p class="trackHeartPulseLabel">Community pulse</p><div class="trackHeartPulse">${communityPulseHtml(firstScoreValue,first.name,"large")}${firstScore?`<strong>${escapeHtml(firstScore)}</strong>`:""}</div></div><div class="trackHeartArtwork" aria-label="${escapeHtml(first.name)} artwork">${singleArtHtml}<div><strong>${escapeHtml(album.title||"")}</strong><span>${escapeHtml(album.artist||"")}</span></div></div></section>`;
   const mobileFeaturedHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>${escapeHtml(featureLabel)}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong></div><div class="momentWhy singleArtMoment">${singleArtHtml}</div><div class="featureCover">${coverHtml}</div></section>`;
   const tableHtml=`<section class="linerTrackTable trackJourneyList" aria-label="Album track journey">${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
   const mobileTableHtml=`<section class="linerTrackTable" aria-label="Album track list"><div class="trackTableHead"><span>#</span><span>Title</span><span>Share</span><span>Score</span><span>Comments</span></div>${mobileRows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
@@ -6155,7 +6223,7 @@ async function adminOverviewRequest(payload){
     adminDebug("request response",{action:payload.action,status:res.status,ok:res.ok,serverDebug:data.debug||null});
     if(!res.ok){
       const errorText=String(data.error||data.message||"");
-      if(["list_album_review_submissions","list_artist_bio_submissions"].includes(payload?.action)){
+      if(["list_album_review_submissions","list_artist_bio_submissions","list_defining_track_submissions"].includes(payload?.action)){
         console.warn("Community submission queue is unavailable",errorText);
         return {ok:false,rows:[],queueUnavailable:true};
       }
@@ -7851,15 +7919,21 @@ function stopPresenceHeartbeat(){
   updateOwnPresence(false);
 }
 async function loadProfileDirectory(){
-  if(db){
-    let {data,error}=await db.from("public_user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").limit(200);
-    if(error&&/public_user_profiles|relation|schema cache/i.test(error.message||"")){
-      const fallback=await db.from("user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").limit(200);
-      data=fallback.data;
-      error=fallback.error;
+  const profileDb=publicDataDb||db;
+  extras.profileDirectoryLoaded=false;
+  if(profileDb){
+    const pageSize=1000;
+    const rows=[];
+    let error=null;
+    for(let from=0;;from+=pageSize){
+      const result=await profileDb.from("public_user_profiles").select("user_id,username,avatar_url,avatar_config,avatar_svg,avatar_type,created_at").range(from,from+pageSize-1);
+      if(result.error){error=result.error;break}
+      const batch=result.data||[];
+      rows.push(...batch);
+      if(batch.length<pageSize)break;
     }
-    if(!error){extras.profileDirectory=data||[];return extras.profileDirectory}
-    console.warn("Unable to load profile avatars",error.message||error);
+    if(!error){extras.profileDirectory=rows;extras.profileDirectoryLoaded=true;return extras.profileDirectory}
+    console.warn("Unable to load complete public profile directory",error.message||error);
   }
   const localProfile=loadLocalUserProfile();
   extras.profileDirectory=localProfile?[localProfile]:[];
@@ -10772,7 +10846,7 @@ window.openAlbum=async function(id){
   const top250Rank=muzeTop250Rank(a);
   const yearAccolade=top250Rank?null:albumYearAccolade(a);
   const accoladeStat=top250Rank?`<div class="linerAccoladeStat"><span>Muze All-Time</span><strong class="statValueWithIcon">#${top250Rank}</strong><small>Overall album ranking</small></div>`:yearAccolade?`<div class="linerAccoladeStat"><span>${escapeHtml(yearAccolade.label||`Albums of ${yearAccolade.year}`)}</span><strong class="statValueWithIcon">${albumStatIcon("rank")}#${yearAccolade.rank}</strong><small>${escapeHtml(yearAccolade.source)}</small></div>`:"";
-  const collectionMembershipReady=Boolean(extras.publicListsLoaded&&(extras.libraries||[]).length);
+  const collectionMembershipReady=Boolean(extras.profileDirectoryLoaded&&extras.publicListsLoaded&&(extras.libraries||[]).length);
   const memberCollectionRate=albumMemberCollectionRate(a);
   const memberCollectionValue=collectionMembershipReady&&memberCollectionRate.percentage>0?`${memberCollectionRate.percentage}%`:"-";
   const memberCollectionStat=`<div class="linerMemberCollectionStat" data-member-collection-stat><span>Members added</span><strong class="statValueWithIcon">${albumStatIcon("members")}<b data-member-rate-value>${memberCollectionValue}</b></strong><small>Libraries + suggestions</small></div>`;
@@ -10804,6 +10878,7 @@ window.openAlbum=async function(id){
   const albumActionRow=$("#albumModal .linerActions");
   if(editorialSeeMore&&albumActionRow)albumActionRow.insertAdjacentElement("afterend",editorialSeeMore);
   const collectionDataRequests=[];
+  if(!extras.profileDirectoryLoaded&&(extras.libraries||[]).length)collectionDataRequests.push(loadProfileDirectory());
   if(!extras.publicListsLoaded)collectionDataRequests.push(loadPublicLists());
   if(!(extras.libraries||[]).length)collectionDataRequests.push(loadLibraries());
   if(collectionDataRequests.length)Promise.allSettled(collectionDataRequests).then(()=>{
@@ -10818,7 +10893,7 @@ window.openAlbum=async function(id){
     if(detailNode)detailNode.innerHTML=`${refreshed.libraries.toLocaleString()} ${refreshed.libraries===1?"library":"libraries"} &middot; ${refreshed.suggestions.toLocaleString()} suggestion${refreshed.suggestions===1?"":"s"}`;
     const memberRate=albumMemberCollectionRate(a);
     const memberRateNode=$("#albumModal [data-member-rate-value]");
-    if(memberRateNode)memberRateNode.textContent=memberRate.percentage>0?`${memberRate.percentage}%`:"-";
+    if(memberRateNode)memberRateNode.textContent=extras.profileDirectoryLoaded&&memberRate.percentage>0?`${memberRate.percentage}%`:"-";
   });
   let heroDescription=$("#albumModalContent .linerHeroCopy > p:not(.eyebrow)");
   if(heroDescription&&!summary){

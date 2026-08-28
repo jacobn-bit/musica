@@ -21116,6 +21116,30 @@ body.light .albumRatingPanel .albumStarChoice.hasRating{background:transparent}
 .artistBioSubmissionQueue article div{display:flex;gap:8px}.artistBioSubmissionQueue article button{border:1px solid rgba(214,171,53,.42);border-radius:999px;background:transparent;color:var(--muze-gold,#d6ab35);padding:7px 11px;cursor:pointer}
 body.light .artistBioContributionPanel{background:#f4f2ec;color:#171717}body.light .artistBioContributionPanel h2{color:#171717}body.light .artistBioContributionPanel>p,body.light .artistBioContributionPanel>label{color:rgba(23,23,23,.68)}body.light .artistBioContributionPanel textarea{background:#fff;color:#171717}
 @media(max-width:560px){.artistBioContributionPanel{padding:24px 18px}.artistBioContributionPanel textarea{min-height:220px}.artistBioContributionActions{flex-direction:column-reverse}.artistBioContributionActions button{width:100%}}
+
+#albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay.isPreviewing::before,
+#albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay.isPreviewing::after{
+  background:var(--muze-gold,#d6ab35)!important;
+}
+
+.definingTracksContributionModal{z-index:12000}
+.definingTracksContributionPanel{width:min(620px,calc(100vw - 32px));max-height:min(760px,90vh);overflow:auto;padding:30px;border:1px solid rgba(214,171,53,.24);border-radius:22px;background:#171720;color:#f5f0e8}
+.definingTracksContributionPanel>.eyebrow{margin:0 44px 8px 0;color:var(--muze-gold,#d6ab35)}
+.definingTracksContributionPanel h2{margin:0 44px 8px 0;color:#f5f0e8;font-family:var(--muze-serif,Georgia,"Times New Roman",serif);font-size:30px}
+.definingTracksContributionPanel>p{margin:0 0 18px;color:rgba(245,240,232,.62);font:500 14px/1.55 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)}
+.definingTracksSelectionList{display:grid;max-height:390px;overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.018)}
+.definingTracksSelectionList label{display:block;border-top:1px solid rgba(255,255,255,.06);cursor:pointer}.definingTracksSelectionList label:first-child{border-top:0}
+.definingTracksSelectionList input{position:absolute;opacity:0;pointer-events:none}
+.definingTracksSelectionList span{display:flex;align-items:center;gap:12px;padding:12px 14px;color:rgba(245,240,232,.72);font:650 13px/1.35 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)}
+.definingTracksSelectionList span:before{content:"";width:16px;height:16px;flex:0 0 16px;border:1px solid rgba(245,240,232,.30);border-radius:4px;background:transparent}
+.definingTracksSelectionList span b{width:24px;color:rgba(245,240,232,.34);font-size:10px;letter-spacing:.08em}
+.definingTracksSelectionList input:checked+span{background:rgba(214,171,53,.075);color:#f5f0e8}.definingTracksSelectionList input:checked+span:before{border-color:var(--muze-gold,#d6ab35);background:var(--muze-gold,#d6ab35);box-shadow:inset 0 0 0 4px #171720}
+.definingTracksSelectionList input:disabled+span{opacity:.38;cursor:not-allowed}
+.definingTracksSelectionFoot{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.definingTracksSelectionFoot>strong{color:var(--muze-gold,#d6ab35);font:800 11px/1.3 var(--muze-sans);letter-spacing:.08em;text-transform:uppercase}.definingTracksSelectionFoot>div{display:flex;gap:8px}
+.definingTracksSelectionFoot button{padding:9px 14px;border:1px solid rgba(214,171,53,.54);border-radius:999px;background:rgba(214,171,53,.10);color:var(--muze-gold,#d6ab35);font:700 12px/1 var(--muze-sans);cursor:pointer}.definingTracksSelectionFoot button.secondary{border-color:rgba(115,70,98,.55);background:rgba(115,70,98,.10);color:rgba(245,240,232,.70)}.definingTracksSelectionFoot button:disabled{opacity:.35;cursor:not-allowed}
+#definingTracksContributionStatus{display:block;min-height:16px;margin-top:10px;color:#e9a5ae;font:600 12px/1.4 var(--muze-sans)}
+.definingTracksContributionConfirmation{margin:10px 0 0;color:rgba(214,171,53,.72);font:700 11px/1.4 var(--muze-sans);letter-spacing:.04em}
+@media(max-width:560px){.definingTracksContributionPanel{padding:24px 18px}.definingTracksSelectionFoot{align-items:stretch;flex-direction:column}.definingTracksSelectionFoot>div button{flex:1}}
 #albumModal:not(.libraryDetailModal) .albumReviewByline{
   margin:-5px 0 12px!important;
   color:#d6ab35!important;
