@@ -482,10 +482,19 @@ create table if not exists album_metadata (
   album_ref text primary key, album_id text, title text not null, artist text not null,
   original_release_date text, release_year int, country text, album_type text,
   total_runtime_ms bigint, track_count int, musicbrainz_release_id text,
+  chart_peak_position int, chart_name text, chart_country text,
+  chart_source_url text, chart_checked_at timestamptz, chart_lookup_version text,
   musicbrainz_release_group_id text, source text, source_url text,
   source_confidence text, manually_verified boolean not null default false,
   last_verified_at timestamptz, updated_at timestamptz not null default now()
 );
+alter table if exists album_metadata
+  add column if not exists chart_peak_position int,
+  add column if not exists chart_name text,
+  add column if not exists chart_country text,
+  add column if not exists chart_source_url text,
+  add column if not exists chart_checked_at timestamptz,
+  add column if not exists chart_lookup_version text;
 create table if not exists album_credits (
   id uuid primary key default gen_random_uuid(), album_ref text not null, album_id text,
   person_name text not null, person_id text, image_url text, credit_type text not null,
