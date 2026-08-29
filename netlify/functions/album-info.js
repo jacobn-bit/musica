@@ -364,6 +364,105 @@ function wikipediaCountry(value) {
   return normalize(country) === "united states of america" ? "United States" : country;
 }
 
+const wikipediaAlbumChartDefinitions = [
+  { tests: [/billboard\s*(?:200|top\s*lps)/i, /billboard.*(?:albums?|lps)/i, /^billboard200$/i, /^us$/i], name: "Billboard 200", country: "United States", priority: 90 },
+  { tests: [/uk\s*albums?/i, /official\s*albums?/i, /record\s*retailer.*albums?/i, /^uk$/i, /^ukalbums$/i, /^unitedkingdom$/i], name: "UK Albums Chart", country: "United Kingdom", priority: 85 },
+  { tests: [/aria/i, /kent\s*music\s*report/i, /go set.*albums?/i, /^australia$/i], name: "ARIA Albums Chart", country: "Australia", priority: 75 },
+  { tests: [/canadian\s*albums?/i, /rpm.*albums?/i, /^canada$/i], name: "Canadian Albums Chart", country: "Canada", priority: 70 },
+  { tests: [/new\s*zealand/i, /recorded\s*music\s*nz/i, /^rmnz$/i, /^newzealand$/i], name: "New Zealand Albums Chart", country: "New Zealand", priority: 68 },
+  { tests: [/dutch\s*albums?/i, /album\s*top\s*100/i, /mega.*albums?/i, /^netherlands$/i], name: "Dutch Albums Chart", country: "Netherlands", priority: 67 },
+  { tests: [/irish\s*albums?/i, /^ireland$/i], name: "Irish Albums Chart", country: "Ireland", priority: 66 },
+  { tests: [/italian\s*albums?/i, /^italy$/i], name: "Italian Albums Chart", country: "Italy", priority: 65 },
+  { tests: [/spanish\s*albums?/i, /^spain$/i], name: "Spanish Albums Chart", country: "Spain", priority: 64 },
+  { tests: [/swedish\s*albums?/i, /^sweden$/i], name: "Swedish Albums Chart", country: "Sweden", priority: 63 },
+  { tests: [/norwegian\s*albums?/i, /^norway$/i], name: "Norwegian Albums Chart", country: "Norway", priority: 62 },
+  { tests: [/danish\s*albums?/i, /^denmark$/i], name: "Danish Albums Chart", country: "Denmark", priority: 61 },
+  { tests: [/offizielle.*charts?/i, /german\s*albums?/i, /gfk.*albums?/i, /^germany$/i], name: "German Albums Chart", country: "Germany", priority: 60 },
+  { tests: [/swiss\s*albums?/i, /^switzerland$/i], name: "Swiss Albums Chart", country: "Switzerland", priority: 59 },
+  { tests: [/austrian\s*albums?/i, /^austria$/i], name: "Austrian Albums Chart", country: "Austria", priority: 58 },
+  { tests: [/finnish\s*albums?/i, /^finland$/i], name: "Finnish Albums Chart", country: "Finland", priority: 57 },
+  { tests: [/belgian.*albums?/i, /^belgium(?:flanders|wallonia)?$/i], name: "Belgian Albums Chart", country: "Belgium", priority: 56 },
+  { tests: [/snep/i, /^france$/i], name: "French Albums Chart", country: "France", priority: 55 },
+  { tests: [/oricon/i, /^japan$/i], name: "Oricon Albums Chart", country: "Japan", priority: 50 }
+];
+const ALBUM_CHART_LOOKUP_VERSION = "origin-aware-peak-v5";
+
+const europeanAlbumOrigins = new Set([
+  "albania", "andorra", "austria", "belarus", "belgium", "bosnia and herzegovina", "bulgaria", "croatia", "cyprus",
+  "czech republic", "czechia", "czechoslovakia", "denmark", "england", "estonia", "europe", "finland", "france", "georgia", "germany", "great britain", "greece",
+  "hungary", "iceland", "ireland", "italy", "kosovo", "latvia", "liechtenstein", "lithuania", "luxembourg", "malta",
+  "moldova", "monaco", "montenegro", "netherlands", "north macedonia", "northern ireland", "norway", "poland", "portugal",
+  "romania", "russia", "san marino", "scotland", "serbia", "slovakia", "slovenia", "soviet union", "spain", "sweden", "switzerland",
+  "turkey", "ukraine", "united kingdom", "vatican city", "wales", "west germany", "yugoslavia"
+]);
+
+function wikipediaAlbumOriginIsEuropean(country) {
+  return wikipediaList(country).some(value => europeanAlbumOrigins.has(normalize(value)));
+}
+
+function wikipediaAlbumChartDefinition(value) {
+  const cleanValue = clean(String(value || "").replace(/[^A-Za-z0-9 ]+/g, " "));
+  return wikipediaAlbumChartDefinitions.find(item => item.tests.some(test => test.test(cleanValue))) || null;
+}
+
+function parseWikipediaAlbumChart(wikitext, preferredCountry = "") {
+  const rows = [];
+  const add = (chartValue, peakValue) => {
+    const peak = Number(String(peakValue || "").match(/\d{1,3}/)?.[0]);
+    const definition = wikipediaAlbumChartDefinition(chartValue);
+    if (!definition || !Number.isInteger(peak) || peak < 1 || peak > 250) return;
+    rows.push({ chart_name: definition.name, chart_country: definition.country, chart_peak_position: peak, priority: definition.priority });
+  };
+  const templatePattern = /\{\{\s*album chart\b([\s\S]*?)\}\}/gi;
+  for (const match of String(wikitext || "").matchAll(templatePattern)) {
+    const parameters = match[1].split("|").map(clean).filter(Boolean);
+    const positional = parameters.filter(parameter => !parameter.includes("="));
+    const chart = positional[0] || clean(parameters.find(parameter => /^(?:chart|name)\s*=/.test(parameter))?.split("=").slice(1).join("="));
+    const peak = clean(parameters.find(parameter => /^(?:peak|position)\s*=/.test(parameter))?.split("=").slice(1).join("=")) || positional.find(parameter => /^\d{1,3}$/.test(parameter));
+    add(chart, peak);
+  }
+  for (const tableRow of String(wikitext || "").split(/\n\|-\s*/)) {
+    const definition = wikipediaAlbumChartDefinition(stripWikiMarkup(tableRow));
+    if (!definition) continue;
+    const peakCell = tableRow.match(/(?:^|\n)\|\s*(?:[^|\n]*\|\s*)?(\d{1,3})(?=\s*(?:\n|$|<))/m)
+      || tableRow.match(/\|\|\s*(\d{1,3})(?=\s*(?:\n|$|<))/m);
+    if (peakCell) add(definition.name, peakCell[1]);
+  }
+  const tablePatterns = [
+    [/Billboard\s*200[^\n|}]*[|!]\s*(\d{1,3})/gi, "Billboard 200"],
+    [/UK\s*Albums?\s*Chart[^\n|}]*[|!]\s*(\d{1,3})/gi, "UK Albums Chart"],
+    [/ARIA\s*Albums?\s*Chart[^\n|}]*[|!]\s*(\d{1,3})/gi, "ARIA Albums Chart"]
+  ];
+  tablePatterns.forEach(([pattern, chart]) => { for (const match of String(wikitext || "").matchAll(pattern)) add(chart, match[1]); });
+  const prose = stripWikiMarkup(String(wikitext || "")).replace(/\s+/g, " ");
+  const toppedBothPrimaryMarkets = [
+    /\btopped\b[^.]{0,80}\b(?:record|album)?\s*charts?\b[^.]{0,50}\bUnited States\b[^.]{0,50}\bUnited Kingdom\b/i,
+    /\btopped\b[^.]{0,80}\b(?:record|album)?\s*charts?\b[^.]{0,50}\bUnited Kingdom\b[^.]{0,50}\bUnited States\b/i,
+    /\b(?:number one|No\.?\s*1)\b[^.]{0,60}\b(?:United States|US)\b[^.]{0,50}\b(?:United Kingdom|UK)\b/i,
+    /\b(?:number one|No\.?\s*1)\b[^.]{0,60}\b(?:United Kingdom|UK)\b[^.]{0,50}\b(?:United States|US)\b/i
+  ].some(pattern => pattern.test(prose));
+  if (toppedBothPrimaryMarkets) {
+    add("Billboard 200", 1);
+    add("UK Albums Chart", 1);
+  }
+  const numberOneChartPatterns = [
+    [/\b(?:topped|returned to the top of)\b[^.]{0,100}\b(?:Billboard\s+(?:200|Top LPs)|US Albums? Chart)\b/i, "Billboard 200"],
+    [/\b(?:Billboard\s+(?:200|Top LPs)|US Albums? Chart)\b[^.]{0,120}\b(?:number one|No\.?\s*1|top spot|first place)\b/i, "Billboard 200"],
+    [/\b(?:topped|returned to the top of)\b[^.]{0,100}\b(?:UK Albums? Chart|Official Albums? Chart)\b/i, "UK Albums Chart"],
+    [/\b(?:UK Albums? Chart|Official Albums? Chart)\b[^.]{0,120}\b(?:number one|No\.?\s*1|top spot|first place)\b/i, "UK Albums Chart"],
+    [/\b(?:number one|No\.?\s*1|top spot|first place|number one position)\b[^.]{0,100}\b(?:Billboard\s+(?:200|Top LPs)|US Albums? Chart)\b/i, "Billboard 200"],
+    [/\b(?:number one|No\.?\s*1|top spot|first place|number one position)\b[^.]{0,100}\b(?:UK Albums? Chart|Official Albums? Chart)\b/i, "UK Albums Chart"]
+  ];
+  numberOneChartPatterns.forEach(([pattern, chart]) => { if (pattern.test(prose)) add(chart, 1); });
+  const eligibleRows = wikipediaAlbumOriginIsEuropean(preferredCountry)
+    ? rows
+    : rows.filter(row => ["United States", "United Kingdom", "Canada"].includes(row.chart_country));
+  eligibleRows.sort((left, right) => left.chart_peak_position - right.chart_peak_position || right.priority - left.priority);
+  if (!eligibleRows.length) return null;
+  const { priority, ...result } = eligibleRows[0];
+  return result;
+}
+
 function parseWikipediaAlbumInfo(wikitext, context = {}) {
   const released = wikipediaDate(wikipediaInfoboxField(wikitext, "released"));
   const country = wikipediaCountry(wikipediaInfoboxField(wikitext, "country"));
@@ -382,6 +481,7 @@ function parseWikipediaAlbumInfo(wikitext, context = {}) {
     manually_verified: false
   }));
   const credits = parseWikipediaCredits(wikitext, context);
+  const chart = parseWikipediaAlbumChart(wikitext, country);
   const hasNamedPerformers = credits.some(row => row.credit_type === "performer" && row.person_name);
   const metadata = {
     source: "Wikipedia",
@@ -395,6 +495,7 @@ function parseWikipediaAlbumInfo(wikitext, context = {}) {
   if (country) metadata.country = country;
   if (albumTypes[type]) metadata.album_type = albumTypes[type];
   if (runtime) metadata.total_runtime_ms = runtime;
+  if (chart) Object.assign(metadata, chart, { chart_source_url: context.source_url || "" });
   return { metadata, labels, credits };
 }
 
@@ -661,11 +762,20 @@ function mergeCredits(...lists) {
 }
 
 function hasNamedPerformerCredits(info) {
-  return Array.isArray(info?.credits) && info.credits.some(row => normalize(row?.credit_type) === "performer" && clean(row?.person_name));
+  const albumArtist = normalize(info?.metadata?.artist);
+  return Array.isArray(info?.credits) && info.credits.some(row => {
+    if (normalize(row?.credit_type) !== "performer" || !clean(row?.person_name)) return false;
+    const role = normalize([row?.role, row?.instrument].filter(Boolean).join(" "));
+    const genericArtistCard = albumArtist && normalize(row.person_name) === albumArtist
+      && (!role || ["artist", "performer", "primary artist"].includes(role));
+    return !genericArtistCard;
+  });
 }
 
 function hasCompleteAlbumInfoCache(info) {
   return info?.metadata?.source_confidence === ALBUM_INFO_IMPORT_VERSION
+    && Boolean(info?.metadata?.chart_checked_at)
+    && info?.metadata?.chart_lookup_version === ALBUM_CHART_LOOKUP_VERSION
     && normalize(info?.metadata?.album_type) !== "single"
     && hasNamedPerformerCredits(info)
     && Array.isArray(info?.labels)
@@ -980,16 +1090,29 @@ function stringArray(value) {
   } catch (_) { return []; }
 }
 
+const portraitWikidataIdentityOverrides = new Map([
+  ["prince", "Q7542"]
+]);
+
+function portraitWikidataIdentityOverride(personName) {
+  return portraitWikidataIdentityOverrides.get(normalize(personName)) || "";
+}
+
+function portraitIdentityIsAllowed(row) {
+  const expected = portraitWikidataIdentityOverride(row?.person_name);
+  return !expected || clean(row?.person_wikidata_id) === expected;
+}
+
+function requireAllowedPortraitIdentity(row) {
+  if (portraitIdentityIsAllowed(row)) return;
+  const expected = portraitWikidataIdentityOverride(row?.person_name);
+  throw new Error(`${clean(row?.person_name) || "This artist"} portraits must be tied to Wikidata ${expected} before they can be approved.`);
+}
+
 async function wikidataIdForCredit(credit) {
   const name = clean(credit?.person_name);
-  if (name) {
-    try {
-      const result = await wikipediaJson({ action: "query", titles: name, redirects: "1", prop: "pageprops" });
-      const page = (result?.query?.pages || []).find(item => !item.missing);
-      const itemId = clean(page?.pageprops?.wikibase_item);
-      if (/^Q\d+$/.test(itemId)) return itemId;
-    } catch (_) {}
-  }
+  const knownIdentity = portraitWikidataIdentityOverride(name);
+  if (knownIdentity) return knownIdentity;
   const personId = clean(credit?.person_id);
   if (personId) {
     try {
@@ -997,6 +1120,14 @@ async function wikidataIdForCredit(credit) {
       const relation = (artist.relations || []).find(item => /wikidata/i.test(item.type || "") || /wikidata\.org\/wiki\/Q\d+/i.test(item.url?.resource || ""));
       const itemId = /\/wiki\/(Q\d+)/i.exec(relation?.url?.resource || "")?.[1];
       if (itemId) return itemId.toUpperCase();
+    } catch (_) {}
+  }
+  if (name) {
+    try {
+      const result = await wikipediaJson({ action: "query", titles: name, redirects: "1", prop: "pageprops" });
+      const page = (result?.query?.pages || []).find(item => !item.missing);
+      const itemId = clean(page?.pageprops?.wikibase_item);
+      if (/^Q\d+$/.test(itemId)) return itemId;
     } catch (_) {}
   }
   return "";
@@ -1061,7 +1192,7 @@ const portraitFields = ["person_wikidata_id", "image_url", "image_source_url", "
 const sharedPortraitFields = portraitFields.filter(field => field !== "image_rejected_urls");
 
 function applySharedApprovedPortraits(credits, approvedRows) {
-  const approved = (Array.isArray(approvedRows) ? approvedRows : []).filter(row => row?.image_approved && clean(row?.image_url));
+  const approved = (Array.isArray(approvedRows) ? approvedRows : []).filter(row => row?.image_approved && clean(row?.image_url) && portraitIdentityIsAllowed(row));
   const byItemId = new Map();
   const byName = new Map();
   approved.forEach(row => {
@@ -1073,7 +1204,7 @@ function applySharedApprovedPortraits(credits, approvedRows) {
   (Array.isArray(credits) ? credits : []).forEach(credit => {
     if (credit?.image_approved) return;
     const itemId = clean(credit?.person_wikidata_id);
-    const match = (itemId && byItemId.get(itemId)) || byName.get(normalize(credit?.person_name));
+    const match = itemId ? byItemId.get(itemId) : byName.get(normalize(credit?.person_name));
     if (!match) return;
     sharedPortraitFields.forEach(field => {
       if (Object.prototype.hasOwnProperty.call(match, field)) credit[field] = match[field];
@@ -1099,6 +1230,12 @@ async function portraitForCredit(credit) {
 
 async function attachArtistPortraits(info) {
   const credits = Array.isArray(info?.credits) ? info.credits : [];
+  credits.forEach(credit => {
+    const expected = portraitWikidataIdentityOverride(credit?.person_name);
+    if (!expected || clean(credit?.person_wikidata_id) === expected) return;
+    sharedPortraitFields.forEach(field => { credit[field] = null; });
+    Object.assign(credit, { person_wikidata_id: expected, image_status: "candidate", image_approved: false });
+  });
   if (credits.some(row => ["performer", "production"].includes(row.credit_type) && !row.image_approved)) {
     try {
       const fields = ["person_name", ...sharedPortraitFields].join(",");
@@ -1508,6 +1645,8 @@ async function importAlbumInfo(input) {
   const wikipedia = await wikipediaPromise;
   if (!info && !wikipedia) return null;
   const merged = mergeWikipediaAlbumInfo(info || basicImportedInfo(input), wikipedia);
+  merged.metadata.chart_checked_at = new Date().toISOString();
+  merged.metadata.chart_lookup_version = ALBUM_CHART_LOOKUP_VERSION;
   merged.sales = (await salesPromise) || wikipedia?.sales || merged.sales;
   if (!wikipediaLookupSucceeded) merged.metadata.source_confidence = "wikipedia-lookup-pending";
   return merged;
@@ -1517,9 +1656,16 @@ function preserveManualCachedInfo(imported, cached) {
   if (!cached) return imported;
   const manualCredits = (cached.credits || []).filter(row => row.manually_verified || row.image_approved || stringArray(row.image_rejected_urls).length || ["approved", "rejected"].includes(clean(row.image_status).toLowerCase()));
   const manualLabels = (cached.labels || []).filter(row => row.manually_verified);
+  let metadata = imported.metadata;
+  if (cached.metadata?.manually_verified) {
+    metadata = { ...imported.metadata, ...cached.metadata, source_confidence: ALBUM_INFO_IMPORT_VERSION };
+    ["chart_peak_position", "chart_name", "chart_country", "chart_source_url", "chart_checked_at", "chart_lookup_version"].forEach(field => {
+      if ((cached.metadata[field] === null || cached.metadata[field] === undefined || cached.metadata[field] === "") && imported.metadata?.[field] !== undefined) metadata[field] = imported.metadata[field];
+    });
+  }
   return {
     ...imported,
-    metadata: cached.metadata?.manually_verified ? { ...cached.metadata, source_confidence: ALBUM_INFO_IMPORT_VERSION } : imported.metadata,
+    metadata,
     credits: mergeCredits(manualCredits, imported.credits || []),
     labels: mergeLabels(manualLabels, imported.labels || []),
     sales: cached.sales?.manually_verified ? cached.sales : (imported.sales || cached.sales || null),
@@ -1585,6 +1731,40 @@ function normalizeImportedCreditRows(rows = []) {
   }));
 }
 
+function dedupeNormalizedCreditRows(rows = []) {
+  const merged = new Map();
+  rows.forEach(row => {
+    if (!row?.album_ref || !row?.person_name || !row?.credit_type) return;
+    const key = [row.album_ref, row.person_name, row.credit_type, row.role || "", row.instrument || ""].map(normalize).join("::");
+    const current = merged.get(key);
+    if (!current) {
+      merged.set(key, { ...row });
+      return;
+    }
+    current.sort_order = Math.min(Number(current.sort_order) || 0, Number(row.sort_order) || 0);
+    current.manually_verified = current.manually_verified === true || row.manually_verified === true;
+    current.image_approved = current.image_approved === true || row.image_approved === true;
+    current.image_url ||= row.image_url || null;
+    current.image_source_url ||= row.image_source_url || null;
+    current.image_author ||= row.image_author || null;
+    current.image_license ||= row.image_license || null;
+    current.image_license_url ||= row.image_license_url || null;
+    current.image_attribution ||= row.image_attribution || null;
+    current.image_modified ||= row.image_modified || null;
+    current.person_id ||= row.person_id || null;
+    current.person_wikidata_id ||= row.person_wikidata_id || null;
+    current.source ||= row.source || null;
+    current.source_url ||= row.source_url || null;
+    if (row.source && current.source && normalize(row.source) !== normalize(current.source) && !normalize(current.source).includes(normalize(row.source))) {
+      current.source = [current.source, row.source].filter(Boolean).join(" + ");
+    }
+    current.source_secondary ||= row.source_secondary || null;
+    current.source_secondary_url ||= row.source_secondary_url || null;
+    current.image_rejected_urls = [...new Set([...stringArray(current.image_rejected_urls), ...stringArray(row.image_rejected_urls)])];
+  });
+  return [...merged.values()].sort((left, right) => (Number(left.sort_order) || 0) - (Number(right.sort_order) || 0));
+}
+
 function normalizeImportedLabelRows(rows = []) {
   const now = new Date().toISOString();
   return rows.map(row => ({
@@ -1615,7 +1795,7 @@ async function cacheImportedInfo(info, replaceNonManual = false) {
     body: JSON.stringify(info.metadata)
   });
   if (info.credits.length) await api("album_credits", {
-    method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(normalizeImportedCreditRows(info.credits))
+    method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(dedupeNormalizedCreditRows(normalizeImportedCreditRows(info.credits)))
   });
   if (info.labels.length) await api("album_labels", {
     method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(normalizeImportedLabelRows(info.labels))
@@ -1695,12 +1875,13 @@ async function adminAction(body) {
   const now = new Date().toISOString();
   const base = { album_ref: ref, album_id: clean(body.album_id) || null, manually_verified: body.manually_verified !== false, updated_at: now };
   if (body.action === "save_metadata") {
-    const row = { ...base, title: clean(body.title), artist: clean(body.artist), ...pick(body, ["original_release_date", "release_year", "country", "album_type", "total_runtime_ms", "track_count", "source", "source_url", "source_confidence"]), last_verified_at: now };
+    const row = { ...base, title: clean(body.title), artist: clean(body.artist), ...pick(body, ["original_release_date", "release_year", "country", "album_type", "total_runtime_ms", "track_count", "chart_peak_position", "chart_name", "chart_country", "chart_source_url", "chart_checked_at", "chart_lookup_version", "source", "source_url", "source_confidence"]), last_verified_at: now };
     return api("album_metadata", { method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(row) });
   }
   if (body.action === "save_credit") {
     const row = { ...base, ...pick(body, ["person_name", "person_id", "person_wikidata_id", "image_url", "image_source_url", "image_author", "image_license", "image_license_url", "image_attribution", "image_modified", "image_status", "image_approved", "image_last_verified_at", "credit_type", "role", "instrument", "sort_order", "source", "source_url", "source_secondary", "source_secondary_url"]) };
     row.credit_type = normalize(row.credit_type);
+    if (row.image_approved) requireAllowedPortraitIdentity(row);
     if (row.image_approved && (!isAllowedCommonsLicense(row.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(row.image_source_url)))) {
       throw new Error("Approved portraits must use an allowed Wikimedia Commons licence and file-page URL.");
     }
@@ -1828,6 +2009,7 @@ async function adminAction(body) {
       return saved;
     }
     if (approved && clean(body.image_url)) {
+      requireAllowedPortraitIdentity(body);
       if (!isAllowedCommonsLicense(body.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(body.image_source_url))) {
         throw new Error("This portrait does not have an approved Wikimedia Commons licence record.");
       }
@@ -1883,6 +2065,7 @@ async function adminAction(body) {
     if (!rows?.length) throw new Error("This portrait candidate could not be matched to a saved album credit. Refresh Details & Credits and try once more.");
     if (approved) {
       const portrait = rows?.[0] || {};
+      requireAllowedPortraitIdentity(portrait);
       if (!isAllowedCommonsLicense(portrait.image_license) || !/^https:\/\/commons\.wikimedia\.org\//i.test(clean(portrait.image_source_url))) {
         throw new Error("This portrait does not have an approved Wikimedia Commons licence record.");
       }
@@ -1995,11 +2178,37 @@ exports.handler = async function handler(event) {
     }
     const logoSchemaReady = schemaReady && cached?.record_label_logo_schema_ready !== false;
     const currentImportCache = hasCompleteAlbumInfoCache(cached);
-    if (!includeLogoAudit) {
-      if (!cached?.metadata) return json(404, { error: "Album details have not been added to Muze yet." }, 60);
+    if (!includeLogoAudit && cached?.metadata?.chart_checked_at && cached?.metadata?.chart_lookup_version === ALBUM_CHART_LOOKUP_VERSION) {
       applyVerifiedAlbumOverrides(cached, input);
       await attachRecordLabelLogos(cached, { persist: false, discover: false });
       return json(200, albumInfoResponseView({ ...cached, cached: true }, false), 300);
+    }
+    if (!includeLogoAudit) {
+      let wikipedia = null;
+      try { wikipedia = await fetchWikipediaInfo(input); } catch (error) {
+        console.warn("[Muze album info] public chart lookup unavailable", error.message);
+      }
+      const importedMetadata = wikipedia?.metadata || {};
+      const metadata = {
+        ...(cached?.metadata || basicImportedInfo(input).metadata),
+        ...Object.fromEntries(["chart_peak_position", "chart_name", "chart_country", "chart_source_url"].filter(field => importedMetadata[field] !== undefined && importedMetadata[field] !== null && importedMetadata[field] !== "").map(field => [field, importedMetadata[field]]))
+      };
+      if (wikipedia) {
+        metadata.chart_checked_at = new Date().toISOString();
+        metadata.chart_lookup_version = ALBUM_CHART_LOOKUP_VERSION;
+      }
+      const result = { metadata, credits: cached?.credits || [], labels: cached?.labels || [], sales: cached?.sales || null, certifications: cached?.certifications || [], cached: Boolean(cached?.metadata) };
+      applyVerifiedAlbumOverrides(result, input);
+      if (schemaReady && wikipedia) {
+        try {
+          await api("album_metadata", { method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(metadata) });
+        } catch (error) {
+          console.warn("[Muze album info] chart cache write unavailable", error.message);
+          result.cache_warning = `Chart information was found but could not be cached: ${error.message}`;
+        }
+      }
+      await attachRecordLabelLogos(result, { persist: false, discover: false });
+      return json(200, albumInfoResponseView(result, false), wikipedia ? 86400 : 60);
     }
     if (cached?.metadata && input.refresh !== "1" && currentImportCache) {
       applyVerifiedAlbumOverrides(cached, input);
@@ -2022,7 +2231,7 @@ exports.handler = async function handler(event) {
         await persistAttachedPortraits(result);
       } catch (error) {
         console.warn("[Muze album info] cache write failed", error.message);
-        throw new Error(`Album information was imported but could not be saved to the Muze database: ${error.message}`);
+        result.cache_warning = `Album information was imported but could not be saved to the Muze database: ${error.message}`;
       }
     }
     await attachRecordLabelLogos(result, { persist: logoSchemaReady, force: input.refresh === "1" });
@@ -2036,4 +2245,4 @@ exports.handler = async function handler(event) {
   }
 };
 
-exports._test = { aggregateCredits, albumInfoResponseView, applySharedApprovedPortraits, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, creditIdsForDeletion, hasCompleteAlbumInfoCache, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, normalizeImportedCreditRows, normalizeImportedLabelRows, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumInfo, parseWikipediaArticleSales, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
+exports._test = { aggregateCredits, albumInfoResponseView, applySharedApprovedPortraits, applyVerifiedAlbumOverrides, canonicalAlbumTitle, classifyRelation, commonsLogoMetadata, commonsPortraitFromPage, creditIdsForDeletion, dedupeNormalizedCreditRows, hasCompleteAlbumInfoCache, hasNamedPerformerCredits, importedInfo, isAllowedCommonsLicense, mergeCredits, mergeWikipediaAlbumInfo, normalizeImportedCreditRows, normalizeImportedLabelRows, parseBestsellingArtistAlbumUrl, parseBestsellingArtistSearchUrl, parseBestsellingSalesHtml, parseBestsellingSearchHtml, parseWikipediaAlbumChart, parseWikipediaAlbumInfo, parseWikipediaArticleSales, parseWikipediaCredits, parseWikipediaSalesHtml, pickCanonicalRelease, portraitIdentityIsAllowed, recordLabelLogoHasReuseBasis, recordLabelLogoIsPublic, requireAllowedPortraitIdentity, stringArray, structuredCreditFacts, wikipediaAlbumMatches };
