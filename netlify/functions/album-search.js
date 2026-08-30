@@ -1,6 +1,10 @@
 exports.handler = async function(event) {
+  const headers = { "Content-Type": "application/json" };
   try {
-    const q = event.queryStringParameters?.q || "";
+    const q = String(event.queryStringParameters?.q || "").trim();
+    if (!q) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "Search query is required." }) };
+    }
 
     const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
@@ -14,76 +18,34 @@ exports.handler = async function(event) {
     });
 
     const tokenData = await tokenRes.json();
-
-    if (!tokenData.access_token) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          error: "Spotify token failed",
-          spotifyResponse: tokenData
-        })
-      };
+    if (!tokenRes.ok || !tokenData.access_token) {
+      return { statusCode: tokenRes.status || 500, headers, body: JSON.stringify({ error: "Spotify token failed.", spotifyResponse: tokenData }) };
     }
 
     const searchRes = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=album&limit=10`,
-      {
-        headers: {
-          "Authorization": "Bearer " + tokenData.access_token
-        }
-      }
+      "https://api.spotify.com/v1/search?type=album&limit=12&q=" + encodeURIComponent(q),
+      { headers: { "Authorization": "Bearer " + tokenData.access_token } }
     );
 
-const rawText = await searchRes.text();
-
-let data;
-try {
-  data = JSON.parse(rawText);
-} catch (e) {
-  return {
-    statusCode: 500,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      error: "Spotify returned non-JSON",
-      rawResponse: rawText
-    })
-  };
-}
-
-    if (!data.albums || !data.albums.items) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          error: "Spotify API failed",
-          spotifyResponse: data
-        })
-      };
+    const data = await searchRes.json();
+    if (!searchRes.ok || !data.albums || !data.albums.items) {
+      return { statusCode: searchRes.status || 500, headers, body: JSON.stringify({ error: "Spotify API failed", spotifyResponse: data }) };
     }
 
     const albums = data.albums.items.map(a => ({
-      spotify_id: a.id,
+      spotify_id: a.id || "",
       title: a.name,
       artist: a.artists.map(x => x.name).join(", "),
+      album_type: a.album_type || "album",
+      release_date: a.release_date || "",
+      total_tracks: Number(a.total_tracks || 0),
       year: a.release_date ? a.release_date.slice(0, 4) : "",
       cover_url: a.images?.[0]?.url || "",
-      spotify_url: a.external_urls.spotify
+      spotify_url: a.external_urls?.spotify || ""
     }));
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ albums })
-    };
-  } catch (err) {
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        error: "Function crashed",
-        message: err.message
-      })
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ albums }) };
+  } catch (error) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || "Album search failed." }) };
   }
 };
