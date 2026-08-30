@@ -22052,6 +22052,7 @@ body:not(.light) #albumModal:not(.libraryDetailModal) .listenerCardsSection{
   #albumModal:not(.libraryDetailModal) .trackHeartDescription{display:block!important;font-size:15px!important;line-height:1.4!important}
   #albumModal:not(.libraryDetailModal) .trackHeartPlay{margin-top:16px!important;gap:10px!important}
   #albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay{width:40px!important;height:40px!important;min-width:40px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay{display:inline-grid!important;place-items:center!important;padding:0!important;border:1px solid rgba(214,171,53,.76)!important;border-radius:50%!important;background:transparent!important;color:#ffd51f!important;box-shadow:none!important}
   #albumModal:not(.libraryDetailModal) .trackHeartPlay>time{margin-left:0!important}
   #albumModal:not(.libraryDetailModal) .trackHeartArtwork{width:112px!important;align-self:center!important;justify-self:center!important}
   #albumModal:not(.libraryDetailModal) .trackHeartArtwork>img,
@@ -23389,5 +23390,154 @@ body.light .albumCatalogueListScore{color:#a87800}
     content:"\22EE"!important;
     color:rgba(255,255,255,.46)!important;
     font-size:14px!important;
+  }
+}
+/* Admin editor for More like this and Influence & Legacy. */
+.albumDiscoveryEditButton{
+  appearance:none;border:1px solid rgba(255,213,31,.42)!important;border-radius:999px!important;
+  background:rgba(255,213,31,.08)!important;color:#ffd51f!important;font:700 10px/1.1 Inter,Arial,sans-serif!important;
+  letter-spacing:.08em!important;text-transform:uppercase;padding:7px 10px!important;width:auto!important;height:auto!important;cursor:pointer;
+}
+.albumMoreLikeThis>header{position:relative}
+.albumMoreLikeThis>header>.albumDiscoveryEditButton{position:absolute;right:0;top:3px}
+.albumInfluenceLegacy .albumLegacyEmpty{color:#777;font:600 12px/1.4 Inter,Arial,sans-serif;margin:10px 0}
+.albumDiscoveryAdminModal{position:fixed;inset:0;z-index:100000}
+.albumDiscoveryAdminBackdrop{position:absolute;inset:0;background:rgba(4,3,8,.84);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px}
+.albumDiscoveryAdminPanel{width:min(1040px,96vw);max-height:92vh;overflow:auto;background:#121116;border:1px solid rgba(255,213,31,.35);border-radius:22px;box-shadow:0 30px 90px rgba(0,0,0,.65);color:#eee;padding:24px}
+.albumDiscoveryAdminHead{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid #2b2930;padding-bottom:18px;margin-bottom:18px}
+.albumDiscoveryAdminHead p{margin:0 0 5px;color:#ffd51f;font:800 11px/1 Inter,Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.albumDiscoveryAdminHead h2{margin:0;color:#f7f3ed;font:700 28px/1.1 Georgia,serif}
+.albumDiscoveryAdminHead span{display:block;color:#888;margin-top:5px;font:600 12px/1.3 Inter,Arial,sans-serif}
+.albumDiscoveryAdminHead>button{border:0;border-radius:50%;width:40px;height:40px;background:#24222a;color:#fff;font-size:27px;cursor:pointer}
+.albumDiscoveryAdminGroups{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px}
+.albumDiscoveryAdminGroups>section{background:#18171c;border:1px solid #2c2a31;border-radius:14px;padding:13px;min-width:0}
+.albumDiscoveryAdminGroups>section>header>div{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.albumDiscoveryAdminGroups>section>header span{color:#d5d1d1;font:800 11px/1 Inter,Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase}
+.albumDiscoveryAdminGroups>section>header small{color:#ffd51f;font:700 11px/1 Inter,Arial,sans-serif}
+.discoveryAdminSelected{display:grid;gap:7px}
+.discoveryAdminSelected>p,.albumDiscoveryAdminResults>p{color:#777;font:600 12px/1.4 Inter,Arial,sans-serif;margin:12px 4px}
+.discoveryAdminSelectedRow,.discoveryAdminResult{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;background:#111014;border:1px solid #29272d;border-radius:10px;padding:7px}
+.discoveryAdminSelectedRow>span,.discoveryAdminResult>span{width:42px;height:42px;border-radius:7px;overflow:hidden;background:#211f24;display:grid;place-items:center;color:#aaa;font:700 12px Georgia,serif}
+.discoveryAdminSelectedRow img,.discoveryAdminResult img{width:100%;height:100%;object-fit:cover}
+.discoveryAdminSelectedRow strong,.discoveryAdminResult strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#eee;font:700 12px/1.2 Inter,Arial,sans-serif}
+.discoveryAdminSelectedRow small,.discoveryAdminResult small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#777;font:600 10px/1.3 Inter,Arial,sans-serif;margin-top:3px}
+.discoveryAdminSelectedRow nav,.discoveryAdminResult nav{display:flex;gap:4px;align-items:center}
+.discoveryAdminSelectedRow button,.discoveryAdminResult button{border:1px solid #3a3740;border-radius:7px;background:#232129;color:#d7d3d8;min-height:28px;padding:5px 7px;font:700 10px/1 Inter,Arial,sans-serif;cursor:pointer}
+.discoveryAdminSelectedRow button:disabled,.discoveryAdminResult button:disabled{opacity:.28;cursor:default}
+.discoveryAdminSelectedRow button.remove{color:#ff8f8f}
+.albumDiscoveryAdminSearch{display:block;margin:20px 0 10px}
+.albumDiscoveryAdminSearch>span{display:block;color:#aaa;font:800 10px/1 Inter,Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;margin:0 0 7px}
+.albumDiscoveryAdminSearch input{width:100%;border:1px solid #39363f;border-radius:11px;background:#0e0d11;color:#fff;padding:12px 14px;font:600 14px Inter,Arial,sans-serif;outline:none}
+.albumDiscoveryAdminSearch input:focus{border-color:#ffd51f;box-shadow:0 0 0 3px rgba(255,213,31,.08)}
+.albumDiscoveryAdminResults{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:230px;overflow:auto;padding-right:3px}
+.discoveryAdminResult nav{flex-wrap:wrap;justify-content:flex-end;max-width:210px}
+.albumDiscoveryAdminPanel>footer{display:flex;align-items:center;justify-content:flex-end;gap:9px;border-top:1px solid #2b2930;margin-top:18px;padding-top:16px}
+.albumDiscoveryAdminPanel>footer p{margin:0 auto 0 0;color:#8d8991;font:600 12px Inter,Arial,sans-serif}
+.albumDiscoveryAdminPanel>footer button{border:1px solid #39363f;border-radius:10px;background:#232129;color:#ddd;padding:10px 14px;font:800 11px Inter,Arial,sans-serif;cursor:pointer}
+.albumDiscoveryAdminPanel>footer button.save{background:#ffd51f;border-color:#ffd51f;color:#15120a}
+.albumDiscoveryAdminPanel>footer button:disabled{opacity:.35;cursor:default}
+@media(max-width:800px){
+  .albumDiscoveryAdminBackdrop{padding:8px}.albumDiscoveryAdminPanel{padding:16px;border-radius:16px}
+  .albumDiscoveryAdminGroups{grid-template-columns:1fr}.albumDiscoveryAdminResults{grid-template-columns:1fr}
+  .albumDiscoveryAdminPanel>footer{align-items:flex-start;flex-wrap:wrap}.albumDiscoveryAdminPanel>footer p{width:100%}
+}
+
+/* 2026 Muze track experience: premium ledger + structured discovery rail. */
+#albumModal:not(.libraryDetailModal) .albumTrackSectionLayout{min-width:0}
+#albumModal:not(.libraryDetailModal) .albumTrackMain{display:grid;min-width:0;gap:14px}
+#albumModal:not(.libraryDetailModal) .heartAdminMenu{position:absolute;z-index:12;top:14px;right:18px}
+#albumModal:not(.libraryDetailModal) .heartAdminMenu>summary{list-style:none;cursor:pointer;border:1px solid rgba(214,171,53,.25);border-radius:999px;background:rgba(9,8,11,.72);color:rgba(214,171,53,.88);padding:7px 11px;font:700 10px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif);letter-spacing:.04em;backdrop-filter:blur(8px)}
+#albumModal:not(.libraryDetailModal) .heartAdminMenu>summary::-webkit-details-marker{display:none}
+#albumModal:not(.libraryDetailModal) .heartAdminMenu[open]>summary{border-color:rgba(214,171,53,.5);color:#ffd51f}
+#albumModal:not(.libraryDetailModal) .heartAdminMenu .mostLovedAdminControls{position:absolute;top:38px;right:0;display:grid!important;gap:3px!important;width:180px!important;padding:7px!important;border:1px solid rgba(214,171,53,.22)!important;border-radius:11px!important;background:#151319!important;box-shadow:0 18px 45px rgba(0,0,0,.45)!important}
+#albumModal:not(.libraryDetailModal) .heartAdminMenu .pickLovedTrackBtn{width:100%!important;min-height:34px!important;padding:8px 10px!important;border:0!important;border-radius:7px!important;background:transparent!important;color:rgba(245,240,232,.68)!important;text-align:left!important;font:650 11px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important}
+#albumModal:not(.libraryDetailModal) .heartAdminMenu .pickLovedTrackBtn:hover,#albumModal:not(.libraryDetailModal) .heartAdminMenu .pickLovedTrackBtn:focus-visible{background:rgba(214,171,53,.08)!important;color:#ffd51f!important;outline:0!important}
+
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .albumTrackSections{display:block!important;position:relative!important}
+  #albumModal:not(.libraryDetailModal) .albumTrackSectionLayout{display:grid!important;grid-template-columns:minmax(0,1fr) 360px!important;gap:18px!important;align-items:start!important;width:100%!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart,#albumModal:not(.libraryDetailModal) .trackJourneyList{width:100%!important;max-width:none!important;justify-self:stretch!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart{grid-template-columns:minmax(0,1.1fr) minmax(210px,.82fr) 144px!important;grid-template-areas:"identity insight artwork"!important;column-gap:24px!important;min-height:246px!important;height:auto!important;padding:26px 30px!important;background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#0b0b0e!important;border-color:rgba(214,171,53,.18)!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart:before{background:radial-gradient(circle at 64% 48%,rgba(91,45,85,.13),transparent 43%),linear-gradient(110deg,rgba(7,7,9,.98),rgba(10,8,12,.94))!important;filter:none!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartCopy{grid-area:identity!important;align-self:center!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartInsight{grid-area:insight!important;align-self:center!important;padding:12px 0!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork{grid-area:artwork!important;width:144px!important;align-self:center!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>img,#albumModal:not(.libraryDetailModal) .trackHeartArtwork>strong{width:144px!important;height:144px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart h4{margin-top:10px!important;font-size:clamp(34px,3vw,46px)!important;line-height:1.02!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartType{font-size:11px!important;letter-spacing:.13em!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay{margin-top:22px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay{width:40px!important;height:40px!important;min-width:40px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartDescription{font:500 13px/1.5 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;color:rgba(245,240,232,.62)!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartNumber{right:3%!important;color:rgba(91,45,85,.055)!important;font-size:clamp(92px,8vw,132px)!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div{margin-top:8px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div strong{font-size:14px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div span{font-size:10px!important}
+
+  #albumModal:not(.libraryDetailModal) .trackJourneyList{border-color:rgba(214,171,53,.15)!important;background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#111115!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeader,#albumModal:not(.libraryDetailModal) .trackJourneyRow{grid-template-columns:36px 34px minmax(180px,1fr) minmax(146px,190px) 58px 30px!important;gap:10px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeader{min-height:52px!important;padding:0 20px!important;border-bottom:1px solid rgba(255,255,255,.065)!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow{min-height:66px!important;padding:0 20px!important;border-bottom:1px solid rgba(255,255,255,.055)!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackNo{font-size:13px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyTitle>strong{font:600 15px/1.25 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;color:rgba(245,240,232,.80)!important;letter-spacing:0!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyPulseButton{gap:5px!important}
+  #albumModal:not(.libraryDetailModal) .trackRatingStars{font-size:14px!important;letter-spacing:1px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyPulseButton small{font-size:11px!important;color:#d6ab35!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow>summary{opacity:.48!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow:hover .trackJourneyOverflow>summary,#albumModal:not(.libraryDetailModal) .trackJourneyRow:focus-within .trackJourneyOverflow>summary{opacity:.9!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow.isMostLoved{border-left-color:#d6ab35!important;background:linear-gradient(90deg,rgba(91,45,85,.15),rgba(91,45,85,.045),transparent 72%)!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow.isMostLoved .trackNo{color:#d6ab35!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow.isMostLoved .trackJourneyTitle>strong{color:#f4efe6!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyList>.viewTracklist{min-height:54px!important;color:rgba(245,240,232,.56)!important;font-size:11px!important;letter-spacing:.11em!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyList>.viewTracklist:hover{color:#d6ab35!important;background:rgba(214,171,53,.025)!important}
+
+  #albumModal:not(.libraryDetailModal) .albumDiscoveryRail{position:static!important;display:flex!important;flex-direction:column!important;gap:14px!important;width:360px!important;min-width:0!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis,#albumModal:not(.libraryDetailModal) .albumInfluenceLegacy,#albumModal:not(.libraryDetailModal) .sameArtistEssentials{display:block!important;width:100%!important;margin:0!important;padding:18px!important;border:1px solid rgba(214,171,53,.16)!important;border-radius:16px!important;background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#0d0d10!important;box-shadow:none!important;box-sizing:border-box!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis>header{display:block!important;margin:0 0 15px!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis>header>span,#albumModal:not(.libraryDetailModal) .sameArtistEssentials>header>span{display:block!important;color:#d6ab35!important;font:750 10px/1.1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;letter-spacing:.14em!important;text-transform:uppercase!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis>header>h3{margin:5px 0 0!important;color:#f3eee6!important;font:600 25px/1.05 var(--muze-serif,Georgia,"Times New Roman",serif)!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeGrid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCard{display:grid!important;grid-template-columns:72px minmax(0,1fr) auto!important;gap:11px!important;align-items:center!important;min-height:76px!important;padding:3px!important;border:0!important;border-radius:10px!important;background:transparent!important;text-align:left!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCard:hover,#albumModal:not(.libraryDetailModal) .albumMoreLikeCard:focus-visible{background:rgba(214,171,53,.045)!important;outline:0!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeArt{width:72px!important;height:72px!important;aspect-ratio:1!important;border-radius:9px!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCopy{display:block!important;min-width:0!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCopy>strong{display:-webkit-box!important;overflow:hidden!important;color:rgba(245,240,232,.92)!important;font:600 14px/1.13 var(--muze-serif,Georgia,"Times New Roman",serif)!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCopy>small{display:block!important;margin-top:4px!important;overflow:hidden!important;color:rgba(245,240,232,.48)!important;font:500 10px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCopy>em{display:-webkit-box!important;margin-top:6px!important;overflow:hidden!important;color:rgba(214,171,53,.72)!important;font:600 9px/1.25 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;font-style:normal!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeScore{align-self:center!important;padding:7px 6px!important;border:1px solid rgba(214,171,53,.34)!important;border-radius:7px!important;color:#ffd51f!important;background:rgba(214,171,53,.025)!important;font:800 11px/1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important}
+
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy>header{align-items:center!important;margin-bottom:13px!important}
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy>header>div>h3{display:none!important}
+  #albumModal:not(.libraryDetailModal) .albumLegacyTrack{gap:10px!important}
+  #albumModal:not(.libraryDetailModal) .albumLegacyCard{width:152px!important;min-width:152px!important;flex-basis:152px!important;display:grid!important;grid-template-columns:59.4px minmax(0,1fr)!important;gap:9px!important;align-items:center!important;padding:0!important}
+  #albumModal:not(.libraryDetailModal) .albumLegacyCard>em{grid-column:1/-1!important;margin:0 0 1px!important}
+  #albumModal:not(.libraryDetailModal) .albumLegacyCard>span{width:59.4px!important;height:59.4px!important;border-radius:7px!important}
+  #albumModal:not(.libraryDetailModal) .albumLegacyCard>div>strong{margin:0!important;min-height:0!important;font-size:12.1px!important;-webkit-line-clamp:2!important}
+  #albumModal:not(.libraryDetailModal) .albumLegacyCard>div>small{font-size:8.5px!important;white-space:normal!important}
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy>header>nav>.albumDiscoveryEditButton{width:auto!important;height:auto!important;padding:6px 8px!important;border-radius:999px!important;font-size:8px!important}
+
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials>header{margin-bottom:13px!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials>div{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentialCard{min-width:0!important;padding:0!important;border:0!important;background:transparent!important;color:#eee!important;text-align:left!important;cursor:pointer!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentialCard>span{display:grid!important;place-items:center!important;width:110%!important;margin-left:-5%!important;aspect-ratio:1!important;overflow:hidden!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:7px!important;background:#121214!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentialCard img{width:100%!important;height:100%!important;object-fit:cover!important;transition:transform .2s ease!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentialCard strong{display:-webkit-box!important;margin-top:6.6px!important;overflow:hidden!important;color:rgba(245,240,232,.68)!important;font:500 9.9px/1.2 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentialCard:hover img,#albumModal:not(.libraryDetailModal) .sameArtistEssentialCard:focus-visible img{transform:scale(1.04)!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentialCard:focus-visible{outline:1px solid rgba(214,171,53,.55)!important;outline-offset:4px!important}
+}
+
+@media(min-width:769px) and (max-width:1050px){
+  #albumModal:not(.libraryDetailModal) .albumTrackSectionLayout{display:grid!important;grid-template-columns:1fr!important;gap:14px!important}
+  #albumModal:not(.libraryDetailModal) .albumDiscoveryRail{position:static!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important;width:100%!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis,#albumModal:not(.libraryDetailModal) .albumInfluenceLegacy,#albumModal:not(.libraryDetailModal) .sameArtistEssentials{display:block!important;padding:18px!important;border:1px solid rgba(214,171,53,.14)!important;border-radius:16px!important;background:#0d0d10!important}
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials{grid-column:1/-1!important}
+}
+
+@media(max-width:768px){
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerTags{
+    gap:9px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .linerHeroCopy .linerTags span{
+    padding:9px 15px!important;
+    font-size:12.6px!important;
   }
 }
