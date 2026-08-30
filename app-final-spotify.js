@@ -52,6 +52,13 @@ function resetStaleClientData(){
   }catch(error){}
 }
 resetStaleClientData();
+const ALBUM_CATALOGUE_VIEW_KEY="muze-album-view";
+function savedAlbumCatalogueView(){
+  try{
+    const value=localStorage.getItem(ALBUM_CATALOGUE_VIEW_KEY);
+    return value==="list"?"list":"grid";
+  }catch(error){return "grid"}
+}
 function mergeLocalOverviewRows(serverRows={},localRows={}){
   const merged={...(serverRows||{})};
   Object.entries(localRows||{}).forEach(([key,row])=>{
@@ -72,13 +79,15 @@ function clearLocalOverviewOverride(key){
     }
   }catch(error){}
 }
-const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",albumCatalogueView:savedAlbumCatalogueView(),artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,homePageSize:120,homeOffset:0,homeHasMore:true,homeOverflow:[],homeTopAlbum:null,homeGenres:[],homeLoading:false,homeLoadState:"idle",homeLoadMessage:"",theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},albumRecommendations:{},albumRecommendationRequests:{},trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
 const initialPublicListSlug=publicListSlugFromPath();
 if(initialPublicListSlug){state.view="public-list";state.publicListSlug=initialPublicListSlug}
 let homeSearchRenderTimer=0;
 let muzeSearchSuggestTimer=0;
+let homepageCatalogueSearchTimer=0;
+let homepageCatalogueSearchToken=0;
 const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
 const MUZE_AVATAR_ICONS=Array.from({length:22},(_,i)=>i+12).filter(n=>![14,27].includes(n)).map(n=>`assets/avatar-icons/avatar-icon-${String(n).padStart(2,"0")}.png`);
 const PROFILE_AVATAR_OVERRIDES={
@@ -218,7 +227,7 @@ function authErrorMessage(error){
   const message=String(error?.message||error||"Authentication failed. Please try again.");
   if(/bucket|storage/i.test(message))return "Avatar photo storage is not configured yet. Create the avatars bucket in Supabase Storage, or use the custom avatar creator for now.";
   if(/user_profiles|schema cache|column|relation/i.test(message))return "Profile storage is not ready yet. Run the user_profiles SQL in Supabase, then refresh Muze.";
-  if(/invalid api key|api key/i.test(message))return "Supabase rejected the public anon key. Replace config.js or Netlify VITE_SUPABASE_ANON_KEY with the anon key from your Supabase project settings.";
+  if(/invalid api key|api key/i.test(message))return "Muze is temporarily unavailable. Please try again.";
   if(/rate limit|too many|over email send rate limit/i.test(message))return "Supabase is rate limiting confirmation emails. Wait a few minutes, then try again.";
   if(/invalid login credentials/i.test(message))return "Email or password is incorrect.";
   if(/user already registered|already registered|already exists/i.test(message))return "That email already has a Muze account. Try logging in instead.";
@@ -1059,7 +1068,7 @@ function showSignupOnboarding(){
 async function startOAuthSignup(provider){
   const providerName={google:"Google",facebook:"Facebook",spotify:"Spotify"}[provider]||provider;
   if(!db){
-    setAuthStatus("Supabase is not connected. Check config.js locally and Netlify environment/config values in production.","error");
+    setAuthStatus("Muze is temporarily unavailable. Please try again.","error");
     return;
   }
   const redirectTo=window.location.origin;
@@ -1199,7 +1208,7 @@ async function submitAuth(event){
   if($("#authModal .authPanel")?.classList.contains("authEmailStep")){continueAuthEmail();return}
   authDebug("submit start",{mode:state.authMode,configured,urlHost:supabaseUrlHost(),hasAnonKey:Boolean(SUPABASE_ANON_KEY),anonKeyParts:String(SUPABASE_ANON_KEY||"").split(".").length});
   if(!db){
-    setAuthStatus("Supabase is not connected. Check config.js locally and Netlify environment/config values in production.","error");
+    setAuthStatus("Muze is temporarily unavailable. Please try again.","error");
     authDebug("missing config",{SUPABASE_URL,hasAnonKey:Boolean(SUPABASE_ANON_KEY)});
     return
   }
@@ -1536,7 +1545,8 @@ function normalizeGenreLabel(value){
 }
 function albumIsGreatestHits(album){
   const title=genreKey(album?.title||album?.name||album?.album_title||"");
-  return /\b(greatest hits|best of|very best of)\b/.test(title);
+  const genre=genreKey(album?.genre||album?.cached_genre||album?.stored_genre||"");
+  return genre==="greatest hits"||/\b(greatest hits|best of|very best of)\b/.test(title);
 }
 function albumGenreLabel(album){
   const manual=String(albumOverviewRowReadOnly(album)?.manual_genre||"").trim();
@@ -1892,6 +1902,44 @@ function protectedOverviewRows(){
   };
 }
 function primeProtectedOverviews(){extras.overviews={...protectedOverviewRows(),...(extras.overviews||{})};clearArtistDirectoryCache();return indexOverviewRows()}
+const albumOverviewRequests=new Map();
+const albumCardDetailRequests=new Map();
+async function loadAlbumCardDetail(album){
+  if(!db||!album||String(album.id||"").startsWith("seed-"))return album;
+  if(album.spotify_url!==undefined&&album.summary!==undefined)return album;
+  const ref=String(album.id||"");
+  if(albumCardDetailRequests.has(ref))return albumCardDetailRequests.get(ref);
+  const request=(async()=>{
+    const detailDb=publicDataDb||db;
+    let result=await detailDb.from("albums").select("id,spotify_url,spotify_id,summary,wikipedia_url,source_url").eq("id",ref).limit(1);
+    if(result.error&&/wikipedia_url|source_url|schema cache|column/i.test(result.error.message||""))result=await detailDb.from("albums").select("id,spotify_url,spotify_id,summary").eq("id",ref).limit(1);
+    if(result.error){console.warn("[Muze album] card detail could not be loaded",result.error.message||result.error);return album}
+    const detail=result.data?.[0]||{};
+    state.albums=state.albums.map(item=>String(item.id)===ref?{...item,...detail}:item);
+    return {...album,...detail};
+  })().finally(()=>albumCardDetailRequests.delete(ref));
+  albumCardDetailRequests.set(ref,request);
+  return request;
+}
+async function loadAlbumOverviewForAlbum(album){
+  if(!db||!album)return null;
+  const ref=String(album.id||"");
+  if(albumOverviewRowReadOnly(album)&&Object.keys(albumOverviewRowReadOnly(album)).length>2)return albumOverviewRowReadOnly(album);
+  if(albumOverviewRequests.has(ref))return albumOverviewRequests.get(ref);
+  const request=(async()=>{
+    const overviewDb=publicDataDb||db;
+    let result=ref?await overviewDb.from("album_overviews").select("*").eq("album_id",ref).limit(1):{data:[]};
+    if((result.error||!result.data?.length)&&album.title){
+      result=await overviewDb.from("album_overviews").select("*").eq("title",album.title).eq("artist",album.artist||"").limit(1);
+    }
+    if(result.error){console.warn("[Muze album] editorial detail could not be loaded",result.error.message||result.error);return null}
+    const row=result.data?.[0];
+    if(row)cacheOverviewAliases(album,row);
+    return row||null;
+  })().finally(()=>albumOverviewRequests.delete(ref));
+  albumOverviewRequests.set(ref,request);
+  return request;
+}
 async function loadCustomOverviews(){
   const protectedLiveScores=protectedOverviewRows();
   extras.overviews={...protectedLiveScores};
@@ -2054,6 +2102,8 @@ function albumOverviewFieldNumber(a,field,fallback=0){
 }
 async function fetchAlbumMoodScore(album){
   if(!db||!album)return null;
+  const cached=albumOverviewRowReadOnly(album)?.mood_score;
+  if(cached!==undefined&&cached!==null&&cached!==""&&Number.isFinite(Number(cached)))return Number(cached);
   const lookupFilters=[
     ["album_key",overviewKey(album)],
     ["album_id",String(album.id||"")],
@@ -3721,6 +3771,10 @@ function uniqueTrackCommentRows(rows=[]){
 }
 function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(albumId)}::${key}`]||null}
 function setLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();ratings[`${albumRef(albumId)}::${key}`]=value;saveLocalTrackRatings(ratings)}
+function localTrackRatingsForAlbum(albumId){
+  const ref=albumRef(albumId);
+  return Object.fromEntries(Object.entries(localTrackRatings()).filter(([key])=>key.startsWith(ref+"::")).map(([key,value])=>[key.slice(ref.length+2),value]));
+}
 function mergeLocalCommentReplies(ref){
   const localReplies=(localCommentReplies()[ref]||{});
   extras.commentReplies[ref]=extras.commentReplies[ref]||{};
@@ -4527,18 +4581,21 @@ async function fetchAlbumTracks(album){
 }
 async function loadSongScores(albumId){
   const ref=albumRef(albumId);
+  const localForAlbum=localTrackRatingsForAlbum(ref);
   if(db){
     const {data,error}=await db.from("song_scores").select("track_key,track_name,avg_rating,ratings_count").eq("album_ref",ref);
-    if(!error){const mapped={};(data||[]).forEach(s=>{mapped[s.track_key]=s;if(s.track_name)mapped[String(s.track_name).toLowerCase()]=s});extras.songScores[ref]=mapped;return extras.songScores[ref]}
-  }
-  const local=localTrackRatings();
-  const scores={};
-  Object.entries(local).forEach(([key,value])=>{
-    if(key.startsWith(ref+"::")){
-      const trackKeyValue=key.slice(ref.length+2);
-      scores[trackKeyValue]={track_key:trackKeyValue,avg_rating:Number(value),ratings_count:1};
+    if(!error){
+      const mapped={};
+      (data||[]).forEach(s=>{mapped[s.track_key]=s;if(s.track_name)mapped[String(s.track_name).toLowerCase()]=s});
+      Object.entries(localForAlbum).forEach(([trackKeyValue,value])=>{
+        if(!mapped[trackKeyValue])mapped[trackKeyValue]={track_key:trackKeyValue,avg_rating:Number(value),ratings_count:1};
+      });
+      extras.songScores[ref]=mapped;
+      return extras.songScores[ref];
     }
-  });
+  }
+  const scores={};
+  Object.entries(localForAlbum).forEach(([trackKeyValue,value])=>{scores[trackKeyValue]={track_key:trackKeyValue,avg_rating:Number(value),ratings_count:1}});
   extras.songScores[ref]=scores;
   return scores;
 }
@@ -4676,12 +4733,12 @@ function trackLiveVibe(track,context={}){
 }
 async function loadTrackRatings(albumId){
   const ref=albumRef(albumId);
+  const localForAlbum=localTrackRatingsForAlbum(ref);
   if(db){
     const {data,error}=await db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref).eq("device_id",state.deviceId);
-    if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;rememberProfileSongRating(albumId,r.track_key);if(r.track_name)mapped[String(r.track_name).toLowerCase()]=r.rating});extras.trackRatings[ref]=mapped;return extras.trackRatings[ref]}
+    if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;rememberProfileSongRating(albumId,r.track_key);if(r.track_name)mapped[String(r.track_name).toLowerCase()]=r.rating});extras.trackRatings[ref]={...mapped,...localForAlbum};Object.keys(localForAlbum).forEach(key=>rememberProfileSongRating(albumId,key));return extras.trackRatings[ref]}
   }
-  const local=localTrackRatings();
-  extras.trackRatings[ref]=Object.fromEntries(Object.entries(local).filter(([k])=>k.startsWith(ref+"::")).map(([k,v])=>[k.slice(ref.length+2),v]));
+  extras.trackRatings[ref]=localForAlbum;
   Object.keys(extras.trackRatings[ref]||{}).forEach(key=>rememberProfileSongRating(albumId,key));
   return extras.trackRatings[ref];
 }
@@ -4714,7 +4771,7 @@ function trackCommentCountForTrack(counts,key,trackName){
 function trackCommentButtonHtml(albumId,key,trackName,count=0){
   const safeCount=Math.max(0,Number(count||0));
   const badge=safeCount?`<span class="trackCommentBadge">${safeCount>99?"99+":safeCount}</span>`:"";
-  return `<button class="trackDots trackCommentBubble" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(trackName)}')" aria-label="Open ${safeCount} comment${safeCount===1?"":"s"} for ${escapeHtml(trackName)}"><span class="trackCommentEmoji" aria-hidden="true">&#128172;</span>${badge}</button>`;
+  return `<button class="trackDots trackCommentBubble" onclick="openTrackComments('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(trackName)}')" aria-label="Open ${safeCount} comment${safeCount===1?"":"s"} for ${escapeHtml(trackName)}"><span class="trackCommentEmoji" aria-hidden="true">&#128172;&#xfe0e;</span>${badge}</button>`;
 }
 function trackShareButtonHtml(albumId,key,trackName){
   return `<button class="trackShareButton" onclick="openTrackShareSheet(event,'${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(trackName)}')" aria-label="Share ${escapeHtml(trackName)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="3.2"></circle><circle cx="18" cy="6" r="3.2"></circle><circle cx="18" cy="18" r="3.2"></circle><path d="M8.8 10.5 15.2 7.5M8.8 13.5l6.4 3"></path></svg></button>`;
@@ -4767,6 +4824,16 @@ function communityPulseHtml(score,label="Track",extraClass=""){
   const aria=value===null?`${label} has no community score yet`:`${label} community pulse ${value.toFixed(1)} out of 10`;
   return `<span class="trackCommunityPulse ${extraClass}" role="img" aria-label="${escapeHtml(aria)}">${segments}</span>`;
 }
+function trackRatingStarsHtml(score,label="Track"){
+  const value=Number.isFinite(Number(score))?Math.max(0,Math.min(10,Number(score))):null;
+  const fiveStarValue=value===null?0:value/2;
+  const stars=Array.from({length:5},(_,index)=>{
+    const fill=Math.max(0,Math.min(1,fiveStarValue-index));
+    return `<i style="--track-star-fill:${Math.round(fill*100)}%" aria-hidden="true"></i>`;
+  }).join("");
+  const aria=value===null?`${label} has no community score yet`:`${label} community rating ${value.toFixed(1)} out of 10`;
+  return `<span class="trackRatingStars" role="img" aria-label="${escapeHtml(aria)}">${stars}</span>`;
+}
 function trackEditorialDistinction(index,total,key,lovedKey){
   if(lovedKey&&key===lovedKey)return "Most loved";
   if(index===0)return "Opener";
@@ -4801,6 +4868,247 @@ function albumArcHtml(arc){
     return `<li><span aria-hidden="true"></span><strong>${escapeHtml(phase.label)}</strong><small>${range}</small></li>`;
   }).join("");
   return `<section class="albumJourneyArc" style="--arc-count:${arc.phases.length}"><div class="albumJourneyArcCopy"><p>The album arc</p>${arc.title?`<h3>${escapeHtml(arc.title)}</h3>`:""}</div><ol>${phases}</ol></section>`;
+}
+function moreLikeThisProfileTokens(album){
+  const overview=albumOverviewRowReadOnly(album)||{};
+  const source=[albumGenreLabel(album),genreSearchText(album),overview.mood_tags,overview.vibe_tags,overview.sound_summary,overview.overview_focus].flat().filter(Boolean).join(" ");
+  const ignored=new Set(["album","music","record","sound","artist","their","with","from","this","that","into","rock"]);
+  return new Set(fuzzySearchKey(source).split(" ").filter(token=>token.length>3&&!ignored.has(token)));
+}
+function moreLikeThisSimilarity(album,item){
+  const currentGenre=genreKey(albumGenreLabel(album));
+  const itemGenre=genreKey(albumGenreLabel(item));
+  const currentTokens=moreLikeThisProfileTokens(album);
+  const itemTokens=moreLikeThisProfileTokens(item);
+  let similarity=currentGenre&&itemGenre===currentGenre?18:0;
+  currentTokens.forEach(token=>{if(itemTokens.has(token))similarity+=4});
+  const currentYear=Number(albumReleaseYear(album)||album?.year||0);
+  const itemYear=Number(albumReleaseYear(item)||item?.year||0);
+  if(currentYear&&itemYear){
+    const distance=Math.abs(currentYear-itemYear);
+    similarity+=distance<=3?5:distance<=8?3:distance<=15?1:0;
+  }
+  return similarity+Math.min(2,Math.max(0,score(item)-7)/1.5);
+}
+const curatedMoreLikeThisReplacements={
+  "the beatles::sgt peppers lonely hearts club band":[{
+    remove:{title:"Rubber Soul",artist:"The Beatles"},
+    add:{title:"The Dark Side of the Moon",artist:"Pink Floyd"}
+  }]
+};
+function applyCuratedMoreLikeThisReplacements(album,selected){
+  const replacements=curatedMoreLikeThisReplacements[albumIdentityKey(album)]||[];
+  const result=selected.slice();
+  replacements.forEach(replacement=>{
+    const addition=state.albums.find(item=>isSameAlbum(item,replacement.add));
+    if(!addition||result.some(item=>String(item.id)===String(addition.id)))return;
+    let index=result.findIndex(item=>isSameAlbum(item,replacement.remove));
+    if(index<0){
+      const additionArtist=normalizeArtistKey(addition.artist);
+      index=result.findIndex(item=>normalizeArtistKey(item.artist)===additionArtist);
+    }
+    if(index<0){
+      const sourceArtist=normalizeArtistKey(album.artist);
+      index=result.findIndex(item=>normalizeArtistKey(item.artist)===sourceArtist);
+    }
+    if(index<0&&result.length)index=result.length-1;
+    if(index>=0)result[index]=addition;
+  });
+  return result;
+}
+function researchedMoreLikeThisAlbums(album,limit=4){
+  const rows=extras.albumRecommendations[albumRef(album?.id)]||[];
+  const selected=rows.map(row=>row.album||state.albums.find(item=>String(item.id)===String(row.target_album_id||row.album_id))).filter(Boolean).slice(0,limit);
+  return selected.length===limit?applyCuratedMoreLikeThisReplacements(album,selected):null;
+}
+function moreLikeThisAlbums(album,limit=4){
+  const researched=researchedMoreLikeThisAlbums(album,limit);
+  if(researched)return researched;
+  const currentId=String(album?.id||"");
+  const candidates=state.albums.filter(item=>String(item.id)!==currentId&&!albumIsGreatestHits(item)&&String(item.cover_url||"").trim()).map(item=>{
+    return {item,similarity:moreLikeThisSimilarity(album,item)};
+  }).filter(entry=>entry.similarity>0).sort((a,b)=>b.similarity-a.similarity||score(b.item)-score(a.item)||String(a.item.title||"").localeCompare(String(b.item.title||"")));
+  const selected=[];
+  const artistCounts=new Map();
+  for(const entry of candidates){
+    const artist=normalizeArtistKey(entry.item.artist);
+    if((artistCounts.get(artist)||0)>=1&&candidates.length>limit)continue;
+    selected.push(entry.item);
+    artistCounts.set(artist,(artistCounts.get(artist)||0)+1);
+    if(selected.length===limit)break;
+  }
+  if(selected.length<limit){
+    for(const entry of candidates){if(!selected.includes(entry.item)){selected.push(entry.item);if(selected.length===limit)break}}
+  }
+  return applyCuratedMoreLikeThisReplacements(album,selected);
+}
+const ALBUM_RECOMMENDATION_CACHE_PREFIX="muzeAlbumRecommendations:v2:";
+function cachedAlbumRecommendations(albumId){
+  try{
+    const cached=JSON.parse(localStorage.getItem(ALBUM_RECOMMENDATION_CACHE_PREFIX+albumRef(albumId))||"null");
+    if(!cached||!Array.isArray(cached.rows)||Date.now()-Number(cached.saved_at||0)>1000*60*60*24*60)return [];
+    return cached.rows;
+  }catch(error){return []}
+}
+function storeAlbumRecommendations(albumId,rows){
+  try{localStorage.setItem(ALBUM_RECOMMENDATION_CACHE_PREFIX+albumRef(albumId),JSON.stringify({saved_at:Date.now(),rows}))}catch(error){}
+}
+function acceptAlbumRecommendations(album,rows,{rerender=true}={}){
+  const normalized=(rows||[]).map(row=>({
+    ...row,
+    target_album_id:String(row.target_album_id||row.album_id||row.album?.id||""),
+    album:row.album||state.albums.find(item=>String(item.id)===String(row.target_album_id||row.album_id))||null
+  })).filter(row=>row.target_album_id&&row.album).slice(0,4);
+  if(normalized.length!==4)return false;
+  const incoming=normalized.map(row=>row.album).filter(item=>!state.albums.some(albumItem=>String(albumItem.id)===String(item.id)));
+  if(incoming.length)state.albums=mergeAlbumSources(state.albums,incoming);
+  extras.albumRecommendations[albumRef(album.id)]=normalized;
+  storeAlbumRecommendations(album.id,normalized);
+  if(rerender&&albumRef(extras.currentAlbumId)===albumRef(album.id)&&!window.matchMedia?.("(max-width: 768px)")?.matches)renderTrackList(album.id);
+  return true;
+}
+async function hydrateAlbumRecommendations(album){
+  if(!album?.id||window.matchMedia?.("(max-width: 768px)")?.matches)return;
+  const ref=albumRef(album.id);
+  if(extras.albumRecommendations[ref]?.length===4)return;
+  const localRows=cachedAlbumRecommendations(album.id);
+  if(localRows.length===4&&acceptAlbumRecommendations(album,localRows,{rerender:false}))return;
+  if(extras.albumRecommendationRequests[ref])return extras.albumRecommendationRequests[ref];
+  extras.albumRecommendationRequests[ref]=(async()=>{
+    try{
+      const res=await fetch(`/.netlify/functions/album-recommendations?album_id=${encodeURIComponent(album.id)}`,{cache:"no-store"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.error||"Recommendations could not be generated.");
+      acceptAlbumRecommendations(album,data.recommendations||[]);
+    }catch(error){
+      console.warn("[Muze recommendations] Keeping instant catalogue fallback",error.message||error);
+    }finally{delete extras.albumRecommendationRequests[ref]}
+  })();
+  return extras.albumRecommendationRequests[ref];
+}
+const verifiedAlbumInfluenceRelationships={
+  "the beatles::abbey road":{
+    earlier:[
+      {title:"Pet Sounds",artist:"The Beach Boys",year:1966,source:"https://www.britannica.com/topic/Pet-Sounds"},
+      {title:"Music from Big Pink",artist:"The Band",year:1968,source:"https://www.loc.gov/static/programs/national-recording-preservation-board/documents/MusicFromBigPink.pdf"},
+      {title:"John Wesley Harding",artist:"Bob Dylan",year:1967,source:"https://www.bobdylan.com/albums/john-wesley-harding/"}
+    ],
+    later:[
+      {title:"McLemore Avenue",artist:"Booker T. & the M.G.'s",year:1970,source:"https://staxrecords.com/artist/booker-t-the-mgs/"},
+      {title:"The Other Side of Abbey Road",artist:"George Benson",year:1970,source:"https://www.georgebenson.com/"}
+    ]
+  }
+};
+function verifiedInfluenceKey(album){return `${normalizeArtistKey(album?.artist)}::${normalizeOverviewTitle(clientCleanAlbumTitle(album?.title||""))}`}
+function verifiedInfluenceAlbum(reference){
+  const wantedArtist=normalizeArtistKey(reference.artist);
+  const wantedTitle=normalizeOverviewTitle(clientCleanAlbumTitle(reference.title));
+  const match=state.albums.find(item=>normalizeArtistKey(item.artist)===wantedArtist&&normalizeOverviewTitle(clientCleanAlbumTitle(item.title||""))===wantedTitle);
+  return match?{...match,influence_source:reference.source}:{...reference,id:"",cover_url:"",influence_source:reference.source,verified_reference:true};
+}
+function spotifyInfluenceMatch(results,reference){
+  const wantedTitle=normalizeOverviewTitle(clientCleanAlbumTitle(reference?.title||""));
+  const wantedArtist=normalizeArtistKey(reference?.artist||"");
+  const wantedYear=Number(reference?.year)||0;
+  return (results||[]).map(album=>{
+    const title=normalizeOverviewTitle(clientCleanAlbumTitle(album?.title||""));
+    const artist=normalizeArtistKey(album?.artist||"");
+    if(title!==wantedTitle||artist!==wantedArtist)return null;
+    const year=Number(album?.year)||0;
+    const editionPenalty=/deluxe|expanded|anniversary|collector|special|super deluxe|legacy|bonus/i.test(String(album?.title||""))?20:0;
+    const yearScore=wantedYear&&year===wantedYear?40:wantedYear&&year?Math.max(0,20-Math.abs(year-wantedYear)*4):0;
+    return {album,score:100+yearScore-editionPenalty};
+  }).filter(Boolean).sort((a,b)=>b.score-a.score)[0]?.album||null;
+}
+async function importVerifiedInfluenceAlbum(reference){
+  const existing=verifiedInfluenceAlbum(reference);
+  if(existing?.id)return existing;
+  const query=`${reference.title} ${reference.artist}`;
+  const res=await fetch(`/.netlify/functions/album-search?q=${encodeURIComponent(query)}&v=influence-import-1`,{cache:"no-store"});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data.error||"Spotify album search failed.");
+  const spotifyAlbum=spotifyInfluenceMatch(data.albums,reference);
+  if(!spotifyAlbum)throw new Error(`Spotify could not find the exact ${reference.title} album by ${reference.artist}.`);
+  const album={title:spotifyAlbum.title,artist:spotifyAlbum.artist,year:spotifyAlbum.year,genre:albumGenreLabel(spotifyAlbum),cover_url:spotifyAlbum.cover_url,spotify_url:spotifyAlbum.spotify_url,summary:spotifyAlbumSummary(spotifyAlbum),spotify_id:spotifyAlbum.spotify_id||""};
+  const duplicate=existingAlbumMatch(album);
+  if(duplicate)return duplicate;
+  const pending=showPendingSpotifyAlbum(album);
+  try{
+    const saved=await saveSpotifyAlbumRecord(album);
+    return reconcilePendingSpotifyAlbum(pending.id,saved);
+  }catch(error){
+    removePendingSpotifyAlbum(pending.id);
+    throw error;
+  }
+}
+window.openOrImportInfluenceAlbum=async function(button,title,artist,year){
+  if(button?.dataset.importing==="true")return;
+  const reference={title,artist,year:Number(year)||year};
+  const originalLabel=button?.getAttribute("aria-label")||"";
+  if(button){
+    button.dataset.importing="true";
+    button.classList.add("isImporting");
+    button.setAttribute("aria-busy","true");
+    button.setAttribute("aria-label",`Adding ${title} by ${artist} to Muze from Spotify`);
+  }
+  setAdminInlineStatus(`Finding ${title} by ${artist} on Spotify...`,"");
+  try{
+    const album=await importVerifiedInfluenceAlbum(reference);
+    if(!album?.id)throw new Error("The album was found but could not be added to Muze.");
+    setAdminInlineStatus(`${album.title} was added to Muze from Spotify.`,"success");
+    openAlbum(album.id);
+  }catch(error){
+    console.error("Muze influence album import failed",error);
+    setAdminInlineStatus(error.message||"This album could not be added from Spotify.","error");
+    if(button){
+      button.dataset.importing="false";
+      button.classList.remove("isImporting");
+      button.removeAttribute("aria-busy");
+      if(originalLabel)button.setAttribute("aria-label",originalLabel);
+    }
+  }
+};
+function influenceLegacyAlbums(album,excludedIds=new Set()){
+  const key=verifiedInfluenceKey(album);
+  const relationships=verifiedAlbumInfluenceRelationships[key]||((key.includes("beatles")&&key.includes("abbey road"))?verifiedAlbumInfluenceRelationships["the beatles::abbey road"]:null);
+  if(!relationships)return {earlier:[],later:[]};
+  const resolve=items=>(items||[]).map(verifiedInfluenceAlbum).filter(Boolean).filter(item=>!excludedIds.has(String(item.id))).slice(0,2);
+  return {earlier:resolve(relationships.earlier),later:resolve(relationships.later)};
+}
+function influenceLegacyHtml(album,excludedIds){
+  const groups=influenceLegacyAlbums(album,excludedIds);
+  const row=(item,label)=>{
+    const inner=`<em>${label}</em><span>${item.cover_url?`<img src="${escapeHtml(item.cover_url)}" loading="lazy" decoding="async" alt="${escapeHtml(item.title)} cover">`:`<b>${escapeHtml(coverText(item))}</b>`}</span><div><strong>${escapeHtml(item.title||"Untitled album")}</strong><small>${escapeHtml(item.artist||"")} ${item.year?`&middot; ${escapeHtml(item.year)}`:""}</small></div>`;
+    return item.id?`<button type="button" class="albumLegacyCard" onclick="openAlbum('${escapeJsString(item.id)}')" aria-label="Open ${escapeHtml(item.title)} by ${escapeHtml(item.artist)}">${inner}</button>`:`<button type="button" class="albumLegacyCard isImportable" onclick="openOrImportInfluenceAlbum(this,'${escapeJsString(item.title)}','${escapeJsString(item.artist)}','${escapeJsString(item.year||"")}')" aria-label="Add ${escapeHtml(item.title)} by ${escapeHtml(item.artist)} to Muze from Spotify and open it">${inner}</button>`;
+  };
+  if(!groups.earlier.length&&!groups.later.length)return "";
+  const cards=[...groups.earlier.map(item=>row(item,"Influenced by")),...groups.later.map(item=>row(item,"It influenced"))].join("");
+  return `<section class="albumInfluenceLegacy" aria-label="Influence and legacy for ${escapeHtml(album.title||"this album")}"><header><div><span>Influence &amp; Legacy</span><h3>A record in conversation</h3></div><nav aria-label="Browse influence and legacy albums"><button type="button" data-legacy-direction="-1" aria-label="Previous influence albums">&lsaquo;</button><button type="button" data-legacy-direction="1" aria-label="Next influence albums">&rsaquo;</button></nav></header><div class="albumLegacyViewport"><div class="albumLegacyTrack">${cards}</div></div></section>`;
+}
+function bindAlbumLegacyCarousel(host){
+  const section=host?.querySelector(".albumInfluenceLegacy");
+  const viewport=section?.querySelector(".albumLegacyViewport");
+  if(!section||!viewport)return;
+  section.querySelectorAll("[data-legacy-direction]").forEach(button=>button.addEventListener("click",()=>{
+    const direction=Number(button.dataset.legacyDirection)||1;
+    const amount=Math.max(1,viewport.clientWidth+10);
+    const maximum=Math.max(0,viewport.scrollWidth-viewport.clientWidth);
+    const next=Math.max(0,Math.min(maximum,viewport.scrollLeft+direction*amount));
+    viewport.scrollTo({left:next,behavior:"smooth"});
+  }));
+}
+function albumDiscoveryRailHtml(album){
+  const albums=moreLikeThisAlbums(album,4);
+  if(!albums.length)return "";
+  const cards=albums.map(item=>{
+    const coverUrl=String(item.cover_url||"").trim();
+    const rating=score(item)>0?`<span>${escapeHtml(displayScore(item))}</span>`:"";
+    const genre=albumGenreLabel(item);
+    return `<button type="button" class="albumMoreLikeCard" onclick="openAlbum('${escapeJsString(item.id)}')" aria-label="Open ${escapeHtml(item.title)} by ${escapeHtml(item.artist)}"><span class="albumMoreLikeArt">${coverUrl?`<img src="${escapeHtml(coverUrl)}" loading="lazy" decoding="async" alt="${escapeHtml(item.title)} cover">`:`<b>${escapeHtml(coverText(item))}</b>`}${rating}</span><strong>${escapeHtml(item.title||"Untitled album")}</strong><small>${escapeHtml(item.artist||"")}</small>${genre&&genreKey(genre)!=="album"?`<em>${escapeHtml(genre)}</em>`:""}</button>`;
+  }).join("");
+  const legacy=influenceLegacyHtml(album,new Set());
+  const related=`<aside class="albumMoreLikeThis" aria-label="More albums like ${escapeHtml(album.title||"this album")}"><header><span>Keep listening</span><h3>More like this</h3></header><div class="albumMoreLikeGrid">${cards}</div>${legacy}</aside>`;
+  return `<div class="albumDiscoveryRail">${related}</div>`;
 }
 function renderTrackList(albumId,suppliedTracks=null){
   const host=$("#trackRatingsList");
@@ -4840,19 +5148,17 @@ function renderTrackList(albumId,suppliedTracks=null){
     const scoreValue=trackCommunityScoreValue(scoreData);
     const trackVibe=trackVibes[key]||trackLiveVibe(track,{index:i,total:tracks.length,album});
     const commentCount=trackCommentCountForTrack(trackCommentCounts,key,track.name);
-    const commentButton=trackCommentButtonHtml(albumId,key,track.name,commentCount);
-    const shareButton=trackShareButtonHtml(albumId,key,track.name);
     const rateButton=`<button class="trackLove ${current?"hasUserRating":""}" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Rate ${escapeHtml(track.name)}">&#9734;</button>`;
-    const overflow=`<details class="trackJourneyOverflow"><summary aria-label="More actions for ${escapeHtml(track.name)}">&bull;&bull;&bull;</summary><div>${trackShareButtonHtml(albumId,key,track.name)}${rateButton}${trackCommentButtonHtml(albumId,key,track.name,commentCount)}</div></details>`;
+    const overflow=`<details class="trackJourneyOverflow"><summary aria-label="More actions for ${escapeHtml(track.name)}" title="More actions">&#8942;</summary><div>${rateButton}${trackCommentButtonHtml(albumId,key,track.name,commentCount)}${trackShareButtonHtml(albumId,key,track.name)}</div></details>`;
     const distinction=trackEditorialDistinction(trackIndex,tracks.length,key,lovedKey);
     const isOtherDefiningTrack=otherDefiningTrackNames.some(name=>sameCommentTrackKey(name,track.name));
     const definingDot=isOtherDefiningTrack?'<span class="trackDefiningDot" aria-hidden="true"></span>':"";
     const side=trackSideLabel(track);
     const sideMarker=side&&side!==previousSide?`<div class="trackJourneySide"><span>${escapeHtml(side.replace(/^side\s*/i,"")||side)}</span><b>${escapeHtml(side)}</b><i aria-hidden="true"></i></div>`:"";
     if(side)previousSide=side;
-    const pulse=`<button class="trackJourneyPulseButton" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Open the community rating for ${escapeHtml(track.name)}">${communityPulseHtml(scoreValue,track.name)}${scoreValue===null?"":`<small>${escapeHtml(scoreValue.toFixed(1))}</small>`}</button>`;
+    const pulse=`<button class="trackJourneyPulseButton" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Open the community rating for ${escapeHtml(track.name)}">${trackRatingStarsHtml(scoreValue,track.name)}${scoreValue===null?"":`<small>${escapeHtml(scoreValue.toFixed(1))}</small>`}</button>`;
     const duration=trackDurationText(track);
-    return `${sideMarker}<div class="linerTrackRow trackJourneyRow${isOtherDefiningTrack?" isDefiningTrack":""}" data-track-key="${escapeHtml(key)}" tabindex="0" aria-label="Track ${trackIndex+1}, ${escapeHtml(track.name)}${isOtherDefiningTrack?", defining track":""}${duration?`, ${duration}`:""}">${definingDot}<span class="trackNo">${String(trackIndex+1).padStart(2,"0")}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><div class="trackJourneyTitle"><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${distinction?`<span class="trackDistinction">${escapeHtml(distinction)}</span>`:""}<em>${escapeHtml(trackVibe)}</em></div>${pulse}<time>${duration?escapeHtml(duration):"&mdash;"}</time><div class="trackJourneyActions">${shareButton}${rateButton}${commentButton}</div>${overflow}</div>`;
+    return `${sideMarker}<div class="linerTrackRow trackJourneyRow${isOtherDefiningTrack?" isDefiningTrack":""}" data-track-key="${escapeHtml(key)}" tabindex="0" aria-label="Track ${trackIndex+1}, ${escapeHtml(track.name)}${isOtherDefiningTrack?", defining track":""}${duration?`, ${duration}`:""}">${definingDot}<span class="trackNo">${trackIndex+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><div class="trackJourneyTitle"><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${distinction?`<span class="trackDistinction">${escapeHtml(distinction)}</span>`:""}<em>${escapeHtml(trackVibe)}</em></div>${pulse}<time>${duration?escapeHtml(duration):"&mdash;"}</time>${overflow}</div>`;
   }).join("");
   const mobileRows=visibleTracks.map((track,i)=>{
     const key=trackKey(track);
@@ -4861,7 +5167,9 @@ function renderTrackList(albumId,suppliedTracks=null){
     const score=scoreValue===null?(current?Number(current).toFixed(1):""):scoreValue.toFixed(1);
     const scoreHtml=score?`&#9733; <span class="trackScoreNumber">${escapeHtml(score)}</span>`:"&#9733;";
     const commentCount=trackCommentCountForTrack(trackCommentCounts,key,track.name);
-    return `<div class="linerTrackRow" data-track-key="${escapeHtml(key)}"><div class="linerTrackSwipe"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${trackShareButtonHtml(albumId,key,track.name)}<button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button>${trackCommentButtonHtml(albumId,key,track.name,commentCount)}</div></div>`;
+    const mobileRateButton=`<button class="trackLove ${current?"hasUserRating":""}" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Rate ${escapeHtml(track.name)}">&#9734;</button>`;
+    const mobileOverflow=`<details class="mobileTrackOverflow"><summary aria-label="More actions for ${escapeHtml(track.name)}" title="More actions">&#8942;</summary><div>${mobileRateButton}${trackCommentButtonHtml(albumId,key,track.name,commentCount)}${trackShareButtonHtml(albumId,key,track.name)}</div></details>`;
+    return `<div class="linerTrackRow" data-track-key="${escapeHtml(key)}"><div class="linerTrackSwipe"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button>${mobileOverflow}</div></div>`;
   }).join("");
   const singleArtUrl=featuredTrackArtworkUrl(first,album,album.cover_url||momentCover||heroScene||"");
   const singleArtHtml=singleArtUrl?`<img src="${escapeHtml(singleArtUrl)}" alt="${escapeHtml(first.name)} artwork">`:coverHtml;
@@ -4870,11 +5178,14 @@ function renderTrackList(albumId,suppliedTracks=null){
   const featuredTrackNumber=String(Math.max(1,tracks.indexOf(first)+1)).padStart(2,"0");
   const featuredHtml=`<section class="linerFeaturedTrack trackJourneyHeart ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="trackHeartCopy"><span class="trackHeartType">${featureLabel}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="trackHeartPlay"><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><b>Play</b>${firstDuration?`<time>${escapeHtml(firstDuration)}</time>`:""}</div>${lovedAdmin}</div><div class="trackHeartInsight"><span class="trackHeartNumber" aria-hidden="true">${featuredTrackNumber}</span>${editorialDescription?`<p class="trackHeartInsightLabel">Why listeners return to it</p><p class="trackHeartDescription">${escapeHtml(editorialDescription)}</p>`:""}<p class="trackHeartPulseLabel">Community pulse</p><div class="trackHeartPulse">${communityPulseHtml(firstScoreValue,first.name,"large")}${firstScore?`<strong>${escapeHtml(firstScore)}</strong>`:""}</div></div><div class="trackHeartArtwork" aria-label="${escapeHtml(first.name)} artwork">${singleArtHtml}<div><strong>${escapeHtml(album.title||"")}</strong><span>${escapeHtml(album.artist||"")}</span></div></div></section>`;
   const mobileFeaturedHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>${escapeHtml(featureLabel)}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong></div><div class="momentWhy singleArtMoment">${singleArtHtml}</div><div class="featureCover">${coverHtml}</div></section>`;
-  const tableHtml=`<section class="linerTrackTable trackJourneyList" aria-label="Album track journey">${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
-  const mobileTableHtml=`<section class="linerTrackTable" aria-label="Album track list"><div class="trackTableHead"><span>#</span><span>Title</span><span>Share</span><span>Score</span><span>Comments</span></div>${mobileRows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
+  const trackHeader=`<div class="trackJourneyHeader" aria-hidden="true"><span>#</span><span></span><span>Title</span><span>Community rating</span><span class="trackTimeHeading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.3 2"></path></svg>Time</span><span></span></div>`;
+  const tableHtml=`<section class="linerTrackTable trackJourneyList" aria-label="Album track journey">${trackHeader}${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks &uarr;":"View full tracklist &darr;"}</button>`:""}</section>`;
+  const mobileTableHtml=`<section class="linerTrackTable" aria-label="Album track list"><div class="trackTableHead"><span>#</span><span>Title</span><span>Score</span><span aria-label="Actions">Actions</span></div>${mobileRows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
   const arcHtml=albumArcHtml(albumArcEditorialData(savedOverview,album));
+  const relatedHtml=albumDiscoveryRailHtml(album);
   const useLegacyMobileLayout=window.matchMedia&&window.matchMedia("(max-width: 768px)").matches;
-  host.innerHTML=useLegacyMobileLayout?mobileFeaturedHtml+mobileTableHtml:featuredHtml.replace("<b>Play</b>","<b>Listen</b>")+tableHtml+arcHtml;
+  host.innerHTML=useLegacyMobileLayout?mobileFeaturedHtml+mobileTableHtml:featuredHtml.replace("<b>Play</b>","<b>Listen</b>")+tableHtml+arcHtml+relatedHtml;
+  if(!useLegacyMobileLayout){bindAlbumLegacyCarousel(host);hydrateAlbumRecommendations(album)}
   syncMobileTrackHeaderScroll();
 }
 
@@ -5178,11 +5489,35 @@ window.openTrackRating=function(albumId,trackKeyValue,trackName){
     popup.addEventListener("click",e=>{if(e.target.id==="trackRatingPopup")closeTrackRating()});
   }
   const current=(extras.trackRatings[albumRef(albumId)]||{})[trackKeyValue]||localTrackRating(albumId,trackKeyValue);
-  popup.innerHTML=`<div class="trackRatingPanel"><button class="close" onclick="closeTrackRating()">&times;</button><p class="eyebrow">Song Rating</p><h3>${escapeHtml(trackName)}</h3><div class="songRatingBar popupChoices">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="songRateBtn ${current==n?"selected":""}" onclick="rateTrack('${escapeJsString(albumId)}','${escapeJsString(trackKeyValue)}','${escapeJsString(trackName)}',${n});closeTrackRating()" aria-label="Rate ${escapeHtml(trackName)} ${n} out of 10"><span class="songRateNumber">${n}</span><span class="songRateCircle"></span></button>`).join("")}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('trackRatingDetails',this)">See ratings</button><div id="trackRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div></div>`;
+  const ratingAlbum=state.albums.find(album=>String(album.id)===String(albumId)||albumRef(album.id)===albumRef(albumId))||{};
+  const ratingArtist=String(ratingAlbum.artist||ratingAlbum.artist_name||"").trim();
+  const stars=[1,2,3,4,5,6,7,8,9,10].map(star=>{
+    const fill=Number(current)>=star?100:(Number(current)===star-.5?50:0);
+    return `<span class="albumStarChoice ${fill?"hasRating":""}" style="--star-fill:${fill}%"><span class="albumStarBase" aria-hidden="true">☆</span><span class="albumStarFillWrap" aria-hidden="true"><span class="albumStarFill">★</span></span></span>`;
+  }).join("");
+  popup.innerHTML=`<div class="trackRatingPanel albumRatingPanel songStarRatingPanel"><button class="close" onclick="closeTrackRating()">&times;</button><p class="eyebrow">Song Rating</p><h3>${escapeHtml(trackName)}</h3>${ratingArtist?`<p class="songRatingArtist">${escapeHtml(ratingArtist)}</p>`:""}<div class="albumStarRating" role="slider" tabindex="0" aria-label="Rate ${escapeHtml(trackName)} out of 10 stars" aria-valuemin="0.5" aria-valuemax="10" aria-valuestep="0.5" aria-valuenow="${Number(current)||.5}" aria-valuetext="${current?`${Number(current)} out of 10 stars`:"Not rated"}" data-current="${Number(current)||0}" data-value="${Number(current)||0}">${stars}</div><div class="ratingDetailsBlock"><button class="linkBtn" onclick="toggleRatingDetails('trackRatingDetails',this)">See ratings</button><div id="trackRatingDetails" class="hidden"><div class="emptyMini">Loading ratings...</div></div></div></div>`;
+  bindTrackStarRating(popup.querySelector(".albumStarRating"),albumId,trackKeyValue,trackName);
   loadTrackRatingDetails(albumId,trackKeyValue).then(()=>renderTrackRatingDetails(albumId,trackKeyValue));
   popup.classList.remove("hidden");
 }
 window.closeTrackRating=function(){const popup=$("#trackRatingPopup");if(popup)popup.classList.add("hidden")}
+function bindTrackStarRating(control,albumId,trackKeyValue,trackName){
+  if(!control)return;
+  control.addEventListener("pointermove",event=>{
+    if(event.pointerType==="mouse")paintAlbumStarRating(control,albumStarValueFromPointer(event,control));
+  });
+  control.addEventListener("click",event=>{
+    if(event.button!==undefined&&event.button!==0)return;
+    event.preventDefault();
+    paintAlbumStarRating(control,albumStarValueFromPointer(event,control));
+    const value=Number(control.dataset.value||0);
+    if(value){rateTrack(albumId,trackKeyValue,trackName,value);closeTrackRating()}
+  });
+  control.addEventListener("pointerleave",()=>{
+    paintAlbumStarRating(control,Number(control.dataset.current||0));
+  });
+  control.addEventListener("keydown",event=>handleTrackStarRatingKey(event,albumId,trackKeyValue,trackName));
+}
 function albumStarValueFromPointer(event,control){
   const rect=control.getBoundingClientRect();
   const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
@@ -5201,6 +5536,14 @@ function paintAlbumStarRating(control,value){
   });
 }
 window.startAlbumStarDrag=function(event,albumId){
+  if(event.button!==undefined&&event.button!==0)return;
+  const control=event.currentTarget;
+  event.preventDefault();
+  control.dataset.dragging="true";
+  control.setPointerCapture?.(event.pointerId);
+  paintAlbumStarRating(control,albumStarValueFromPointer(event,control));
+};
+window.startTrackStarDrag=function(event){
   if(event.button!==undefined&&event.button!==0)return;
   const control=event.currentTarget;
   event.preventDefault();
@@ -5229,6 +5572,16 @@ window.finishAlbumStarDrag=function(event,albumId){
   const value=Number(control.dataset.value||0);
   if(value){rateAlbum(albumId,value);closeAlbumRating()}
 };
+window.finishTrackStarDrag=function(event,albumId,trackKeyValue,trackName){
+  const control=event.currentTarget;
+  if(control.dataset.dragging!=="true")return;
+  event.preventDefault();
+  paintAlbumStarRating(control,albumStarValueFromPointer(event,control));
+  control.dataset.dragging="false";
+  control.releasePointerCapture?.(event.pointerId);
+  const value=Number(control.dataset.value||0);
+  if(value){rateTrack(albumId,trackKeyValue,trackName,value);closeTrackRating()}
+};
 window.cancelAlbumStarDrag=function(event){
   const control=event.currentTarget;
   if(control.dataset.dragging!=="true")return;
@@ -5243,6 +5596,18 @@ window.handleAlbumStarRatingKey=function(event,albumId){
   else if(event.key==="Home")value=.5;
   else if(event.key==="End")value=10;
   else if((event.key==="Enter"||event.key===" ")&&value){event.preventDefault();rateAlbum(albumId,value);closeAlbumRating();return}
+  else return;
+  event.preventDefault();
+  paintAlbumStarRating(control,value);
+};
+window.handleTrackStarRatingKey=function(event,albumId,trackKeyValue,trackName){
+  const control=event.currentTarget;
+  let value=Number(control.dataset.value||control.dataset.current||0);
+  if(event.key==="ArrowRight"||event.key==="ArrowUp")value=Math.min(10,(value||0)+.5);
+  else if(event.key==="ArrowLeft"||event.key==="ArrowDown")value=Math.max(.5,(value||1)-.5);
+  else if(event.key==="Home")value=.5;
+  else if(event.key==="End")value=10;
+  else if((event.key==="Enter"||event.key===" ")&&value){event.preventDefault();rateTrack(albumId,trackKeyValue,trackName,value);closeTrackRating();return}
   else return;
   event.preventDefault();
   paintAlbumStarRating(control,value);
@@ -6847,6 +7212,7 @@ function enableMomentImageDrag(){
   });
 }
 enableMomentImageDrag();
+const trackRatingSyncQueues=new Map();
 window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
   if(!requireAuth("rate",()=>window.rateTrack(albumId,trackKeyValue,trackName,value)))return;
   const username=ratingName();
@@ -6870,7 +7236,10 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
     if(!scoreAfter||Number(scoreAfter.ratings_count)<=0)applyOptimisticSongScore(albumId,trackKeyValue,trackName,value,previousValue);
     renderTrackList(albumId);
   };
-  sync().catch(error=>console.warn("Song rating refresh failed",error));
+  const previousSync=trackRatingSyncQueues.get(ref)||Promise.resolve();
+  const queuedSync=previousSync.catch(()=>{}).then(sync);
+  trackRatingSyncQueues.set(ref,queuedSync);
+  queuedSync.catch(error=>console.warn("Song rating refresh failed",error)).finally(()=>{if(trackRatingSyncQueues.get(ref)===queuedSync)trackRatingSyncQueues.delete(ref)});
 }
 
 function updateNavUsername(){
@@ -9847,7 +10216,7 @@ window.openAlbumOverviewFilter=function(type,value){
   $("#albumOverviewPopup")?.classList.add("hidden");
   $("#albumInfoPopup")?.classList.add("hidden");
   document.querySelectorAll(".tab,.navItem[data-view]").forEach(button=>button.classList.toggle("active",button.dataset.view==="rankings"));
-  render();
+  requestHomepageAlbumPage({reset:true,force:true});
   window.scrollTo({top:0,behavior:"smooth"});
 }
 window.openAlbumOverviewArtist=function(artistName){
@@ -9856,8 +10225,12 @@ window.openAlbumOverviewArtist=function(artistName){
   closeAlbumOverviewPopup();
   return openArtistPage(slug);
 }
-function genres(){return["All",...new Set([...state.albums.map(albumGenreLabel).filter(Boolean),"Classical","Soundtracks","International"])]}
-function filtered(){const q=state.search.trim();let a=state.albums.filter(x=>{const label=cachedAlbumGenreLabel(x);const genreOk=state.genre==="All"?label!=="Greatest hits":label===state.genre;const yearOk=!state.yearFilter||String(x.year||"")===String(state.yearFilter);return genreOk&&yearOk&&albumMatchesSearch(x,q)});if(state.sort==="score")a.sort((x,y)=>score(y)-score(x));if(state.sort==="year")a.sort((x,y)=>(y.year||0)-(x.year||0));if(state.sort==="ratings")a.sort((x,y)=>count(y)-count(x));if(state.sort==="hidden")a.sort((x,y)=>count(x)-count(y));return a}
+function genres(){return["All",...new Set([...(state.homeGenres||[]),...state.albums.map(albumGenreLabel).filter(Boolean),"Greatest hits","Classical","Soundtracks","International"])]}
+function filtered(){
+  const rows=state.albums.slice();
+  const explicitlyRequested=Boolean(String(state.search||"").trim())||genreKey(state.genre)==="greatest hits";
+  return explicitlyRequested?rows:rows.filter(album=>!albumIsGreatestHits(album));
+}
 function muzeSearchSuggestions(query){
   const q=fuzzySearchKey(query);
   if(q.length<1)return [];
@@ -9970,6 +10343,22 @@ function scheduleMuzeSearchSuggestions(){
     renderMuzeSearchSuggestions();
   },isMobileViewport()?45:0);
 }
+function scheduleHomepageCatalogueSearch(query,after){
+  clearTimeout(homepageCatalogueSearchTimer);
+  const clean=String(query||"").trim();
+  if(clean.length<2)return;
+  const token=++homepageCatalogueSearchToken;
+  homepageCatalogueSearchTimer=setTimeout(async()=>{
+    try{
+      const response=await fetch(`/.netlify/functions/homepage-rankings?q=${encodeURIComponent(clean)}&offset=0&limit=120&v=homepage-120-20260829`,{headers:{Accept:"application/json"}});
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok||token!==homepageCatalogueSearchToken)return;
+      state.albums=mergeUniqueHomepageAlbums(state.albums,(payload.albums||[]).map(normalizeHomepageAlbum));
+      clearArtistDirectoryCache();
+      after?.();
+    }catch(error){console.warn("[Muze search] catalogue search failed",error?.message||error)}
+  },180);
+}
 window.selectMuzeSearchSuggestion=function(albumId){
   hideMuzeSearchSuggestions();
   openAlbum(albumId);
@@ -9980,30 +10369,90 @@ window.selectMuzeArtistSuggestion=function(slug){
 };
 function scheduleHomeSearchRender(){
   clearTimeout(homeSearchRenderTimer);
-  homeSearchRenderTimer=setTimeout(()=>{homeSearchRenderTimer=0;state.homeAlbumLimit=120;render()},isMobileViewport()?320:120);
+  homeSearchRenderTimer=setTimeout(async()=>{homeSearchRenderTimer=0;await requestHomepageAlbumPage({reset:true,force:true});renderMuzeSearchSuggestions()},isMobileViewport()?320:180);
 }
 function card(a){const genreLabel=cachedAlbumGenreLabel(a);const adminDelete=isAdminUnlocked()?`<button class="adminAlbumDeleteBtn" onclick="event.stopPropagation();deleteAlbumAdmin('${escapeJsString(a.id)}')" aria-label="Delete ${escapeHtml(a.title)}">Delete</button>`:"";return`<article class="card albumCard" onclick="openAlbum('${escapeJsString(a.id)}')">${cover(a)}<button class="quickLibraryAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')">+ Add to my library</button>${adminDelete}<div class="cardBody"><div class="row"><div><div class="title">${escapeHtml(a.title)}</div><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(a.year||"")}</div></div><div class="score">${displayScore(a)}</div></div><span class="pill">${escapeHtml(genreLabel)}</span></div></article>`}
+function desktopAlbumListIsActive(){return isAdminUnlocked()&&state.albumCatalogueView==="list"&&!isMobileViewport()}
+function albumCatalogueViewControls(){
+  if(!isAdminUnlocked())return "";
+  const selected=desktopAlbumListIsActive()?"list":"grid";
+  return `<div class="albumCatalogueViewSelector" role="group" aria-label="Album view">
+    <button type="button" class="${selected==="grid"?"selected":""}" aria-label="View albums as grid" aria-pressed="${selected==="grid"}" title="View albums as grid" onclick="setAlbumCatalogueView('grid')"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="1.5" y="1.5" width="5" height="5" rx="1"></rect><rect x="9.5" y="1.5" width="5" height="5" rx="1"></rect><rect x="1.5" y="9.5" width="5" height="5" rx="1"></rect><rect x="9.5" y="9.5" width="5" height="5" rx="1"></rect></svg><span>Grid</span></button>
+    <button type="button" class="${selected==="list"?"selected":""}" aria-label="View albums as list" aria-pressed="${selected==="list"}" title="View albums as list" onclick="setAlbumCatalogueView('list')"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2 3.5h2M6 3.5h8M2 8h2M6 8h8M2 12.5h2M6 12.5h8"></path></svg><span>List</span></button>
+  </div>`;
+}
+window.setAlbumCatalogueView=function(view){
+  if(!isAdminUnlocked()||isMobileViewport()||!["grid","list"].includes(view)||state.albumCatalogueView===view)return;
+  const scrollPosition=window.scrollY;
+  state.albumCatalogueView=view;
+  try{localStorage.setItem(ALBUM_CATALOGUE_VIEW_KEY,view)}catch(error){}
+  renderRankingsView();
+  const restoreScroll=()=>window.scrollTo({top:scrollPosition,behavior:"auto"});
+  requestAnimationFrame(()=>{restoreScroll();requestAnimationFrame(restoreScroll);setTimeout(restoreScroll,60)});
+}
+const albumCatalogueDesktopBreakpoint=window.matchMedia("(max-width:850px)");
+albumCatalogueDesktopBreakpoint.addEventListener?.("change",()=>{
+  if(state.view==="rankings"&&state.dataReady)renderRankingsView();
+});
+let albumCatalogueWasMobile=isMobileViewport();
+window.addEventListener("resize",()=>{
+  const mobile=isMobileViewport();
+  if(mobile===albumCatalogueWasMobile)return;
+  albumCatalogueWasMobile=mobile;
+  if(state.view==="rankings"&&state.dataReady)renderRankingsView();
+});
+function albumCatalogueListArtwork(a){
+  const url=albumCoverUrl(a);
+  const image=url?`<img src="${escapeHtml(url)}" loading="lazy" onerror="this.hidden=true" alt="${escapeHtml(a.title||"Album cover")}">`:"";
+  return `<div class="albumCatalogueListArtwork"><div class="cover">${image}${fallback(a)}</div><button type="button" class="albumCatalogueListAdd" onclick="event.stopPropagation();addCurrentAlbumToLibrary('${escapeJsString(a.id)}')" aria-label="Add ${escapeHtml(a.title)} to my library" title="Add to my library">+</button></div>`;
+}
+function albumCatalogueListRow(a){
+  const rank=muzeTop250Rank(a);
+  const genreLabel=cachedAlbumGenreLabel(a);
+  const genre=genreLabel&&genreKey(genreLabel)!=="album"?`<span class="albumCatalogueListGenre">${escapeHtml(genreLabel)}</span>`:"";
+  const metadata=[a.artist,a.year].filter(value=>String(value||"").trim()).map(escapeHtml).join(" &middot; ");
+  const adminDelete=isAdminUnlocked()?`<button class="adminAlbumDeleteBtn" onclick="event.stopPropagation();deleteAlbumAdmin('${escapeJsString(a.id)}')" aria-label="Delete ${escapeHtml(a.title)}">Delete</button>`:"";
+  return `<article class="albumCatalogueListRow" role="button" tabindex="0" aria-label="Open ${escapeHtml(a.title)} album details" onclick="openAlbum('${escapeJsString(a.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAlbum('${escapeJsString(a.id)}')}">
+    <div class="albumCatalogueListRankCell">${rank?`<span class="score albumCatalogueListRankValue">#${rank}</span>`:""}</div>
+    ${albumCatalogueListArtwork(a)}
+    <div class="albumCatalogueListCopy"><h3>${escapeHtml(a.title)}</h3>${metadata?`<p>${metadata}</p>`:""}${genre}</div>
+    <div class="score albumCatalogueListScore" aria-label="Muze score ${displayScore(a)}">${displayScore(a)}</div>${adminDelete}
+  </article>`;
+}
 function row(a,i){const genreLabel=albumGenreLabel(a);return`<div class="listRow" onclick="openAlbum('${escapeJsString(a.id)}')"><div class="rank">#${i+1}</div>${listCover(a)}<div><strong>${escapeHtml(a.title)}</strong><div class="artist">${escapeHtml(a.artist)} - ${escapeHtml(genreLabel)} - ${count(a).toLocaleString()} ratings</div></div><div class="miniScore">${displayScore(a)}</div></div>`}
 let albumRenderToken=0;
 function renderRankingsView(){
   ++albumRenderToken;
   const arr=filtered();
-  let top=state.albums.slice().sort((a,b)=>score(b)-score(a))[0];
+  let top=state.homeTopAlbum||state.albums.slice().sort((a,b)=>score(b)-score(a))[0];
   if(top){
     $("#heroScore").textContent=displayScore(top);$("#heroTitle").textContent=top.title;
     const heroCard=$("#heroCard");
     if(heroCard){heroCard.setAttribute("onclick",`openAlbum('${escapeJsString(top.id)}')`);heroCard.setAttribute("role","button");heroCard.setAttribute("tabindex","0");heroCard.setAttribute("aria-label",`Open ${top.title||"top-rated album"} album details`);heroCard.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openAlbum(top.id)}};if(top.cover_url){heroCard.style.setProperty("--hero-cover",`url("${top.cover_url}")`)}else{heroCard.style.removeProperty("--hero-cover")}}
   }
   $("#genreFilter").innerHTML=genres().map(g=>`<option value="${escapeHtml(g)}" ${g===state.genre?"selected":""}>${escapeHtml(g==="All"?"All genres":g)}</option>`).join("");
-  const limit=Math.max(60,Number(state.homeAlbumLimit)||120);
-  const visible=arr.slice(0,limit);
-  const more=visible.length<arr.length?`<div class="albumBatchMore"><button onclick="showMoreAlbums()">See more</button>${isAdminUnlocked()?`<span>${visible.length.toLocaleString()} of ${arr.length.toLocaleString()}</span>`:""}</div>`:"";
+  if(state.homeLoading&&!arr.length){content.innerHTML=homepageSkeletonMarkup();return}
+  const visible=[...arr.filter(album=>album._justAddedSpotify),...arr.filter(album=>!album._justAddedSpotify)];
+  const more=state.homeHasMore?`<div class="albumBatchMore"><button onclick="showMoreAlbums()" ${state.homeLoading?"disabled aria-busy=\"true\"":""}>${state.homeLoading?"Loading…":"See more"}</button></div>`:"";
   const resultCount=isAdminUnlocked()?`<span class="muted">${arr.length} results</span>`:"";
-  content.innerHTML=state.sort==="hidden"?`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`:`<div class="sectionTitle"><h2>Top Albums</h2>${resultCount}</div><div class="grid">${visible.map(card).join("")}</div>${more}`;
+  const heading=state.sort==="hidden"?"Hidden Gems":"Top Albums";
+  const results=desktopAlbumListIsActive()
+    ?`<div class="album-results album-results--list">${visible.map(albumCatalogueListRow).join("")}</div>`
+    :`<div class="album-results album-results--grid grid">${visible.map(card).join("")}</div>`;
+  content.innerHTML=`<div class="sectionTitle albumCatalogueSectionTitle"><h2>${heading}</h2><div class="albumCatalogueHeaderActions">${resultCount}${albumCatalogueViewControls()}</div></div>${results}${more}`;
+}
+function homepageSkeletonMarkup(){
+  const status=state.homeLoadMessage?`<p class="homepageLoadStatus">${escapeHtml(state.homeLoadMessage)}</p>`:"";
+  const failure=state.homeLoadState==="error"?`<div class="homepageLoadFailure"><span>We couldn’t load the rankings.</span><button type="button" onclick="retryHomepageRankings()">Retry</button></div>`:"";
+  const skeleton=desktopAlbumListIsActive()
+    ?`<div class="album-results album-results--list homepageListSkeleton" aria-hidden="true">${Array.from({length:6},()=>'<article class="homepageListRowSkeleton"></article>').join("")}</div>`
+    :`<div class="album-results album-results--grid grid homepageSkeletonGrid" aria-hidden="true">${Array.from({length:4},()=>'<article class="card albumCard homepageCardSkeleton"></article>').join("")}</div>`;
+  return `<div class="sectionTitle albumCatalogueSectionTitle"><h2>Top Albums</h2><div class="albumCatalogueHeaderActions">${albumCatalogueViewControls()}</div></div>${skeleton}${status}${failure}`;
 }
 function render(){
 if(state.view!=="artists")stopTrendingArtistFlip();
-if(!state.dataReady){$("#heroScore").textContent="-";$("#heroTitle").textContent="Loading current rankings...";const heroCard=$("#heroCard");if(heroCard){heroCard.style.removeProperty("--hero-cover");heroCard.removeAttribute("onclick");heroCard.removeAttribute("role");heroCard.removeAttribute("tabindex");heroCard.removeAttribute("aria-label");heroCard.onkeydown=null}content.innerHTML='<div class="empty">Loading current album rankings...</div>';return}
+if(!state.dataReady){const heroScore=$("#heroScore"),heroTitle=$("#heroTitle");if(heroScore){heroScore.textContent="";heroScore.classList.add("homepageSkeletonValue");heroScore.setAttribute("aria-hidden","true")}if(heroTitle){heroTitle.textContent="";heroTitle.classList.add("homepageSkeletonTitle");heroTitle.setAttribute("aria-hidden","true")}const heroCard=$("#heroCard");if(heroCard){heroCard.style.removeProperty("--hero-cover");heroCard.removeAttribute("onclick");heroCard.removeAttribute("role");heroCard.removeAttribute("tabindex");heroCard.removeAttribute("aria-label");heroCard.onkeydown=null}content.innerHTML=homepageSkeletonMarkup();return}
+$("#heroScore")?.classList.remove("homepageSkeletonValue");$("#heroScore")?.removeAttribute("aria-hidden");$("#heroTitle")?.classList.remove("homepageSkeletonTitle");$("#heroTitle")?.removeAttribute("aria-hidden");
 if(state.view==="rankings"){renderRankingsView()}
 if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
 if(state.view==="artists"){content.innerHTML=artistPage(true);setTimeout(()=>{renderArtistResults({chunked:true});startTrendingArtistFlip();loadTrendingArtists()},25)}
@@ -10021,7 +10470,7 @@ const chatPanel=$("#topbarChatPanel");
 const chatOpen=state.view==="chat"||(chatPanel&&!chatPanel.classList.contains("hidden"));
 const chatButton=$("#topbarChatButton");if(chatButton){chatButton.classList.toggle("active",chatOpen);chatButton.setAttribute("aria-expanded",chatOpen?"true":"false")}
 }
-window.showMoreAlbums=function(){state.homeAlbumLimit=(Number(state.homeAlbumLimit)||120)+120;render()}
+window.showMoreAlbums=function(){if(state.homeLoading||!state.homeHasMore)return;return requestHomepageAlbumPage({reset:false})}
 function artistScoreLabel(albums){const rated=albums.filter(a=>score(a)>0);if(!rated.length)return "";return (rated.reduce((sum,a)=>sum+score(a),0)/rated.length).toFixed(1)}
 const albumSceneImages=[
   {match:["thriller","michael jackson"],hero:"https://commons.wikimedia.org/wiki/Special:FilePath/Michael_Jackson_with_Grammy_Awards_in_1984.jpg",moment:"https://commons.wikimedia.org/wiki/Special:FilePath/Michael_Jackson_with_Grammy_Awards_in_1984.jpg",focus:"50% 24%"},
@@ -10406,8 +10855,28 @@ async function loadTrendingArtists(){
 function artistRank(name){return artistDirectoryRows().find(row=>row.name===name)?.rank||{ratedCount:0,totalRatings:0,avg:0,top:0}}
 function artistNames(){return artistDirectoryRows().map(row=>row.name)}
 let artistRenderToken=0;
-function renderArtistResults(options={}){let artists=[];let grid=$("#artistResults");let count=$("#artistCount");try{artists=artistDirectoryRows()}catch(error){console.error("Unable to render artist directory",error);if(count)count.textContent="Artists unavailable";if(grid)grid.innerHTML='<div class="empty">Artists could not be loaded.</div>';return}if(count)count.textContent=artists.length+" artist"+(artists.length===1?"":"s");if(!grid)return;artistRenderToken++;const token=artistRenderToken;if(!options.chunked){grid.innerHTML=artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>';return}grid.innerHTML="";if(!artists.length){grid.innerHTML='<div class="empty">No artists found.</div>';return}let index=0;function renderChunk(){if(token!==artistRenderToken||state.view!=="artists"||!document.body.contains(grid))return;const next=artists.slice(index,index+36).map(artistBlock).join("");if(next)grid.insertAdjacentHTML("beforeend",next);index+=36;if(index<artists.length)requestAnimationFrame(renderChunk)}renderChunk()}
-function artistPage(deferResults=false){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=deferResults&&!artistDirectoryCache?["Popular","Rock","Pop","Alternative Rock","Hip-Hop","Folk Rock","Pop Rock","Metal","Soul"]:artistGenres();let artists=deferResults?[]:artistDirectoryRows();let countLabel=deferResults?"Loading artists...":`${artists.length} artist${artists.length===1?"":"s"}`;let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<div class="artistTopBand"><section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${countLabel}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div></div><div id="artistTrending">${trendingArtistsMarkup()}</div><div id="artistResults" class="artistGrid">${deferResults?"":(artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>')}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;syncArtistFilterControls();renderArtistResults({chunked:true})}
+function renderArtistResults(options={}){
+  const grid=$("#artistResults"),count=$("#artistCount");
+  if(!state.artistSearch.trim()){
+    artistRenderToken++;
+    if(count)count.textContent="";
+    if(grid)grid.innerHTML="";
+    return;
+  }
+  let artists=[];
+  try{artists=artistDirectoryRows()}catch(error){console.error("Unable to render artist directory",error);if(count)count.textContent="Artists unavailable";if(grid)grid.innerHTML='<div class="empty">Artists could not be loaded.</div>';return}
+  if(count)count.textContent=artists.length+" artist"+(artists.length===1?"":"s");
+  if(!grid)return;
+  artistRenderToken++;
+  const token=artistRenderToken;
+  if(!options.chunked){grid.innerHTML=artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>';return}
+  grid.innerHTML="";
+  if(!artists.length){grid.innerHTML='<div class="empty">No artists found.</div>';return}
+  let index=0;
+  function renderChunk(){if(token!==artistRenderToken||state.view!=="artists"||!document.body.contains(grid))return;const next=artists.slice(index,index+36).map(artistBlock).join("");if(next)grid.insertAdjacentHTML("beforeend",next);index+=36;if(index<artists.length)requestAnimationFrame(renderChunk)}
+  renderChunk();
+}
+function artistPage(deferResults=false){let letters=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];let genres=deferResults&&!artistDirectoryCache?["Popular","Rock","Pop","Alternative Rock","Hip-Hop","Folk Rock","Pop Rock","Metal","Soul"]:artistGenres();let searching=Boolean(state.artistSearch.trim());let artists=!deferResults&&searching?artistDirectoryRows():[];let countLabel=searching?(deferResults?"Loading artists...":`${artists.length} artist${artists.length===1?"":"s"}`):"";let activeLetter=state.artistLetter==="All"?"A-Z Filter":state.artistLetter;return `<div class="artistTopBand"><section class="artistDiscovery"><div><p class="eyebrow">Music culture</p><h2>Artists</h2><p>Discover legendary artists, hidden gems, and community favorites.</p></div><div class="artistSearchWrap"><input id="artistSearchInput" value="${escapeHtml(state.artistSearch)}" oninput="setArtistSearch(this.value)" placeholder="Search artists, albums, genres, moods..."><span id="artistCount">${countLabel}</span></div></section><div class="artistFilterDock"><div class="artistFilterLabel">Genres</div><div class="artistGenreChips">${genres.map(genre=>`<button class="${(state.artistGenre===genre||(genre==="Popular"&&state.artistGenre==="All"))?"active":""}" onclick="setArtistGenre('${escapeJsString(genre)}')">${escapeHtml(genre)}</button>`).join("")}<details class="artistAZMenu"><summary>${activeLetter} <span>v</span></summary><div class="artistAZ">${letters.map(letter=>`<button class="${state.artistLetter===letter?"active":""}" onclick="setArtistLetter('${letter}')">${letter}</button>`).join("")}</div></details></div></div></div><div id="artistTrending">${trendingArtistsMarkup()}</div><div id="artistResults" class="artistGrid">${deferResults||!searching?"":(artists.map(artistBlock).join("")||'<div class="empty">No artists found.</div>')}</div>`}window.setArtistLetter=function(letter){state.artistLetter=letter;syncArtistFilterControls();renderArtistResults({chunked:true})}
 function syncArtistFilterControls(){
   document.querySelectorAll(".artistGenreChips button").forEach(button=>{
     const label=(button.textContent||"").trim();
@@ -10418,7 +10887,7 @@ function syncArtistFilterControls(){
   document.querySelectorAll(".artistAZ button").forEach(button=>button.classList.toggle("active",(button.textContent||"").trim()===state.artistLetter));
 }
 window.setArtistGenre=function(genre){state.artistGenre=genre==="Popular"?"All":genre;syncArtistFilterControls();renderArtistResults({chunked:true})}
-window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults({chunked:true})}
+window.setArtistSearch=function(value){state.artistSearch=value;renderArtistResults({chunked:true});scheduleHomepageCatalogueSearch(value,()=>renderArtistResults({chunked:true}))}
 function artistListActiveYears(row){
   const years=(row.albums||[]).map(album=>Number(albumReleaseYear(album)||album.year||0)).filter(year=>year>0).sort((a,b)=>a-b);
   if(!years.length)return "";
@@ -10883,12 +11352,13 @@ function albumArtistVerifiedMark(){
 }
 window.openAlbum=async function(id){
   $("#albumModal")?.classList.remove("libraryDetailModal");
-  let a=state.albums.find(x=>String(x.id)===String(id));
+  let a=state.albums.find(x=>String(x.id)===String(id))||(String(state.homeTopAlbum?.id||"")===String(id)?state.homeTopAlbum:null);
   if(!a)return;
   const verifiedYear=albumReleaseYear(a);
   if(verifiedYear&&Number(a.year)!==Number(verifiedYear))a={...a,year:verifiedYear};
+  const [detail,,communityReviewState]=await Promise.all([loadAlbumCardDetail(a),loadAlbumOverviewForAlbum(a),loadCommunityAlbumReview(a)]);
+  a=detail||a;
   await fetchAlbumMoodScore(a);
-  const communityReviewState=await loadCommunityAlbumReview(a);
   extras.currentAlbumId=albumRef(a.id);
   const albumScore=displayScore(a);
   const total=count(a).toLocaleString();
@@ -11243,10 +11713,10 @@ function mergeAlbumSources(primary=[],fallback=[]){
   });
   return dedupeAlbumRows(rows);
 }
-const ALBUM_BOOT_CACHE_KEY="muzeAlbumBootCache:v2";
+const ALBUM_BOOT_CACHE_KEY="muzeAlbumBootCache:v3";
 function cachedBootAlbums(){try{const rows=JSON.parse(localStorage.getItem(ALBUM_BOOT_CACHE_KEY)||"[]");return Array.isArray(rows)?rows.filter(album=>album&&album.id&&album.title):[]}catch(error){return []}}
-function saveBootAlbums(rows){try{localStorage.setItem(ALBUM_BOOT_CACHE_KEY,JSON.stringify((rows||[]).slice(0,1200)))}catch(error){}}
-function materializedBootAlbums(){return state.albums.map(album=>({...album,admin_score:score(album),admin_ratings_count:count(album),genre:albumGenreLabel(album)}))}
+function saveBootAlbums(rows){try{localStorage.setItem(ALBUM_BOOT_CACHE_KEY,JSON.stringify((rows||[]).slice(0,state.homePageSize)))}catch(error){}}
+function materializedBootAlbums(){return state.albums.map(album=>{const {_pendingSpotifySave,_justAddedSpotify,...stored}=album;return {...stored,admin_score:score(album),admin_ratings_count:count(album),genre:albumGenreLabel(album)}})}
 function showSavedAlbumImmediately(album){
   if(!album)return null;
   const visibleAlbum={...album,avg_rating:Number(album.avg_rating||0),ratings_count:Number(album.ratings_count||0),genre:albumGenreLabel(album)};
@@ -11257,13 +11727,13 @@ function showSavedAlbumImmediately(album){
   return visibleAlbum;
 }
 function showPendingSpotifyAlbum(album){
-  const pending={...album,id:`pending-spotify-${crypto.randomUUID()}`,avg_rating:0,ratings_count:0,genre:albumGenreLabel(album),_pendingSpotifySave:true};
+  const pending={...album,id:`pending-spotify-${crypto.randomUUID()}`,avg_rating:0,ratings_count:0,genre:albumGenreLabel(album),_pendingSpotifySave:true,_justAddedSpotify:true};
   state.albums=dedupeAlbumRows([pending,...state.albums]);
   render();
   return pending;
 }
 function reconcilePendingSpotifyAlbum(pendingId,savedAlbum){
-  const saved={...savedAlbum,avg_rating:Number(savedAlbum?.avg_rating||0),ratings_count:Number(savedAlbum?.ratings_count||0),genre:albumGenreLabel(savedAlbum)};
+  const saved={...savedAlbum,avg_rating:Number(savedAlbum?.avg_rating||0),ratings_count:Number(savedAlbum?.ratings_count||0),genre:albumGenreLabel(savedAlbum),_justAddedSpotify:true};
   state.albums=dedupeAlbumRows(state.albums.map(album=>String(album.id)===String(pendingId)?saved:album));
   saveBootAlbums(materializedBootAlbums());
   render();
@@ -11275,9 +11745,134 @@ function removePendingSpotifyAlbum(pendingId){
   state.albums=state.albums.filter(album=>String(album.id)!==String(pendingId));
   render();
 }
+let homepageRankingsRequest=null;
+let homepageRankingsToken=0;
+let homepageRankingsAbortController=null;
+const homepageFirstPageCache=new Map();
+const HOMEPAGE_QUERY_CACHE_MS=60_000;
+function normalizeHomepageAlbum(row){
+  const effectiveScore=Number(row?.effective_score??row?.admin_score??row?.avg_rating??0);
+  const effectiveCount=Number(row?.effective_ratings_count??row?.admin_ratings_count??row?.ratings_count??0);
+  return {...row,avg_rating:effectiveScore,ratings_count:effectiveCount,admin_score:effectiveScore,admin_ratings_count:effectiveCount,muze_rank:Number(row?.muze_rank)||null,genre:albumGenreLabel(row)};
+}
+function mergeUniqueHomepageAlbums(existing=[],incoming=[]){
+  if(window.MuzeHomepageLoading)return window.MuzeHomepageLoading.mergeUnique(existing,incoming,album=>String(album?.id||albumIdentityKey(album)||""));
+  const seen=new Set();
+  return [...existing,...incoming].filter(album=>{
+    const key=String(album?.id||albumIdentityKey(album)||"");
+    if(!key||seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+function homepageQueryState(){return {searchTerm:String(state.search||"").trim(),genre:String(state.genre||"All"),year:String(state.yearFilter||""),sortMode:String(state.sort||"score"),pageSize:state.homePageSize}}
+function homepageQueryKey(query,offset=0){return JSON.stringify([query.searchTerm.toLowerCase(),query.genre.toLowerCase(),query.year,query.sortMode,offset,query.pageSize])}
+function homepageReleaseDateSortKey(album){
+  const value=String(album?.release_date||"").trim();
+  const match=value.match(/^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?/);
+  const year=Number(match?.[1]||album?.year)||0;
+  return year*10000+(Number(match?.[2])||0)*100+(Number(match?.[3])||0);
+}
+function homepageCompareForMode(mode){
+  if(mode==="year")return (left,right)=>homepageReleaseDateSortKey(right)-homepageReleaseDateSortKey(left)||String(left.id).localeCompare(String(right.id));
+  if(mode==="ratings")return (left,right)=>count(right)-count(left)||score(right)-score(left)||String(left.id).localeCompare(String(right.id));
+  if(mode==="hidden")return (left,right)=>count(left)-count(right)||score(right)-score(left)||String(left.id).localeCompare(String(right.id));
+  return (left,right)=>score(right)-score(left)||count(right)-count(left)||String(left.title||"").localeCompare(String(right.title||""))||String(left.id).localeCompare(String(right.id));
+}
+async function queryHomepageAlbumPage(query,offset=0,{signal,useCache=true}={}){
+  const pageSize=query.pageSize;
+  const cacheKey=homepageQueryKey(query,offset);
+  const cached=homepageFirstPageCache.get(cacheKey);
+  if(useCache&&offset===0&&cached&&Date.now()-cached.savedAt<HOMEPAGE_QUERY_CACHE_MS)return cached.page;
+  const params=new URLSearchParams({offset:String(offset),limit:String(pageSize),sort:query.sortMode,genre:query.genre,year:query.year,q:query.searchTerm,v:"homepage-hide-greatest-hits-20260829"});
+  const response=await fetch(`/.netlify/functions/homepage-rankings?${params}`,{headers:{Accept:"application/json"},signal});
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(payload.error||"Muze rankings request failed");
+  const rows=(payload.albums||[]).map(normalizeHomepageAlbum);
+  const page={albums:rows,hasMore:Boolean(payload.hasMore),nextOffset:offset+rows.length,topAlbum:payload.topAlbum?normalizeHomepageAlbum(payload.topAlbum):null,genres:Array.isArray(payload.genres)?payload.genres:[],total:Number(payload.total)||0,query};
+  if(offset===0)homepageFirstPageCache.set(cacheKey,{savedAt:Date.now(),page});
+  return page;
+}
+function homepageTimeout(ms,message){
+  return new Promise((_,reject)=>setTimeout(()=>reject(Object.assign(new Error(message),{code:"MUZE_HOMEPAGE_TIMEOUT"})),ms));
+}
+function prefetchHomepageSortPages(){
+  const base={searchTerm:"",genre:"All",year:"",pageSize:state.homePageSize};
+  ["year","ratings","hidden"].forEach(sortMode=>queryHomepageAlbumPage({...base,sortMode},0,{useCache:true}).catch(()=>{}));
+}
+async function requestHomepageAlbumPage({reset=false,force=false,query=homepageQueryState()}={}){
+  if(homepageRankingsRequest&&!force)return homepageRankingsRequest;
+  if(force&&homepageRankingsAbortController){homepageRankingsAbortController.abort();homepageRankingsRequest=null}
+  const token=++homepageRankingsToken;
+  const offset=reset?0:state.homeOffset;
+  const controller=new AbortController();
+  homepageRankingsAbortController=controller;
+  state.homeLoading=true;
+  state.homeLoadState=reset?"loading":"paging";
+  state.homeLoadMessage="";
+  if(reset){state.albums=[];state.homeOverflow=[];state.homeOffset=0;state.homeHasMore=true}
+  render();
+  let slowTimer=0;
+  if(reset)slowTimer=setTimeout(()=>{
+    if(token!==homepageRankingsToken||!state.homeLoading)return;
+    state.homeLoadState="slow";
+    state.homeLoadMessage="Still loading Muze rankings…";
+    render();
+  },4000);
+  homepageRankingsRequest=(async()=>{
+    try{
+      const work=queryHomepageAlbumPage(query,offset,{signal:controller.signal,useCache:true});
+      const page=window.MuzeHomepageLoading?await window.MuzeHomepageLoading.withTimeout(work,8000):await Promise.race([work,homepageTimeout(8000,"Muze rankings request timed out")]);
+      if(token!==homepageRankingsToken)return false;
+      const combined=reset?dedupeAlbumRows(page.albums):mergeUniqueHomepageAlbums(state.albums,page.albums);
+      const ranked=combined.sort(homepageCompareForMode(query.sortMode));
+      state.homeOverflow=reset?ranked.slice(state.homePageSize):[];
+      const visibleRanked=reset?ranked.slice(0,state.homePageSize):ranked;
+      const defaultGlobalQuery=!query.searchTerm&&query.genre==="All"&&!query.year&&query.sortMode==="score";
+      state.albums=visibleRanked.map((album,index)=>defaultGlobalQuery?{...album,muze_rank:index+1}:album);
+      const globalTop=page.topAlbum;
+      if(globalTop)state.homeTopAlbum=globalTop;
+      if(page.genres.length)state.homeGenres=page.genres;
+      state.homeOffset=page.nextOffset;
+      state.homeHasMore=page.hasMore||state.homeOverflow.length>0;
+      state.albumCatalogueReady=true;
+      state.dataReady=true;
+      state.homeLoadState="success";
+      state.homeLoadMessage="";
+      $("#setupWarning")?.classList.add("hidden");
+      applyCachedCovers();
+      saveBootAlbums(materializedBootAlbums());
+      render();
+      if(reset&&!query.searchTerm&&query.genre==="All"&&query.sortMode==="score")setTimeout(prefetchHomepageSortPages,0);
+      return true;
+    }catch(error){
+      if(token!==homepageRankingsToken)return false;
+      if(error?.name==="AbortError")return false;
+      console.error("[Muze homepage] rankings request failed",error);
+      state.homeLoadState="error";
+      state.homeLoadMessage="We couldn’t load the rankings.";
+      state.dataReady=state.albums.length>0;
+      render();
+      return false;
+    }finally{
+      clearTimeout(slowTimer);
+      if(token===homepageRankingsToken){state.homeLoading=false;homepageRankingsRequest=null;homepageRankingsAbortController=null;render()}
+    }
+  })();
+  return homepageRankingsRequest;
+}
+window.retryHomepageRankings=function(){
+  state.homeOffset=0;
+  state.homeHasMore=true;
+  state.homeLoadState="loading";
+  state.homeLoadMessage="";
+  return requestHomepageAlbumPage({reset:true,force:true});
+};
 async function loadData(){
   state.dataReady=false;
   state.albumCatalogueReady=false;
+  state.homeLoadState="loading";
+  state.homeLoadMessage="";
   render();
   const directArtistSlug=artistSlugFromPath();
   if(db&&directArtistSlug){
@@ -11288,73 +11883,33 @@ async function loadData(){
   }
   if(!db){
     $("#setupWarning").classList.remove("hidden");
-    const localOnly=isLocalRuntime();
-    state.albums=dedupeAlbumRows([...seedAlbums.filter(a=>!hiddenSeedAlbums().includes(a.id)),...(localOnly?localAlbums():[])]);
-    state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
-    state.albumCatalogueReady=true;
-    state.ratingMap=localOnly?localRatings():{};
-    primeProtectedOverviews();
-    applyCachedCovers();
-    state.dataReady=true;
+    state.albums=[];
+    state.homeLoadState="error";
+    state.homeLoadMessage="We couldn’t load the rankings.";
     render();
-    warmArtistDirectory();
-    if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
-    hydrateMissingCovers();
-    loadCustomOverviews().then(()=>{applyCachedCovers();render();warmArtistDirectory()}).catch(error=>console.warn("Muze overview scores could not be loaded",error));
     return;
   }
   localStorage.removeItem("musicaLocalAlbums");
-  const bootAlbums=cachedBootAlbums();
+  const bootAlbums=cachedBootAlbums().slice(0,state.homePageSize);
   if(bootAlbums.length){
     state.albums=bootAlbums;
-    primeProtectedOverviews();
     applyCachedCovers();
     state.dataReady=true;
+    state.albumCatalogueReady=true;
+    state.homeOffset=bootAlbums.length;
     render();
-    warmArtistDirectory();
-    hydrateAlbumRuntimes();
   }
-  let albums=[];
-  let rawAlbums=[];
-  const [scoreResult,rawResult,initialOverviewsResult]=await Promise.allSettled([loadAllAlbumScoreRows(),loadRawAlbumRows(),loadCustomOverviews()]);
-  if(scoreResult.status==="fulfilled")albums=scoreResult.value;
-  else console.error("Muze album load failed",scoreResult.reason);
-  if(rawResult.status==="fulfilled")rawAlbums=rawResult.value;
-  else console.warn("Muze raw album fallback failed",rawResult.reason);
-  const catalogueLoaded=albums.length>0||rawAlbums.length>0;
-  if(catalogueLoaded){
-    state.albums=mergeAlbumSources([...seedAlbums,...albums],rawAlbums);
-  }else{
-    // Never replace a materialized or cached catalogue with the six demo
-    // records because a session refresh or one public request failed.
-    const retainedCatalogue=state.albums.length>seedAlbums.length
-      ?state.albums
-      :(bootAlbums.length>seedAlbums.length?bootAlbums:state.albums);
-    state.albums=retainedCatalogue.length?retainedCatalogue:seedAlbums;
-    console.warn("Muze retained the existing catalogue because public album requests returned no rows.");
-  }
-  state.albums=state.albums.map(a=>({...a,genre:albumGenreLabel(a)}));
-  state.albumCatalogueReady=catalogueLoaded||state.albums.length>seedAlbums.length;
-  if(initialOverviewsResult.status==="rejected"){
-    console.warn("Muze overview scores could not be loaded",initialOverviewsResult.reason);
-    primeProtectedOverviews();
-  }
-  applyCachedCovers();
-  state.dataReady=true;
-  render();
-  warmArtistDirectory();
-  hydrateAlbumRuntimes();
-  if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
-  hydrateMissingCovers();
-  const ratingsResult=await Promise.resolve(db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId)).then(value=>({status:"fulfilled",value}),reason=>({status:"rejected",reason}));
+  const [pageResult,ratingsResult]=await Promise.allSettled([
+    requestHomepageAlbumPage({reset:true}),
+    db.from("ratings").select("album_id,rating").eq("device_id",state.deviceId)
+  ]);
   if(ratingsResult.status==="fulfilled"){
     const {data:ratings,error:ratingsError}=ratingsResult.value;
     state.ratingMap=ratingsError?{}:Object.fromEntries((ratings||[]).map(r=>[r.album_id,r.rating]));
   }else state.ratingMap={};
-  applyCachedCovers();
-  saveBootAlbums(materializedBootAlbums());
+  if(pageResult.status==="rejected")console.error("[Muze homepage] startup request failed",pageResult.reason);
+  if(!deepLinkHandled){deepLinkHandled=true;setTimeout(handleMuzeDeepLink,120)}
   render();
-  warmArtistDirectory();
 }function openSpotifyAdd(target){
   extras.spotifyTarget=target||"musica";
   const title=$("#addModalTitle");
@@ -11559,7 +12114,7 @@ $("#searchInput").oninput=e=>{state.search=e.target.value;state.yearFilter="";sc
 $("#searchInput")?.addEventListener("focus",scheduleMuzeSearchSuggestions);
 $("#searchInput")?.addEventListener("keydown",event=>{if(event.key==="Escape")hideMuzeSearchSuggestions()});
 document.addEventListener("pointerdown",event=>{if(!event.target.closest(".muzeSearchWrap"))hideMuzeSearchSuggestions()});
-$("#genreFilter").onchange=e=>{state.genre=e.target.value;state.yearFilter="";render()};$("#sortSelect").onchange=e=>{state.sort=e.target.value;render()};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
+$("#genreFilter").onchange=e=>{state.genre=e.target.value;state.yearFilter="";requestHomepageAlbumPage({reset:true,force:true})};$("#sortSelect").onchange=e=>{state.sort=e.target.value;requestHomepageAlbumPage({reset:true,force:true})};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
 document.addEventListener("visibilitychange",()=>{if(document.hidden)updateOwnPresence(false);else startPresenceHeartbeat()});
 window.addEventListener("pagehide",()=>updateOwnPresence(false));
 initAuth();

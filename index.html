@@ -4,11 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Muze - Find Music Worth Listening To</title>
+  <meta name="description" content="Rate albums, discover music worth listening to, and build a library that reflects your taste on Muze." />
+  <link rel="canonical" href="https://lucent-cucurucho-2eda91.netlify.app/" />
   <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png?v=muze-black-icon-20260816" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=muze-black-icon-20260816" />
   <link rel="shortcut icon" href="/favicon.ico?v=muze-black-icon-20260816" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=muze-black-icon-20260816" />
-<link rel="stylesheet" href="/styles.css?v=compact-unranked-stat-layout-20260829">
+<link rel="stylesheet" href="/styles.css?v=influence-spotify-import-20260830">
   <script>
     (function(){
       try{
@@ -76,14 +78,15 @@
         <button id="addAlbumBtn" class="bigBtn">+ Search Albums</button>
       </div>
       <div class="heroCard" id="heroCard">
-        <div class="scoreBig" id="heroScore">-</div>
+        <div class="scoreBig homepageSkeletonValue" id="heroScore" aria-hidden="true"></div>
         <div class="muted">Top-rated album</div>
-        <strong id="heroTitle">Loading...</strong>
+        <strong id="heroTitle" class="homepageSkeletonTitle" aria-hidden="true"></strong>
       </div>
     </section>
 
     <div id="setupWarning" class="setupWarning hidden">
-      Supabase is not connected yet. This works as a local demo until you add your Supabase URL and anon key in <strong>config.js</strong>.
+      <span>Muze is temporarily unavailable. Please try again.</span>
+      <button type="button" onclick="retryHomepageRankings()">Retry</button>
     </div>
 
     <div class="controls">
@@ -108,7 +111,24 @@
       <button class="tab" data-view="libraries">Libraries</button>
     </nav>
 
-    <main id="content"></main>
+    <main id="content">
+      <section class="homepageInitialContent" aria-label="Muze album rankings">
+        <div class="sectionTitle"><h2>Top Albums</h2></div>
+        <div class="grid homepageSkeletonGrid" aria-hidden="true">
+          <article class="card albumCard homepageCardSkeleton"></article>
+          <article class="card albumCard homepageCardSkeleton"></article>
+          <article class="card albumCard homepageCardSkeleton"></article>
+          <article class="card albumCard homepageCardSkeleton"></article>
+        </div>
+        <p class="homepageStaticDescription">Muze is a place to rate albums, discover music worth listening to, and build a personal music library.</p>
+      </section>
+    </main>
+    <noscript>
+      <section class="muzeNoscript">
+        <h2>Find music worth listening to.</h2>
+        <p>Muze helps listeners rate albums, discover remarkable records, and build a personal music library. Enable JavaScript to explore the current community rankings.</p>
+      </section>
+    </noscript>
   </div>
   <div id="albumModal" class="modal hidden">
     <div class="modalPanel">
@@ -293,7 +313,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config.js"></script>
-<script src="/app-final-spotify.js?v=unranked-stat-context-20260829"></script>
+<script src="/scripts/homepage-loading.js?v=20260829"></script>
+<script src="/app-final-spotify.js?v=ai-researched-album-recommendations-quality-20260830"></script>
 </body>
 </html>
 
