@@ -42,19 +42,46 @@ function applyCatalogueQuery(allRows,{query="",genre="",year=null,sort="score"}=
   const genres=[...new Set([...globallyEligible.map(album=>String(album.genre||"").trim()).filter(Boolean),...(greatestHits.length?["Greatest hits"]:[])])].sort((a,b)=>a.localeCompare(b));
   return {globallyEligible,rows,genres};
 }
-async function restRows(url,key,table,fields,filter="",from=0,to=999){
-  const response=await fetch(`${url.replace(/\/$/,"")}/rest/v1/${table}?select=${encodeURIComponent(fields)}${filter}`,{headers:{apikey:key,Authorization:`Bearer ${key}`,Range:`${from}-${to}`}});
+const REST_STABLE_ORDERS={
+  album_scores:"id.asc",
+  album_overviews:"album_id.asc.nullsfirst,album_key.asc.nullsfirst,title.asc.nullsfirst,artist.asc.nullsfirst,admin_score.asc.nullsfirst,admin_ratings_count.asc.nullsfirst",
+  album_metadata:"album_ref.asc.nullsfirst,album_id.asc.nullsfirst,title.asc.nullsfirst,artist.asc.nullsfirst,original_release_date.asc.nullsfirst"
+};
+function stableRestOrder(table){return REST_STABLE_ORDERS[table]||""}
+function catalogueHeaders(key,from,to,exactCount=false){
+  const headers={apikey:key,Range:`${from}-${to}`};
+  // Supabase's newer sb_secret/sb_publishable keys must not be sent as bearer JWTs.
+  if(!/^sb_(?:secret|publishable)_/i.test(String(key||"")))headers.Authorization=`Bearer ${key}`;
+  if(exactCount)headers.Prefer="count=exact";
+  return headers;
+}
+function responseTotal(response){
+  const total=Number(String(response.headers.get("content-range")||"").split("/")[1]);
+  return Number.isFinite(total)?total:null;
+}
+async function restRows(url,key,table,fields,filter="",from=0,to=999,{exactCount=false}={}){
+  const order=stableRestOrder(table);
+  const query=`select=${encodeURIComponent(fields)}${filter}${order?`&order=${encodeURIComponent(order)}`:""}`;
+  const response=await fetch(`${url.replace(/\/$/,"")}/rest/v1/${table}?${query}`,{headers:catalogueHeaders(key,from,to,exactCount)});
   const text=await response.text();
   if(!response.ok)throw new Error(`Catalogue query failed (${response.status}): ${text.slice(0,240)}`);
-  return JSON.parse(text||"[]");
+  return {rows:JSON.parse(text||"[]"),total:responseTotal(response)};
 }
 async function restAllRows(url,key,table,fields,filter=""){
   const rows=[];
   const pageSize=1000;
+  let expectedTotal=null;
   for(let from=0;;from+=pageSize){
-    const batch=await restRows(url,key,table,fields,filter,from,from+pageSize-1);
+    const page=await restRows(url,key,table,fields,filter,from,from+pageSize-1,{exactCount:from===0});
+    const batch=page.rows;
+    if(from===0)expectedTotal=page.total;
     rows.push(...batch);
     if(batch.length<pageSize)break;
+  }
+  if(expectedTotal!==null&&rows.length!==expectedTotal)throw new Error(`Incomplete ${table} catalogue load: expected ${expectedTotal} rows, received ${rows.length}`);
+  if(table==="album_scores"){
+    const ids=rows.map(row=>String(row.id||""));
+    if(ids.some(id=>!id)||new Set(ids).size!==ids.length)throw new Error("Incomplete album_scores catalogue load: duplicate or missing album IDs detected");
   }
   return rows;
 }
@@ -113,7 +140,9 @@ async function databaseQueryPage({searchTerm,genre,year,sort,offset,limit}){
   const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL;
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_ANON_KEY||process.env.VITE_SUPABASE_ANON_KEY;
   if(!url||!key)return null;
-  const response=await fetch(`${url.replace(/\/$/,"")}/rest/v1/rpc/muze_homepage_catalogue_query`,{method:"POST",headers:{apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"},body:JSON.stringify({p_search:searchTerm,p_genre:genre||"All",p_year:year,p_sort:sort,p_offset:offset,p_limit:limit})});
+  const headers={...catalogueHeaders(key,0,0),"Content-Type":"application/json"};
+  delete headers.Range;
+  const response=await fetch(`${url.replace(/\/$/,"")}/rest/v1/rpc/muze_homepage_catalogue_query`,{method:"POST",headers,body:JSON.stringify({p_search:searchTerm,p_genre:genre||"All",p_year:year,p_sort:sort,p_offset:offset,p_limit:limit})});
   const text=await response.text();
   if(!response.ok){
     if(response.status===404||/PGRST202|42883|could not find the function/i.test(text))return null;
@@ -143,4 +172,4 @@ exports.handler=async function(event){
     return {statusCode:503,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"},body:JSON.stringify({error:"Muze rankings are temporarily unavailable."})};
   }
 };
-exports._test={clean,identity,releaseDateSortKey,compareForMode,isGreatestHits,applyCatalogueQuery};
+exports._test={clean,identity,releaseDateSortKey,compareForMode,isGreatestHits,applyCatalogueQuery,stableRestOrder,catalogueHeaders};
