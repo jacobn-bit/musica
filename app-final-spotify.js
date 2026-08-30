@@ -10350,7 +10350,7 @@ function scheduleHomepageCatalogueSearch(query,after){
   const token=++homepageCatalogueSearchToken;
   homepageCatalogueSearchTimer=setTimeout(async()=>{
     try{
-      const response=await fetch(`/.netlify/functions/homepage-rankings?q=${encodeURIComponent(clean)}&offset=0&limit=120&v=homepage-120-20260829`,{headers:{Accept:"application/json"}});
+      const response=await fetch(`/.netlify/functions/homepage-rankings?q=${encodeURIComponent(clean)}&offset=0&limit=120&v=homepage-stable-catalogue-20260830`,{headers:{Accept:"application/json"}});
       const payload=await response.json().catch(()=>({}));
       if(!response.ok||token!==homepageCatalogueSearchToken)return;
       state.albums=mergeUniqueHomepageAlbums(state.albums,(payload.albums||[]).map(normalizeHomepageAlbum));
@@ -11784,7 +11784,7 @@ async function queryHomepageAlbumPage(query,offset=0,{signal,useCache=true}={}){
   const cacheKey=homepageQueryKey(query,offset);
   const cached=homepageFirstPageCache.get(cacheKey);
   if(useCache&&offset===0&&cached&&Date.now()-cached.savedAt<HOMEPAGE_QUERY_CACHE_MS)return cached.page;
-  const params=new URLSearchParams({offset:String(offset),limit:String(pageSize),sort:query.sortMode,genre:query.genre,year:query.year,q:query.searchTerm,v:"homepage-hide-greatest-hits-20260829"});
+  const params=new URLSearchParams({offset:String(offset),limit:String(pageSize),sort:query.sortMode,genre:query.genre,year:query.year,q:query.searchTerm,v:"homepage-stable-catalogue-20260830"});
   const response=await fetch(`/.netlify/functions/homepage-rankings?${params}`,{headers:{Accept:"application/json"},signal});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(payload.error||"Muze rankings request failed");
