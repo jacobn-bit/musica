@@ -79,9 +79,11 @@ function createSupabaseClient(env = process.env) {
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
   const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Supabase service settings are missing.");
+  const authHeaders = { "Content-Type": "application/json", apikey: key };
+  if (!key.startsWith("sb_")) authHeaders.Authorization = `Bearer ${key}`;
   return (path, options = {}) => fetchJson(`${url}/rest/v1/${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", apikey: key, Authorization: `Bearer ${key}`, ...(options.headers || {}) }
+    headers: { ...authHeaders, ...(options.headers || {}) }
   }, 30000);
 }
 
@@ -216,8 +218,55 @@ async function generateRecommendations(source, candidates, env = process.env) {
 
 function cacheIsFresh(rows) {
   if (!Array.isArray(rows) || rows.length < 4) return false;
+  if (rows.slice(0, 4).every(row => row.prompt_version === "muze-manual-recommendations-v1")) return true;
   const generatedAt = Math.min(...rows.map(row => Date.parse(row.generated_at || 0)).filter(Number.isFinite));
   return Number.isFinite(generatedAt) && Date.now() - generatedAt < CACHE_MAX_AGE_MS;
+}
+
+async function readSimilarityProfile(api, albumId) {
+  const rows = await api(`album_similarity_profiles?album_id=eq.${encodeURIComponent(albumId)}&select=profile,sources,generation_model,prompt_version,generated_at&limit=1`).catch(() => []);
+  return rows?.[0] || null;
+}
+
+function manualInfluenceIds(profileRow) {
+  const manual = profileRow?.profile?.manual_influence || {};
+  const valid = value => Array.from(new Set((Array.isArray(value) ? value : []).map(String).filter(Boolean))).slice(0, 2);
+  return { earlier: valid(manual.earlier), later: valid(manual.later) };
+}
+
+function hydrateManualInfluence(profileRow, albums) {
+  const ids = manualInfluenceIds(profileRow);
+  const byId = new Map((albums || []).map(album => [String(album.id), album]));
+  return {
+    earlier: ids.earlier.map(id => byId.get(id)).filter(Boolean),
+    later: ids.later.map(id => byId.get(id)).filter(Boolean),
+    manual: Boolean(profileRow?.profile && Object.prototype.hasOwnProperty.call(profileRow.profile, "manual_influence"))
+  };
+}
+
+async function saveManualDiscovery(api, source, albums, input) {
+  const catalogue = new Map((albums || []).map(album => [String(album.id), album]));
+  const uniqueIds = (value, limit) => Array.from(new Set((Array.isArray(value) ? value : []).map(String).filter(id => id !== String(source.id) && catalogue.has(id)))).slice(0, limit);
+  const moreLikeIds = uniqueIds(input.more_like_ids, 4);
+  const earlier = uniqueIds(input.influenced_by_ids, 2);
+  const later = uniqueIds(input.influenced_ids, 2);
+  if (moreLikeIds.length !== 4) throw Object.assign(new Error("Choose exactly four More like this albums."), { status: 400 });
+  const now = new Date().toISOString();
+  await api(`album_recommendations?source_album_id=eq.${encodeURIComponent(source.id)}`, { method: "DELETE" });
+  const rows = moreLikeIds.map((targetId, index) => ({
+    source_album_id: String(source.id), target_album_id: targetId, position: index + 1,
+    similarity_score: 100 - index, relationship: "multi_dimensional", reason: "Manually curated by Muze admin.", confidence: 1,
+    sources: [], generation_model: "manual", prompt_version: "muze-manual-recommendations-v1", generated_at: now, updated_at: now
+  }));
+  await api("album_recommendations", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(rows) });
+
+  const existing = await readSimilarityProfile(api, source.id);
+  const profile = { ...(existing?.profile || {}), manual_influence: { earlier, later } };
+  await api("album_similarity_profiles", {
+    method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify({ album_id: String(source.id), profile, sources: existing?.sources || [], generation_model: existing?.generation_model || "manual", prompt_version: existing?.prompt_version || "muze-manual-discovery-v1", generated_at: existing?.generated_at || now, updated_at: now })
+  });
+  return { rows, profile: { ...existing, profile } };
 }
 
 async function readCachedRecommendations(api, albumId) {
@@ -231,8 +280,10 @@ async function readCachedRecommendations(api, albumId) {
 
 async function saveRecommendations(api, source, generated) {
   const now = new Date().toISOString();
+  const existingProfile = await readSimilarityProfile(api, source.id);
+  const manualInfluence = existingProfile?.profile?.manual_influence;
   const profileRow = {
-    album_id: String(source.id), profile: generated.profile, sources: generated.sources, generation_model: generated.model,
+    album_id: String(source.id), profile: manualInfluence ? { ...generated.profile, manual_influence: manualInfluence } : generated.profile, sources: generated.sources, generation_model: generated.model,
     prompt_version: PROMPT_VERSION, generated_at: now, updated_at: now
   };
   await api("album_similarity_profiles", {
@@ -255,5 +306,6 @@ function hydrateRecommendationRows(rows, albums) {
 
 module.exports = {
   PROMPT_VERSION, buildCandidatePool, cacheIsFresh, candidateScore, createSupabaseClient, fetchAllAlbums,
-  fetchOverviewMap, generateRecommendations, hydrateRecommendationRows, readCachedRecommendations, saveRecommendations
+  fetchOverviewMap, generateRecommendations, hydrateManualInfluence, hydrateRecommendationRows, manualInfluenceIds,
+  readCachedRecommendations, readSimilarityProfile, saveManualDiscovery, saveRecommendations
 };
