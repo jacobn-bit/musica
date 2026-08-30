@@ -1,3 +1,15 @@
+const SPOTIFY_SEARCH_LIMIT = 10;
+const PRODUCTION_SEARCH_URL = "https://themuze.app/.netlify/functions/album-search";
+
+function isLocalRequest(event) {
+  return /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(String(event.headers?.host || ""));
+}
+
+async function productionSearch(q) {
+  const response = await fetch(`${PRODUCTION_SEARCH_URL}?q=${encodeURIComponent(q)}`, { headers: { Accept: "application/json" } });
+  return { statusCode: response.status, headers: { "Content-Type": "application/json" }, body: await response.text() };
+}
+
 exports.handler = async function(event) {
   const headers = { "Content-Type": "application/json" };
   try {
@@ -19,11 +31,14 @@ exports.handler = async function(event) {
 
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
+      // Netlify keeps secret values write-only, so local Netlify Dev receives a
+      // redacted value. Use Muze's deployed server without exposing the secret.
+      if (isLocalRequest(event)) return productionSearch(q);
       return { statusCode: tokenRes.status || 500, headers, body: JSON.stringify({ error: "Spotify token failed.", spotifyResponse: tokenData }) };
     }
 
     const searchRes = await fetch(
-      "https://api.spotify.com/v1/search?type=album&limit=12&q=" + encodeURIComponent(q),
+      `https://api.spotify.com/v1/search?type=album&limit=${SPOTIFY_SEARCH_LIMIT}&q=` + encodeURIComponent(q),
       { headers: { "Authorization": "Bearer " + tokenData.access_token } }
     );
 
@@ -49,3 +64,5 @@ exports.handler = async function(event) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || "Album search failed." }) };
   }
 };
+
+exports._test = { SPOTIFY_SEARCH_LIMIT, isLocalRequest };
