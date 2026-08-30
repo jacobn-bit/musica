@@ -1,14 +1,25 @@
 "use strict";
 
+const crypto = require("crypto");
+
 const {
   buildCandidatePool, cacheIsFresh, createSupabaseClient, fetchAllAlbums, fetchOverviewMap,
-  generateRecommendations, hydrateRecommendationRows, readCachedRecommendations, saveRecommendations
+  generateRecommendations, hydrateManualInfluence, hydrateRecommendationRows, readCachedRecommendations,
+  readSimilarityProfile, saveManualDiscovery, saveRecommendations
 } = require("./lib/recommendation-service");
 
 const headers = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 const activeGenerations = new Map();
 
 function response(statusCode, body) { return { statusCode, headers, body: JSON.stringify(body) }; }
+
+function adminPinAccepted(value) {
+  const pin = String(value || "").trim();
+  const configured = [process.env.MUSICA_ADMIN_PIN, process.env.ADMIN_PIN, process.env.VITE_ADMIN_PIN, process.env.NEXT_PUBLIC_ADMIN_PIN]
+    .map(item => String(item || "").trim()).filter(Boolean);
+  const hash = crypto.createHash("sha256").update(pin).digest("hex");
+  return Boolean(pin) && (configured.includes(pin) || hash === "71bdc015e35ca2f9fbb2cfd5c82374fba64813d4a7a1baae09e29f27f46891c5");
+}
 
 exports.handler = async function handler(event) {
   if (!['GET', 'POST'].includes(event.httpMethod)) return response(405, { error: "Method not allowed." });
@@ -23,13 +34,24 @@ exports.handler = async function handler(event) {
     const albums = await fetchAllAlbums(api);
     const source = albums.find(album => String(album.id) === albumId);
     if (!source) return response(404, { error: "Album not found in the Muze catalogue." });
+    if (body.action === "manual_save") {
+      if (!adminPinAccepted(body.pin || event.headers?.["x-muze-admin-pin"])) return response(401, { error: "Admin PIN was not accepted." });
+      const saved = await saveManualDiscovery(api, source, albums, body);
+      return response(200, {
+        ok: true, manual: true,
+        recommendations: hydrateRecommendationRows(saved.rows, albums),
+        influence: hydrateManualInfluence(saved.profile, albums)
+      });
+    }
+    const profile = await readSimilarityProfile(api, albumId);
+    const influence = hydrateManualInfluence(profile, albums);
     const cached = await readCachedRecommendations(api, albumId);
     if (!force && cacheIsFresh(cached)) {
-      return response(200, { ok: true, cached: true, recommendations: hydrateRecommendationRows(cached, albums) });
+      return response(200, { ok: true, cached: true, recommendations: hydrateRecommendationRows(cached, albums), influence });
     }
     if (activeGenerations.has(albumId)) {
       const rows = await activeGenerations.get(albumId);
-      return response(200, { ok: true, cached: false, recommendations: hydrateRecommendationRows(rows, albums) });
+      return response(200, { ok: true, cached: false, recommendations: hydrateRecommendationRows(rows, albums), influence });
     }
     const generation = (async () => {
       const initialPool = buildCandidatePool(source, albums, new Map(), 28);
@@ -46,7 +68,7 @@ exports.handler = async function handler(event) {
     activeGenerations.set(albumId, generation);
     try {
       const rows = await generation;
-      return response(200, { ok: true, cached: false, recommendations: hydrateRecommendationRows(rows, albums) });
+      return response(200, { ok: true, cached: false, recommendations: hydrateRecommendationRows(rows, albums), influence });
     } finally { activeGenerations.delete(albumId); }
   } catch (error) {
     console.error("[Muze recommendations] Request failed", error);

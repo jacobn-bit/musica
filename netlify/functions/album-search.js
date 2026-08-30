@@ -1,6 +1,37 @@
 const SPOTIFY_SEARCH_LIMIT = 10;
 const PRODUCTION_SEARCH_URL = "https://themuze.app/.netlify/functions/album-search";
 
+function normalizeAlbumText(value) {
+  return String(value || "").toLowerCase().replace(/&/g, " and ")
+    .replace(/\([^)]*(remaster(?:ed)?|deluxe|expanded|anniversary|edition|version|bonus)[^)]*\)/gi, " ")
+    .replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function itunesGenreForSpotifyAlbum(album, itunesAlbums) {
+  const title = normalizeAlbumText(album?.name);
+  const artists = (album?.artists || []).map(item => normalizeAlbumText(item?.name)).filter(Boolean);
+  const exact = (itunesAlbums || []).find(item => {
+    const itemTitle = normalizeAlbumText(item?.collectionName);
+    const itemArtist = normalizeAlbumText(item?.artistName);
+    return title && itemTitle === title && artists.some(artist => itemArtist === artist || itemArtist.includes(artist) || artist.includes(itemArtist));
+  });
+  if (exact?.primaryGenreName) return String(exact.primaryGenreName).trim();
+  const sameArtist = (itunesAlbums || []).find(item => {
+    const itemArtist = normalizeAlbumText(item?.artistName);
+    return artists.some(artist => itemArtist === artist || itemArtist.includes(artist) || artist.includes(itemArtist));
+  });
+  return String(sameArtist?.primaryGenreName || "").trim();
+}
+
+async function itunesAlbumResults(q) {
+  try {
+    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=album&limit=50`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data.results) ? data.results : [];
+  } catch (_) { return []; }
+}
+
 function isLocalRequest(event) {
   return /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(String(event.headers?.host || ""));
 }
@@ -47,10 +78,12 @@ exports.handler = async function(event) {
       return { statusCode: searchRes.status || 500, headers, body: JSON.stringify({ error: "Spotify API failed", spotifyResponse: data }) };
     }
 
+    const itunesAlbums = await itunesAlbumResults(q);
     const albums = data.albums.items.map(a => ({
       spotify_id: a.id || "",
       title: a.name,
       artist: a.artists.map(x => x.name).join(", "),
+      genre: itunesGenreForSpotifyAlbum(a, itunesAlbums),
       album_type: a.album_type || "album",
       release_date: a.release_date || "",
       total_tracks: Number(a.total_tracks || 0),
@@ -65,4 +98,4 @@ exports.handler = async function(event) {
   }
 };
 
-exports._test = { SPOTIFY_SEARCH_LIMIT, isLocalRequest };
+exports._test = { SPOTIFY_SEARCH_LIMIT, isLocalRequest, normalizeAlbumText, itunesGenreForSpotifyAlbum };
