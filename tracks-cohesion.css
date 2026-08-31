@@ -968,6 +968,11 @@
     z-index:26!important;
     align-self:stretch!important;
   }
+  #albumModal:not(.libraryDetailModal) .albumDiscoveryRail:not(:has(.albumInfluenceLegacy)){
+    justify-content:center!important;
+    box-sizing:border-box!important;
+    padding-bottom:80px!important;
+  }
   #albumModal:not(.libraryDetailModal) .albumMoreLikeThis,
   #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy{
     position:relative!important;
