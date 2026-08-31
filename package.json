@@ -4,7 +4,7 @@
   "scripts": {
     "lint": "node scripts/check-js.js",
     "typecheck": "node scripts/check-js.js",
-    "test": "node --test tests/review-validation.test.js tests/album-info.test.js tests/homepage-loading.test.js tests/recommendation-service.test.js",
+    "test": "node --test tests/review-validation.test.js tests/album-info.test.js tests/homepage-loading.test.js tests/recommendation-service.test.js tests/security-views.test.js",
     "build": "node scripts/build-check.js"
   }
 }
