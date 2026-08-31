@@ -1,0 +1,253 @@
+/* Muze Tracks cohesion pass: one continuous hero, ledger, and discovery composition. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .albumTrackMain{gap:9px!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart,
+  #albumModal:not(.libraryDetailModal) .trackJourneyList,
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis,
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy,
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials{
+    border-color:rgba(214,171,53,.13)!important;
+    border-radius:16px!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.012)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart{background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#09090d!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyList{
+    position:relative!important;
+    background:linear-gradient(180deg,rgba(13,14,17,.973),rgba(13,14,17,.982)),radial-gradient(circle at 53% 1%,rgba(91,45,85,.075),transparent 42%),var(--hero-scene,var(--album-cover)) var(--moment-focus,50% 50%)/cover no-repeat,linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#0d0e11!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyList::before{
+    content:""!important;position:absolute!important;z-index:5!important;top:-6px!important;left:50%!important;width:7px!important;height:7px!important;border:1px solid rgba(214,171,53,.40)!important;background:#d6ab35!important;opacity:.32!important;transform:translateX(-50%) rotate(45deg)!important;pointer-events:none!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumDiscoveryRail{gap:10px!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis,
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy,
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials{
+    position:relative!important;background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#0d0d10!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis::after,
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy::after,
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials::after{
+    content:""!important;position:absolute!important;left:50%!important;bottom:-3px!important;width:5px!important;height:5px!important;border:1px solid rgba(214,171,53,.32)!important;background:#0d0d10!important;opacity:.62!important;transform:translateX(-50%) rotate(45deg)!important;pointer-events:none!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis>header,
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials>header{display:block!important;margin:0 0 15px!important}
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy>header{align-items:flex-start!important;margin:0 0 15px!important}
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis>header>span,
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials>header>span,
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy>header>div>span{
+    display:block!important;color:#d6ab35!important;font:700 11px/1.1 var(--muze-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif)!important;letter-spacing:.14em!important;text-transform:uppercase!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeThis>header>h3,
+  #albumModal:not(.libraryDetailModal) .sameArtistEssentials>header>h3,
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy>header>div>h3{
+    display:block!important;margin:6px 0 0!important;color:#f3eee6!important;font:600 clamp(24px,1.65vw,26px)/1.06 var(--muze-serif,Georgia,"Times New Roman",serif)!important;letter-spacing:-.015em!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyComment .trackCommentBubble,
+  #albumModal:not(.libraryDetailModal) .trackJourneyFavorite .trackLove,
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow>summary{
+    color:rgba(243,238,229,.34)!important;opacity:1!important;transition:color .16s ease,background .16s ease,opacity .16s ease!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyComment .trackCommentBadge{color:rgba(243,238,229,.42)!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyComment .trackCommentBubble:hover,
+  #albumModal:not(.libraryDetailModal) .trackJourneyComment .trackCommentBubble:focus-visible,
+  #albumModal:not(.libraryDetailModal) .trackJourneyFavorite .trackLove:hover,
+  #albumModal:not(.libraryDetailModal) .trackJourneyFavorite .trackLove:focus-visible,
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow>summary:hover,
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow>summary:focus-visible,
+  #albumModal:not(.libraryDetailModal) .trackJourneyOverflow[open]>summary{color:rgba(243,238,229,.82)!important}
+  #albumModal:not(.libraryDetailModal) .trackJourneyFavorite .trackLove.hasUserRating{color:#efbd43!important}
+}
+
+/* Compact only the track ledger by roughly 10%; retain its full column width. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeader{
+    min-height:47px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow{
+    min-height:52px!important;
+    height:52px!important;
+    padding-block:5px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow.isMostLoved{
+    height:52px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyFooter{
+    min-height:50px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyTitle>strong{
+    font-size:14px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse{
+    width:31px!important;
+    height:31px!important;
+    min-width:31px!important;
+  }
+}
+
+/* Track ledger play controls: keep the glyph and hit area, remove the ring. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse{
+    border-color:transparent!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    color:rgba(243,238,229,.46)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:hover,
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:focus-visible{
+    color:rgba(243,238,229,.78)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse::before{
+    border-left-color:rgba(243,238,229,.46)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:hover::before,
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:focus-visible::before{
+    border-left-color:rgba(243,238,229,.78)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:not(.isPreviewing)::before{
+    border-left-color:rgba(243,238,229,.46)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow:hover .trackPulse:not(.isPreviewing),
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow:focus-within .trackPulse:not(.isPreviewing),
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:not(.isPreviewing):focus-visible{
+    border-color:transparent!important;
+    background:transparent!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow:hover .trackPulse:not(.isPreviewing)::before,
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow:focus-within .trackPulse:not(.isPreviewing)::before,
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:not(.isPreviewing):hover::before,
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow .trackPulse:not(.isPreviewing):focus-visible::before{
+    border-left-color:rgba(243,238,229,.78)!important;
+  }
+}
+
+/* The Most Loved row is distinguished by tone and marker, not an outline. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyRow.isMostLoved{
+    border-color:transparent!important;
+    box-shadow:none!important;
+  }
+}
+
+/* Calmer Tracks balance: protect ledger readability and quiet the supporting rail. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyList{
+    background:radial-gradient(circle at 52% 0%,rgba(91,45,85,.035),transparent 40%),linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),#0d0e11!important;
+  }
+
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart{
+    column-gap:24px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartPulseLabel{
+    margin-bottom:12px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse.large{
+    height:40px!important;
+    opacity:.84!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse.large i:nth-child(4n+1){height:12px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse.large i:nth-child(4n+2){height:23px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse.large i:nth-child(4n+3){height:33px!important}
+  #albumModal:not(.libraryDetailModal) .trackCommunityPulse.large i:nth-child(4n){height:27px!important}
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork{
+    align-self:center!important;
+    padding-left:2px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div{
+    display:grid!important;
+    gap:3px!important;
+    margin-top:10px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div strong,
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>div span{
+    line-height:1.22!important;
+  }
+
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCopy>strong{
+    display:-webkit-box!important;
+    overflow:hidden!important;
+    color:#f3eee5!important;
+    font-family:var(--muze-serif,Georgia,"Times New Roman",serif)!important;
+    font-size:13px!important;
+    font-weight:400!important;
+    line-height:1.08!important;
+    letter-spacing:-.012em!important;
+    -webkit-box-orient:vertical!important;
+    -webkit-line-clamp:2!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumMoreLikeCopy>small{
+    color:rgba(243,238,229,.45)!important;
+  }
+
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy{
+    border-color:rgba(214,171,53,.11)!important;
+    background:linear-gradient(180deg,rgba(255,255,255,.014),rgba(255,255,255,.006)),#0d0d10!important;
+  }
+  #albumModal:not(.libraryDetailModal) .albumInfluenceLegacy>header>div>h3{
+    font-size:23px!important;
+    line-height:1.06!important;
+  }
+}
+
+/* One hero play action; compress the cinematic panel without crowding it. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .trackHeartArtworkPlay{
+    display:none!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart{
+    min-height:210px!important;
+    height:210px!important;
+    padding:16px 26px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartType{
+    margin-bottom:10px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyHeart h4{
+    font-size:clamp(30px,2.7vw,44px)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartArtist{
+    margin-top:8px!important;
+    font-size:15px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay{
+    margin-top:16px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartPlay .featurePlay{
+    width:47px!important;
+    height:47px!important;
+    min-width:47px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork{
+    width:112px!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>img,
+  #albumModal:not(.libraryDetailModal) .trackHeartArtwork>strong{
+    width:112px!important;
+    height:112px!important;
+  }
+}
+
+/* Desktop tracklist ratings and personal-love hierarchy. */
+@media(min-width:1051px){
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackRatingStars i::after{
+    color:#d6ab35!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove{
+    color:rgba(245,240,232,.38)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove:not(.hasUserRating):hover,
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove:not(.hasUserRating):focus-visible{
+    color:rgba(214,171,53,.76)!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove.hasUserRating{
+    color:#d6ab35!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove.hasUserRating:hover,
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove.hasUserRating:focus-visible{
+    color:#efbd43!important;
+  }
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove:disabled,
+  #albumModal:not(.libraryDetailModal) .trackJourneyList .trackJourneyFavorite .trackLove[aria-disabled="true"]{
+    color:rgba(245,240,232,.18)!important;
+    cursor:not-allowed!important;
+  }
+}

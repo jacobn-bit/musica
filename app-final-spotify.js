@@ -80,7 +80,7 @@ function clearLocalOverviewOverride(key){
   }catch(error){}
 }
 const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",albumCatalogueView:savedAlbumCatalogueView(),artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,homePageSize:120,homeOffset:0,homeHasMore:true,homeOverflow:[],homeTopAlbum:null,homeGenres:[],homeLoading:false,homeLoadState:"idle",homeLoadMessage:"",theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},albumRecommendations:{},albumRecommendationRequests:{},trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},albumRecommendations:{},albumInfluenceRelationships:{},albumRecommendationRequests:{},discoveryCatalogue:[],discoveryArtistRequests:{},discoveryArtistLoaded:{},discoveryAdminDraft:null,trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 let deepLinkHandled=false;
 const initialPublicListSlug=publicListSlugFromPath();
 if(initialPublicListSlug){state.view="public-list";state.publicListSlug=initialPublicListSlug}
@@ -88,7 +88,7 @@ let homeSearchRenderTimer=0;
 let muzeSearchSuggestTimer=0;
 let homepageCatalogueSearchTimer=0;
 let homepageCatalogueSearchToken=0;
-const DEFAULT_AVATAR_URL="assets/avatar-icons/default-avatar.png";
+const DEFAULT_AVATAR_URL="/muze-default-avatar.svg";
 const MUZE_AVATAR_ICONS=Array.from({length:22},(_,i)=>i+12).filter(n=>![14,27].includes(n)).map(n=>`assets/avatar-icons/avatar-icon-${String(n).padStart(2,"0")}.png`);
 const PROFILE_AVATAR_OVERRIDES={
   mojokoso:"assets/profile-icons/mojokoso-avatar.jpg?v=face-crop-20260607",
@@ -104,13 +104,19 @@ function publicAvatarFallbackUrl(url=""){
   if(clean.startsWith("/assets/profile-photos/"))return "/public"+clean;
   return "";
 }
-function avatarImgMarkup(url,label){
-  const fallback=publicAvatarFallbackUrl(url);
-  const onerror=fallback
-    ? `this.onerror=function(){this.remove()};this.src='${escapeJsString(fallback)}'`
-    : "this.remove()";
-  return '<img src="'+escapeHtml(url)+'" data-fallback-src="'+escapeHtml(fallback)+'" onerror="'+escapeHtml(onerror)+'" alt="'+escapeHtml(label)+' avatar">';
+function avatarImgMarkup(url,label,className=""){
+  const clean=String(url||"").trim()||DEFAULT_AVATAR_URL;
+  const fallback=publicAvatarFallbackUrl(clean);
+  const defaultFallback=`this.onerror=null;this.src='${escapeJsString(DEFAULT_AVATAR_URL)}'`;
+  const onerror=clean===DEFAULT_AVATAR_URL
+    ? "this.onerror=null;this.remove()"
+    : fallback
+      ? `this.onerror=function(){${defaultFallback}};this.src='${escapeJsString(fallback)}'`
+      : defaultFallback;
+  const classAttribute=className?` class="${escapeHtml(className)}"`:"";
+  return '<img'+classAttribute+' src="'+escapeHtml(clean)+'" data-fallback-src="'+escapeHtml(fallback||DEFAULT_AVATAR_URL)+'" onerror="'+escapeHtml(onerror)+'" alt="'+escapeHtml(label)+' avatar">';
 }
+function defaultAvatarMarkup(label="Muze listener",className=""){return avatarImgMarkup(DEFAULT_AVATAR_URL,label,className)}
 function profileAvatarOverride(profile={}){
   const username=String(profile.username||profile.name||"").trim().toLowerCase();
   return PROFILE_AVATAR_OVERRIDES[username]||"";
@@ -376,14 +382,14 @@ function avatarSvg(config=defaultAvatarConfig()){
 }
 function currentAvatarMarkup(extraClass=""){
   const profile=state.userProfile||{};
-  const label=escapeHtml(authDisplayName()||"Muze profile");
-  if(profile.avatar_url&&(!String(profile.avatar_url).includes("assets/avatar-icons/avatar-icon-")||MUZE_AVATAR_ICONS.includes(profile.avatar_url))){const isIcon=MUZE_AVATAR_ICONS.includes(profile.avatar_url)||String(profile.avatar_url).includes("assets/avatar-icons/avatar-icon-");const classes=[extraClass,isIcon?"":"uploadedAvatarPhoto"].filter(Boolean).join(" ");return `<img class="${escapeHtml(classes)}" src="${escapeHtml(profile.avatar_url)}" alt="${label}">`;}
+  const label=authDisplayName()||"Muze profile";
+  if(profile.avatar_url&&(!String(profile.avatar_url).includes("assets/avatar-icons/avatar-icon-")||MUZE_AVATAR_ICONS.includes(profile.avatar_url))){const isIcon=MUZE_AVATAR_ICONS.includes(profile.avatar_url)||String(profile.avatar_url).includes("assets/avatar-icons/avatar-icon-");const classes=[extraClass,isIcon?"":"uploadedAvatarPhoto"].filter(Boolean).join(" ");return avatarImgMarkup(profile.avatar_url,label,classes);}
   if(profile.avatar_config)return avatarSvg(profile.avatar_config);
   if(profile.avatar_svg&&String(profile.avatar_svg).trim().startsWith("<svg"))return profile.avatar_svg;
-  return `<img class="${extraClass}" src="${escapeHtml(DEFAULT_AVATAR_URL)}" alt="${label}">`;
+  return defaultAvatarMarkup(label,extraClass);
 }
 function renderAvatarTargets(){
-  const hasAvatar=Boolean(state.userProfile?.avatar_url||state.userProfile?.avatar_svg||state.userProfile?.avatar_config);
+  const hasAvatar=Boolean(loggedInUser()||state.userProfile);
   const targets=[$("#profileAvatarPreview"),$("#avatarPreview"),$("#avatarCreatorPreview")];
   targets.forEach(target=>{if(target)target.innerHTML=currentAvatarMarkup()});
   const navIcon=$("#sideNav .navUserIcon");
@@ -3457,16 +3463,17 @@ function trackCommentIdentity(){
   const user=loggedInUser();
   const name=(savedProfileUsername()||currentUsername()||authMetadataName(user)||authEmailPrefix(user)||"Listener").trim()||"Listener";
   const meta=user?.user_metadata||{};
-  const avatarUrl=String(state.userProfile?.avatar_url||meta.avatar_url||meta.picture||"").trim();
+  const hasCustomAvatar=Boolean(state.userProfile?.avatar_config||state.userProfile?.avatar_svg);
+  const avatarUrl=String(state.userProfile?.avatar_url||meta.avatar_url||meta.picture||(!hasCustomAvatar?DEFAULT_AVATAR_URL:"")).trim();
   return {user_id:user?.id||null,name,avatar_url:avatarUrl};
 }
 function commentProfilePayload(){return trackCommentIdentity()}
 function trackCommentAvatarMarkup(comment={},name="Listener"){
   const isMine=comment.user_id&&loggedInUser()?.id&&String(comment.user_id)===String(loggedInUser().id);
   const avatarUrl=String(comment.avatar_url||"").trim();
-  if(avatarUrl)return `<span class="commentAvatar"><img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}"></span>`;
+  if(avatarUrl)return `<span class="commentAvatar">${avatarImgMarkup(avatarUrl,name)}</span>`;
   if(isMine&&avatarHasValue())return `<span class="commentAvatar hasProfileAvatar">${currentAvatarMarkup()}</span>`;
-  return `<span class="commentAvatar">${escapeHtml(String(name||"L").slice(0,1).toUpperCase()||"L")}</span>`;
+  return `<span class="commentAvatar hasProfileAvatar">${defaultAvatarMarkup(name)}</span>`;
 }
 function profileForAuthor(row={},name=""){
   const userId=String(row.user_id||"").trim();
@@ -3487,7 +3494,7 @@ function avatarMarkupForAuthor(row={},name="Listener",className="listenerCardAva
   let config=resolved.avatar_config||resolved.profile_avatar_config||null;
   if(typeof config==="string"){try{config=JSON.parse(config)}catch(e){config=null}}
   if(config&&typeof config==="object")return `<div class="${className}">${avatarSvg(config)}</div>`;
-  return `<div class="${className}">${escapeHtml(String(name||"L").slice(0,1).toUpperCase()||"L")}</div>`;
+  return `<div class="${className}">${defaultAvatarMarkup(name)}</div>`;
 }
 function ratingName(){const saved=currentUsername().trim();if(saved)return saved;const profile=String(state.userProfile?.username||"").trim();if(profile)return profile;const name=(prompt("Enter a username for this rating, or leave blank for Anonymous:")||"").trim();if(name){localStorage.setItem("musicaUsername",name);return name}return "Anonymous"}
 window.toggleRatingDetails=function(id,button){
@@ -4489,6 +4496,7 @@ async function searchItunesAlbums(query){
     spotify_id:"",
     title:item.collectionName||"",
     artist:item.artistName||"",
+    genre:item.primaryGenreName||"",
     year:item.releaseDate?String(item.releaseDate).slice(0,4):"",
     cover_url:String(item.artworkUrl100||"").replace("100x100bb","600x600bb"),
     spotify_url:`https://open.spotify.com/search/${encodeURIComponent(`${item.collectionName||""} ${item.artistName||""}`)}`,
@@ -4819,8 +4827,9 @@ function trackCommunityScoreValue(score){
 }
 function communityPulseHtml(score,label="Track",extraClass=""){
   const value=Number.isFinite(Number(score))?Math.max(0,Math.min(10,Number(score))):null;
-  const filled=value===null?0:Math.round(value);
-  const segments=Array.from({length:10},(_,index)=>`<i class="${index<filled?"filled":""}" aria-hidden="true"></i>`).join("");
+  const segmentCount=String(extraClass).split(/\s+/).includes("large")?20:10;
+  const filled=value===null?0:Math.round((value/10)*segmentCount);
+  const segments=Array.from({length:segmentCount},(_,index)=>`<i class="${index<filled?"filled":""}" aria-hidden="true"></i>`).join("");
   const aria=value===null?`${label} has no community score yet`:`${label} community pulse ${value.toFixed(1)} out of 10`;
   return `<span class="trackCommunityPulse ${extraClass}" role="img" aria-label="${escapeHtml(aria)}">${segments}</span>`;
 }
@@ -4836,8 +4845,6 @@ function trackRatingStarsHtml(score,label="Track"){
 }
 function trackEditorialDistinction(index,total,key,lovedKey){
   if(lovedKey&&key===lovedKey)return "Most loved";
-  if(index===0)return "Opener";
-  if(index===total-1)return "Closer";
   return "";
 }
 function trackSideLabel(track){
@@ -4875,6 +4882,7 @@ function moreLikeThisProfileTokens(album){
   const ignored=new Set(["album","music","record","sound","artist","their","with","from","this","that","into","rock"]);
   return new Set(fuzzySearchKey(source).split(" ").filter(token=>token.length>3&&!ignored.has(token)));
 }
+function discoveryCatalogueAlbums(){return dedupeAlbumRows([...(extras.discoveryCatalogue||[]),...(state.albums||[])])}
 function moreLikeThisSimilarity(album,item){
   const currentGenre=genreKey(albumGenreLabel(album));
   const itemGenre=genreKey(albumGenreLabel(item));
@@ -4894,15 +4902,26 @@ const curatedMoreLikeThisReplacements={
   "the beatles::sgt peppers lonely hearts club band":[{
     remove:{title:"Rubber Soul",artist:"The Beatles"},
     add:{title:"The Dark Side of the Moon",artist:"Pink Floyd"}
+  }],
+  "metallica::master of puppets":[{
+    remove:{title:"Bad",artist:"Michael Jackson"},
+    add:{title:"Rust In Peace",artist:"Megadeth"},
+    strict:true
+  }],
+  "metallica::ride the lightning":[{
+    remove:{title:"Bad",artist:"Michael Jackson"},
+    add:{title:"Peace Sells...But Who's Buying?",artist:"Megadeth"},
+    strict:true
   }]
 };
 function applyCuratedMoreLikeThisReplacements(album,selected){
   const replacements=curatedMoreLikeThisReplacements[albumIdentityKey(album)]||[];
   const result=selected.slice();
   replacements.forEach(replacement=>{
-    const addition=state.albums.find(item=>isSameAlbum(item,replacement.add));
+    const addition=discoveryCatalogueAlbums().find(item=>isSameAlbum(item,replacement.add));
     if(!addition||result.some(item=>String(item.id)===String(addition.id)))return;
     let index=result.findIndex(item=>isSameAlbum(item,replacement.remove));
+    if(index<0&&replacement.strict)return;
     if(index<0){
       const additionArtist=normalizeArtistKey(addition.artist);
       index=result.findIndex(item=>normalizeArtistKey(item.artist)===additionArtist);
@@ -4918,14 +4937,15 @@ function applyCuratedMoreLikeThisReplacements(album,selected){
 }
 function researchedMoreLikeThisAlbums(album,limit=4){
   const rows=extras.albumRecommendations[albumRef(album?.id)]||[];
-  const selected=rows.map(row=>row.album||state.albums.find(item=>String(item.id)===String(row.target_album_id||row.album_id))).filter(Boolean).slice(0,limit);
+  const catalogue=discoveryCatalogueAlbums();
+  const selected=rows.map(row=>row.album||catalogue.find(item=>String(item.id)===String(row.target_album_id||row.album_id))).filter(Boolean).slice(0,limit);
   return selected.length===limit?applyCuratedMoreLikeThisReplacements(album,selected):null;
 }
 function moreLikeThisAlbums(album,limit=4){
   const researched=researchedMoreLikeThisAlbums(album,limit);
   if(researched)return researched;
   const currentId=String(album?.id||"");
-  const candidates=state.albums.filter(item=>String(item.id)!==currentId&&!albumIsGreatestHits(item)&&String(item.cover_url||"").trim()).map(item=>{
+  const candidates=discoveryCatalogueAlbums().filter(item=>String(item.id)!==currentId&&!albumIsGreatestHits(item)&&String(item.cover_url||"").trim()).map(item=>{
     return {item,similarity:moreLikeThisSimilarity(album,item)};
   }).filter(entry=>entry.similarity>0).sort((a,b)=>b.similarity-a.similarity||score(b.item)-score(a.item)||String(a.item.title||"").localeCompare(String(b.item.title||"")));
   const selected=[];
@@ -4942,6 +4962,11 @@ function moreLikeThisAlbums(album,limit=4){
   }
   return applyCuratedMoreLikeThisReplacements(album,selected);
 }
+function moreLikeThisReason(sourceAlbum,targetAlbum){
+  const rows=extras.albumRecommendations[albumRef(sourceAlbum?.id)]||[];
+  const row=rows.find(item=>String(item.target_album_id||item.album_id||item.album?.id)===String(targetAlbum?.id));
+  return String(row?.reason||"").trim();
+}
 const ALBUM_RECOMMENDATION_CACHE_PREFIX="muzeAlbumRecommendations:v2:";
 function cachedAlbumRecommendations(albumId){
   try{
@@ -4957,29 +4982,35 @@ function acceptAlbumRecommendations(album,rows,{rerender=true}={}){
   const normalized=(rows||[]).map(row=>({
     ...row,
     target_album_id:String(row.target_album_id||row.album_id||row.album?.id||""),
-    album:row.album||state.albums.find(item=>String(item.id)===String(row.target_album_id||row.album_id))||null
+    album:row.album||discoveryCatalogueAlbums().find(item=>String(item.id)===String(row.target_album_id||row.album_id))||null
   })).filter(row=>row.target_album_id&&row.album).slice(0,4);
   if(normalized.length!==4)return false;
   const incoming=normalized.map(row=>row.album).filter(item=>!state.albums.some(albumItem=>String(albumItem.id)===String(item.id)));
-  if(incoming.length)state.albums=mergeAlbumSources(state.albums,incoming);
+  if(incoming.length){state.albums=mergeAlbumSources(state.albums,incoming);extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,incoming)}
   extras.albumRecommendations[albumRef(album.id)]=normalized;
   storeAlbumRecommendations(album.id,normalized);
   if(rerender&&albumRef(extras.currentAlbumId)===albumRef(album.id)&&!window.matchMedia?.("(max-width: 768px)")?.matches)renderTrackList(album.id);
   return true;
 }
+function acceptAlbumInfluence(album,influence,{rerender=false}={}){
+  const normalize=items=>(Array.isArray(items)?items:[]).map(item=>item?.album||item).filter(item=>item?.id);
+  extras.albumInfluenceRelationships[albumRef(album.id)]={earlier:normalize(influence?.earlier),later:normalize(influence?.later),manual:Boolean(influence?.manual),loaded:true};
+  if(rerender&&albumRef(extras.currentAlbumId)===albumRef(album.id)&&!window.matchMedia?.("(max-width: 768px)")?.matches)renderTrackList(album.id);
+}
 async function hydrateAlbumRecommendations(album){
   if(!album?.id||window.matchMedia?.("(max-width: 768px)")?.matches)return;
   const ref=albumRef(album.id);
-  if(extras.albumRecommendations[ref]?.length===4)return;
+  if(extras.albumRecommendations[ref]?.length===4&&extras.albumInfluenceRelationships[ref]?.loaded)return;
   const localRows=cachedAlbumRecommendations(album.id);
-  if(localRows.length===4&&acceptAlbumRecommendations(album,localRows,{rerender:false}))return;
+  if(localRows.length===4)acceptAlbumRecommendations(album,localRows,{rerender:false});
   if(extras.albumRecommendationRequests[ref])return extras.albumRecommendationRequests[ref];
   extras.albumRecommendationRequests[ref]=(async()=>{
     try{
       const res=await fetch(`/.netlify/functions/album-recommendations?album_id=${encodeURIComponent(album.id)}`,{cache:"no-store"});
       const data=await res.json().catch(()=>({}));
       if(!res.ok)throw new Error(data.error||"Recommendations could not be generated.");
-      acceptAlbumRecommendations(album,data.recommendations||[]);
+      acceptAlbumRecommendations(album,data.recommendations||[],{rerender:false});
+      acceptAlbumInfluence(album,data.influence||{}, {rerender:true});
     }catch(error){
       console.warn("[Muze recommendations] Keeping instant catalogue fallback",error.message||error);
     }finally{delete extras.albumRecommendationRequests[ref]}
@@ -5003,7 +5034,7 @@ function verifiedInfluenceKey(album){return `${normalizeArtistKey(album?.artist)
 function verifiedInfluenceAlbum(reference){
   const wantedArtist=normalizeArtistKey(reference.artist);
   const wantedTitle=normalizeOverviewTitle(clientCleanAlbumTitle(reference.title));
-  const match=state.albums.find(item=>normalizeArtistKey(item.artist)===wantedArtist&&normalizeOverviewTitle(clientCleanAlbumTitle(item.title||""))===wantedTitle);
+  const match=discoveryCatalogueAlbums().find(item=>normalizeArtistKey(item.artist)===wantedArtist&&normalizeOverviewTitle(clientCleanAlbumTitle(item.title||""))===wantedTitle);
   return match?{...match,influence_source:reference.source}:{...reference,id:"",cover_url:"",influence_source:reference.source,verified_reference:true};
 }
 function spotifyInfluenceMatch(results,reference){
@@ -5069,6 +5100,11 @@ window.openOrImportInfluenceAlbum=async function(button,title,artist,year){
   }
 };
 function influenceLegacyAlbums(album,excludedIds=new Set()){
+  const manual=extras.albumInfluenceRelationships[albumRef(album?.id)];
+  if(manual?.loaded&&manual.manual){
+    const clean=items=>(items||[]).filter(Boolean).filter(item=>!excludedIds.has(String(item.id))).slice(0,2);
+    return {earlier:clean(manual.earlier),later:clean(manual.later)};
+  }
   const key=verifiedInfluenceKey(album);
   const relationships=verifiedAlbumInfluenceRelationships[key]||((key.includes("beatles")&&key.includes("abbey road"))?verifiedAlbumInfluenceRelationships["the beatles::abbey road"]:null);
   if(!relationships)return {earlier:[],later:[]};
@@ -5081,9 +5117,10 @@ function influenceLegacyHtml(album,excludedIds){
     const inner=`<em>${label}</em><span>${item.cover_url?`<img src="${escapeHtml(item.cover_url)}" loading="lazy" decoding="async" alt="${escapeHtml(item.title)} cover">`:`<b>${escapeHtml(coverText(item))}</b>`}</span><div><strong>${escapeHtml(item.title||"Untitled album")}</strong><small>${escapeHtml(item.artist||"")} ${item.year?`&middot; ${escapeHtml(item.year)}`:""}</small></div>`;
     return item.id?`<button type="button" class="albumLegacyCard" onclick="openAlbum('${escapeJsString(item.id)}')" aria-label="Open ${escapeHtml(item.title)} by ${escapeHtml(item.artist)}">${inner}</button>`:`<button type="button" class="albumLegacyCard isImportable" onclick="openOrImportInfluenceAlbum(this,'${escapeJsString(item.title)}','${escapeJsString(item.artist)}','${escapeJsString(item.year||"")}')" aria-label="Add ${escapeHtml(item.title)} by ${escapeHtml(item.artist)} to Muze from Spotify and open it">${inner}</button>`;
   };
-  if(!groups.earlier.length&&!groups.later.length)return "";
+  if(!groups.earlier.length&&!groups.later.length&&!isAdminUnlocked())return "";
   const cards=[...groups.earlier.map(item=>row(item,"Influenced by")),...groups.later.map(item=>row(item,"It influenced"))].join("");
-  return `<section class="albumInfluenceLegacy" aria-label="Influence and legacy for ${escapeHtml(album.title||"this album")}"><header><div><span>Influence &amp; Legacy</span><h3>A record in conversation</h3></div><nav aria-label="Browse influence and legacy albums"><button type="button" data-legacy-direction="-1" aria-label="Previous influence albums">&lsaquo;</button><button type="button" data-legacy-direction="1" aria-label="Next influence albums">&rsaquo;</button></nav></header><div class="albumLegacyViewport"><div class="albumLegacyTrack">${cards}</div></div></section>`;
+  const edit=isAdminUnlocked()?`<button type="button" class="albumDiscoveryEditButton" onclick="openAlbumDiscoveryAdmin('${escapeJsString(album.id)}')">Edit</button>`:"";
+  return `<section class="albumInfluenceLegacy" aria-label="Influence and legacy for ${escapeHtml(album.title||"this album")}"><header><div><span>Influence &amp; Legacy</span><h3>A record in conversation</h3></div><nav aria-label="Browse influence and legacy albums">${edit}<button type="button" data-legacy-direction="-1" aria-label="Previous influence albums">&lsaquo;</button><button type="button" data-legacy-direction="1" aria-label="Next influence albums">&rsaquo;</button></nav></header><div class="albumLegacyViewport"><div class="albumLegacyTrack">${cards||'<p class="albumLegacyEmpty">No manual influence albums selected.</p>'}</div></div></section>`;
 }
 function bindAlbumLegacyCarousel(host){
   const section=host?.querySelector(".albumInfluenceLegacy");
@@ -5099,17 +5136,124 @@ function bindAlbumLegacyCarousel(host){
 }
 function albumDiscoveryRailHtml(album){
   const albums=moreLikeThisAlbums(album,4);
-  if(!albums.length)return "";
+  if(!albums.length&&!isAdminUnlocked())return "";
   const cards=albums.map(item=>{
     const coverUrl=String(item.cover_url||"").trim();
-    const rating=score(item)>0?`<span>${escapeHtml(displayScore(item))}</span>`:"";
-    const genre=albumGenreLabel(item);
-    return `<button type="button" class="albumMoreLikeCard" onclick="openAlbum('${escapeJsString(item.id)}')" aria-label="Open ${escapeHtml(item.title)} by ${escapeHtml(item.artist)}"><span class="albumMoreLikeArt">${coverUrl?`<img src="${escapeHtml(coverUrl)}" loading="lazy" decoding="async" alt="${escapeHtml(item.title)} cover">`:`<b>${escapeHtml(coverText(item))}</b>`}${rating}</span><strong>${escapeHtml(item.title||"Untitled album")}</strong><small>${escapeHtml(item.artist||"")}</small>${genre&&genreKey(genre)!=="album"?`<em>${escapeHtml(genre)}</em>`:""}</button>`;
+    const rating=score(item)>0?`<span class="albumMoreLikeScore">${escapeHtml(displayScore(item))}</span>`:"";
+    const reason=moreLikeThisReason(album,item);
+    return `<button type="button" class="albumMoreLikeCard" onclick="openAlbum('${escapeJsString(item.id)}')" aria-label="Open ${escapeHtml(item.title)} by ${escapeHtml(item.artist)}"><span class="albumMoreLikeArt">${coverUrl?`<img src="${escapeHtml(coverUrl)}" loading="lazy" decoding="async" alt="${escapeHtml(item.title)} cover">`:`<b>${escapeHtml(coverText(item))}</b>`}</span><span class="albumMoreLikeCopy"><strong>${escapeHtml(item.title||"Untitled album")}</strong><small>${escapeHtml(item.artist||"")}${item.year?` &middot; ${escapeHtml(item.year)}`:""}</small>${reason?`<em>${escapeHtml(reason)}</em>`:""}</span>${rating}</button>`;
   }).join("");
   const legacy=influenceLegacyHtml(album,new Set());
-  const related=`<aside class="albumMoreLikeThis" aria-label="More albums like ${escapeHtml(album.title||"this album")}"><header><span>Keep listening</span><h3>More like this</h3></header><div class="albumMoreLikeGrid">${cards}</div>${legacy}</aside>`;
-  return `<div class="albumDiscoveryRail">${related}</div>`;
+  const essentials=sameArtistEssentialsHtml(album);
+  const edit=isAdminUnlocked()?`<button type="button" class="albumDiscoveryEditButton" onclick="openAlbumDiscoveryAdmin('${escapeJsString(album.id)}')">Edit recommendations</button>`:"";
+  const related=`<aside class="albumMoreLikeThis" aria-label="More albums like ${escapeHtml(album.title||"this album")}"><header><span>Keep listening</span><h3>More like this</h3>${edit}</header><div class="albumMoreLikeGrid">${cards||'<p class="albumLegacyEmpty">No recommendations selected.</p>'}</div></aside>`;
+  return `<div class="albumDiscoveryRail">${related}${legacy}${essentials}</div>`;
 }
+function sameArtistEssentialsHtml(album){
+  const artistKey=normalizeArtistKey(album?.artist);
+  const currentTitle=normalizeOverviewTitle(clientCleanAlbumTitle(album?.title||""));
+  if(!artistKey)return "";
+  const items=discoveryCatalogueAlbums().filter(item=>String(item.id)!==String(album.id)&&normalizeArtistKey(item.artist)===artistKey&&normalizeOverviewTitle(clientCleanAlbumTitle(item.title||""))!==currentTitle&&String(item.cover_url||"").trim()&&!albumIsGreatestHits(item)).sort((a,b)=>score(b)-score(a)||Number(albumReleaseYear(a)||a.year||9999)-Number(albumReleaseYear(b)||b.year||9999)).slice(0,4);
+  if(!items.length)return "";
+  const cards=items.map(item=>`<button type="button" class="sameArtistEssentialCard" onclick="openAlbum('${escapeJsString(item.id)}')" aria-label="Open ${escapeHtml(item.title)} by ${escapeHtml(item.artist)}"><span>${item.cover_url?`<img src="${escapeHtml(item.cover_url)}" loading="lazy" decoding="async" alt="${escapeHtml(item.title)} cover">`:`<b>${escapeHtml(coverText(item))}</b>`}</span><strong>${escapeHtml(clientCleanAlbumTitle(item.title)||item.title)}</strong></button>`).join("");
+  return `<section class="sameArtistEssentials" aria-label="More essential albums by ${escapeHtml(album.artist||"this artist")}"><header><span>Continue with ${escapeHtml(album.artist||"this artist")}</span><h3>Same artist essentials</h3></header><div>${cards}</div></section>`;
+}
+async function hydrateArtistDiscoveryAlbums(album){
+  const artistKey=normalizeArtistKey(album?.artist);
+  if(!artistKey||extras.discoveryArtistLoaded[artistKey])return;
+  if(extras.discoveryArtistRequests[artistKey])return extras.discoveryArtistRequests[artistKey];
+  extras.discoveryArtistRequests[artistKey]=(async()=>{
+    try{
+      const res=await fetch(`/.netlify/functions/homepage-rankings?q=${encodeURIComponent(album.artist)}&limit=40&sort=score`,{cache:"no-store"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.error||"Artist catalogue lookup failed.");
+      extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,data.albums||[]);
+      extras.discoveryArtistLoaded[artistKey]=true;
+      if(albumRef(extras.currentAlbumId)===albumRef(album.id))renderTrackList(album.id);
+    }catch(error){}finally{delete extras.discoveryArtistRequests[artistKey]}
+  })();
+  return extras.discoveryArtistRequests[artistKey];
+}
+function discoveryAdminAlbum(id){return discoveryCatalogueAlbums().find(album=>String(album.id)===String(id))||null}
+function discoveryAdminGroupLabel(group){return group==="moreLike"?"More like this":group==="earlier"?"Influenced by":"Albums it influenced"}
+function discoveryAdminSelectedRow(group,id,index,total){
+  const album=discoveryAdminAlbum(id);
+  if(!album)return "";
+  return `<div class="discoveryAdminSelectedRow"><span>${album.cover_url?`<img src="${escapeHtml(album.cover_url)}" alt="">`:`<b>${escapeHtml(coverText(album))}</b>`}</span><div><strong>${escapeHtml(album.title)}</strong><small>${escapeHtml(album.artist)}</small></div><nav><button type="button" onclick="moveAlbumDiscoveryAdmin('${group}',${index},-1)" ${index===0?"disabled":""} aria-label="Move ${escapeHtml(album.title)} up">&uarr;</button><button type="button" onclick="moveAlbumDiscoveryAdmin('${group}',${index},1)" ${index===total-1?"disabled":""} aria-label="Move ${escapeHtml(album.title)} down">&darr;</button><button type="button" class="remove" onclick="removeAlbumDiscoveryAdmin('${group}','${escapeJsString(id)}')" aria-label="Remove ${escapeHtml(album.title)}">&times;</button></nav></div>`;
+}
+function renderAlbumDiscoveryAdmin(){
+  const draft=extras.discoveryAdminDraft;
+  if(!draft)return;
+  const album=discoveryAdminAlbum(draft.albumId);
+  if(!album)return;
+  let modal=document.getElementById("albumDiscoveryAdminModal");
+  if(!modal){modal=document.createElement("div");modal.id="albumDiscoveryAdminModal";modal.className="albumDiscoveryAdminModal";document.body.appendChild(modal)}
+  const group=(key,limit)=>`<section><header><div><span>${escapeHtml(discoveryAdminGroupLabel(key))}</span><small>${draft[key].length}/${limit}</small></div></header><div class="discoveryAdminSelected">${draft[key].map((id,index)=>discoveryAdminSelectedRow(key,id,index,draft[key].length)).join("")||'<p>No albums selected.</p>'}</div></section>`;
+  const query=String(draft.query||"").trim();
+  const queryKey=fuzzySearchKey(query);
+  const results=queryKey?discoveryCatalogueAlbums().filter(item=>String(item.id)!==String(draft.albumId)&&fuzzySearchKey(`${item.title} ${item.artist} ${albumGenreLabel(item)}`).includes(queryKey)).slice(0,10):[];
+  const resultRows=results.map(item=>{
+    const inMore=draft.moreLike.includes(String(item.id)),inEarlier=draft.earlier.includes(String(item.id)),inLater=draft.later.includes(String(item.id));
+    return `<div class="discoveryAdminResult"><span>${item.cover_url?`<img src="${escapeHtml(item.cover_url)}" alt="">`:`<b>${escapeHtml(coverText(item))}</b>`}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.artist)}${item.year?` &middot; ${escapeHtml(item.year)}`:""}</small></div><nav><button type="button" onclick="addAlbumDiscoveryAdmin('moreLike','${escapeJsString(item.id)}')" ${inMore||draft.moreLike.length>=4?"disabled":""}>More like</button><button type="button" onclick="addAlbumDiscoveryAdmin('earlier','${escapeJsString(item.id)}')" ${inEarlier||draft.earlier.length>=2?"disabled":""}>Influenced by</button><button type="button" onclick="addAlbumDiscoveryAdmin('later','${escapeJsString(item.id)}')" ${inLater||draft.later.length>=2?"disabled":""}>It influenced</button></nav></div>`;
+  }).join("");
+  modal.innerHTML=`<div class="albumDiscoveryAdminBackdrop" onclick="if(event.target===this)closeAlbumDiscoveryAdmin()"><div class="albumDiscoveryAdminPanel" role="dialog" aria-modal="true" aria-labelledby="albumDiscoveryAdminTitle"><header class="albumDiscoveryAdminHead"><div><p>Admin discovery editor</p><h2 id="albumDiscoveryAdminTitle">${escapeHtml(album.title)}</h2><span>${escapeHtml(album.artist)}</span></div><button type="button" onclick="closeAlbumDiscoveryAdmin()" aria-label="Close">&times;</button></header><div class="albumDiscoveryAdminGroups">${group("moreLike",4)}${group("earlier",2)}${group("later",2)}</div><label class="albumDiscoveryAdminSearch"><span>Find an album in Muze</span><input type="search" value="${escapeHtml(draft.query)}" placeholder="Search title or artist" oninput="searchAlbumDiscoveryAdmin(this.value)" autocomplete="off"></label><div class="albumDiscoveryAdminResults">${query?(resultRows||'<p>No matching Muze albums found.</p>'):'<p>Type an album title or artist to add it.</p>'}</div><footer><p id="albumDiscoveryAdminStatus">${draft.moreLike.length===4?"Ready to save.":"More like this requires exactly four albums."}</p><button type="button" onclick="closeAlbumDiscoveryAdmin()">Cancel</button><button type="button" class="save" onclick="saveAlbumDiscoveryAdmin()" ${draft.moreLike.length===4?"":"disabled"}>Save sections</button></footer></div></div>`;
+  const input=modal.querySelector('input[type="search"]');
+  if(input&&query)requestAnimationFrame(()=>{input.focus();input.setSelectionRange(input.value.length,input.value.length)});
+}
+window.openAlbumDiscoveryAdmin=function(albumId){
+  if(!isAdminUnlocked()){unlockOverviewAdmin();return}
+  const album=discoveryAdminAlbum(albumId);
+  if(!album)return;
+  const influence=influenceLegacyAlbums(album,new Set());
+  extras.discoveryAdminDraft={albumId:String(album.id),moreLike:moreLikeThisAlbums(album,4).map(item=>String(item.id)).filter(Boolean),earlier:influence.earlier.map(item=>String(item.id)).filter(Boolean),later:influence.later.map(item=>String(item.id)).filter(Boolean),query:""};
+  renderAlbumDiscoveryAdmin();
+};
+window.closeAlbumDiscoveryAdmin=function(){document.getElementById("albumDiscoveryAdminModal")?.remove();extras.discoveryAdminDraft=null};
+window.searchAlbumDiscoveryAdmin=function(value){
+  const draft=extras.discoveryAdminDraft;
+  if(!draft)return;
+  draft.query=value;renderAlbumDiscoveryAdmin();
+  clearTimeout(extras.discoveryAdminSearchTimer);
+  const query=String(value||"").trim();
+  if(query.length<2)return;
+  const albumId=draft.albumId;
+  extras.discoveryAdminSearchTimer=setTimeout(async()=>{
+    try{
+      const res=await fetch(`/.netlify/functions/homepage-rankings?q=${encodeURIComponent(query)}&limit=20&sort=score`,{cache:"no-store"});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.error||"Catalogue search failed.");
+      state.albums=mergeAlbumSources(state.albums,data.albums||[]);
+      extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,data.albums||[]);
+      if(extras.discoveryAdminDraft?.albumId===albumId&&extras.discoveryAdminDraft.query===value)renderAlbumDiscoveryAdmin();
+    }catch(error){}
+  },250);
+};
+window.addAlbumDiscoveryAdmin=function(group,id){
+  const draft=extras.discoveryAdminDraft;
+  const limits={moreLike:4,earlier:2,later:2};
+  if(!draft||!limits[group]||!discoveryAdminAlbum(id)||draft[group].includes(String(id))||draft[group].length>=limits[group])return;
+  draft[group].push(String(id));draft.query="";renderAlbumDiscoveryAdmin();
+};
+window.removeAlbumDiscoveryAdmin=function(group,id){const draft=extras.discoveryAdminDraft;if(!draft||!Array.isArray(draft[group]))return;draft[group]=draft[group].filter(item=>String(item)!==String(id));renderAlbumDiscoveryAdmin()};
+window.moveAlbumDiscoveryAdmin=function(group,index,direction){const draft=extras.discoveryAdminDraft;const items=draft?.[group];if(!Array.isArray(items))return;const next=index+direction;if(next<0||next>=items.length)return;[items[index],items[next]]=[items[next],items[index]];renderAlbumDiscoveryAdmin()};
+window.saveAlbumDiscoveryAdmin=async function(){
+  const draft=extras.discoveryAdminDraft;
+  if(!draft||draft.moreLike.length!==4)return;
+  const status=document.getElementById("albumDiscoveryAdminStatus");
+  const pin=normalizeAdminPinValue(sessionStorage.getItem("musicaAdminPin")||"");
+  if(status)status.textContent="Saving...";
+  try{
+    const res=await fetch("/.netlify/functions/album-recommendations",{method:"POST",headers:{"Content-Type":"application/json","X-Muze-Admin-Pin":pin},body:JSON.stringify({action:"manual_save",album_id:draft.albumId,pin,more_like_ids:draft.moreLike,influenced_by_ids:draft.earlier,influenced_ids:draft.later})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||"These sections could not be saved.");
+    const album=discoveryAdminAlbum(draft.albumId);
+    acceptAlbumRecommendations(album,data.recommendations||[],{rerender:false});
+    acceptAlbumInfluence(album,data.influence||{}, {rerender:false});
+    closeAlbumDiscoveryAdmin();
+    renderTrackList(album.id);
+    setAdminInlineStatus("More like this and Influence & Legacy were updated.","success");
+  }catch(error){if(status)status.textContent=error.message||"These sections could not be saved."}
+};
 function renderTrackList(albumId,suppliedTracks=null){
   const host=$("#trackRatingsList");
   if(!host)return;
@@ -5126,13 +5270,16 @@ function renderTrackList(albumId,suppliedTracks=null){
   const firstKey=trackKey(first);
   const firstScoreValue=trackCommunityScoreValue(songScores[firstKey]);
   const firstScore=firstScoreValue===null?"":firstScoreValue.toFixed(1);
+  const firstRatingsCount=Math.max(0,Number(songScores[firstKey]?.ratings_count)||0);
+  const firstRatingsLabel=firstRatingsCount?`Based on ${firstRatingsCount.toLocaleString()} rating${firstRatingsCount===1?"":"s"}`:"Awaiting listener ratings";
   const firstDuration=trackDurationText(first);
   const coverHtml=album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<strong>'+escapeHtml(String(album.title||"?").slice(0,1))+'</strong>';
   const momentFocus=savedOverview.moment_focus||albumMomentFocus(album);
   const momentCover=albumMomentImage(album)||album.cover_url||"";
   const heroScene=albumHeroSceneImage(album)||album.cover_url||momentCover||"";
   const coverStyle=(album.cover_url||momentCover||heroScene)?` style="--album-cover:url('${escapeHtml(album.cover_url||momentCover)}');--hero-scene:url('${escapeHtml(heroScene)}');--moment-cover:url('${escapeHtml(momentCover||album.cover_url||heroScene||"")}');--moment-focus:${escapeHtml(momentFocus)}"`:"";
-  const lovedAdmin=isAdminUnlocked()?`<div class="mostLovedAdminControls"><button class="pickLovedTrackBtn" onclick="pickMostLovedTrack('${escapeJsString(albumId)}')">Pick most loved song</button><button class="pickLovedTrackBtn" onclick="uploadAlbumVisualImage('${escapeJsString(albumId)}','moment')">Upload banner image</button><button class="pickLovedTrackBtn" onclick="setMomentImageFocus('${escapeJsString(albumId)}')">Move banner image</button></div>`:"";
+  const lovedAdmin=isAdminUnlocked()?`<details class="heartAdminMenu"><summary>Admin <span aria-hidden="true">&#9881;</span></summary><div class="mostLovedAdminControls"><button type="button" class="pickLovedTrackBtn" onclick="pickMostLovedTrack('${escapeJsString(albumId)}')">Pick most loved song</button><button type="button" class="pickLovedTrackBtn" onclick="uploadAlbumVisualImage('${escapeJsString(albumId)}','moment')">Upload banner image</button><button type="button" class="pickLovedTrackBtn" onclick="setMomentImageFocus('${escapeJsString(albumId)}')">Move banner image</button></div></details>`:"";
+  const mobileLovedAdmin=isAdminUnlocked()?`<div class="mostLovedAdminControls"><button class="pickLovedTrackBtn" onclick="pickMostLovedTrack('${escapeJsString(albumId)}')">Pick most loved song</button><button class="pickLovedTrackBtn" onclick="uploadAlbumVisualImage('${escapeJsString(albumId)}','moment')">Upload banner image</button><button class="pickLovedTrackBtn" onclick="setMomentImageFocus('${escapeJsString(albumId)}')">Move banner image</button></div>`:"";
   const expanded=host.dataset.expanded==="true";
   const visibleTracks=expanded?tracks:tracks.slice(0,8);
   const trackVibes=buildTrackVibeMap(tracks,{albumId,album,ratings,songScores});
@@ -5148,8 +5295,8 @@ function renderTrackList(albumId,suppliedTracks=null){
     const scoreValue=trackCommunityScoreValue(scoreData);
     const trackVibe=trackVibes[key]||trackLiveVibe(track,{index:i,total:tracks.length,album});
     const commentCount=trackCommentCountForTrack(trackCommentCounts,key,track.name);
-    const rateButton=`<button class="trackLove ${current?"hasUserRating":""}" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Rate ${escapeHtml(track.name)}">&#9734;</button>`;
-    const overflow=`<details class="trackJourneyOverflow"><summary aria-label="More actions for ${escapeHtml(track.name)}" title="More actions">&#8942;</summary><div>${rateButton}${trackCommentButtonHtml(albumId,key,track.name,commentCount)}${trackShareButtonHtml(albumId,key,track.name)}</div></details>`;
+    const rateButton=`<button class="trackLove ${current?"hasUserRating":""}" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Rate ${escapeHtml(track.name)}">${current?'&#9829;':'&#9825;'}</button>`;
+    const overflow=`<details class="trackJourneyOverflow"><summary aria-label="More actions for ${escapeHtml(track.name)}" title="More actions">&#8942;</summary><div>${trackShareButtonHtml(albumId,key,track.name)}</div></details>`;
     const distinction=trackEditorialDistinction(trackIndex,tracks.length,key,lovedKey);
     const isOtherDefiningTrack=otherDefiningTrackNames.some(name=>sameCommentTrackKey(name,track.name));
     const definingDot=isOtherDefiningTrack?'<span class="trackDefiningDot" aria-hidden="true"></span>':"";
@@ -5158,7 +5305,7 @@ function renderTrackList(albumId,suppliedTracks=null){
     if(side)previousSide=side;
     const pulse=`<button class="trackJourneyPulseButton" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Open the community rating for ${escapeHtml(track.name)}">${trackRatingStarsHtml(scoreValue,track.name)}${scoreValue===null?"":`<small>${escapeHtml(scoreValue.toFixed(1))}</small>`}</button>`;
     const duration=trackDurationText(track);
-    return `${sideMarker}<div class="linerTrackRow trackJourneyRow${isOtherDefiningTrack?" isDefiningTrack":""}" data-track-key="${escapeHtml(key)}" tabindex="0" aria-label="Track ${trackIndex+1}, ${escapeHtml(track.name)}${isOtherDefiningTrack?", defining track":""}${duration?`, ${duration}`:""}">${definingDot}<span class="trackNo">${trackIndex+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><div class="trackJourneyTitle"><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${distinction?`<span class="trackDistinction">${escapeHtml(distinction)}</span>`:""}<em>${escapeHtml(trackVibe)}</em></div>${pulse}<time>${duration?escapeHtml(duration):"&mdash;"}</time>${overflow}</div>`;
+    return `${sideMarker}<div class="linerTrackRow trackJourneyRow${isOtherDefiningTrack?" isDefiningTrack":""}${key===firstKey?" isMostLoved":""}" data-track-key="${escapeHtml(key)}" tabindex="0" aria-label="Track ${trackIndex+1}, ${escapeHtml(track.name)}${isOtherDefiningTrack?", defining track":""}${duration?`, ${duration}`:""}">${definingDot}<span class="trackNo">${trackIndex+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><div class="trackJourneyTitle"><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${distinction?`<span class="trackDistinction">${escapeHtml(distinction)}</span>`:""}<em>${escapeHtml(trackVibe)}</em></div>${pulse}<time>${duration?escapeHtml(duration):"&mdash;"}</time><div class="trackJourneyComment">${trackCommentButtonHtml(albumId,key,track.name,commentCount)}</div><div class="trackJourneyFavorite">${rateButton}</div>${overflow}</div>`;
   }).join("");
   const mobileRows=visibleTracks.map((track,i)=>{
     const key=trackKey(track);
@@ -5167,7 +5314,7 @@ function renderTrackList(albumId,suppliedTracks=null){
     const score=scoreValue===null?(current?Number(current).toFixed(1):""):scoreValue.toFixed(1);
     const scoreHtml=score?`&#9733; <span class="trackScoreNumber">${escapeHtml(score)}</span>`:"&#9733;";
     const commentCount=trackCommentCountForTrack(trackCommentCounts,key,track.name);
-    const mobileRateButton=`<button class="trackLove ${current?"hasUserRating":""}" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Rate ${escapeHtml(track.name)}">&#9734;</button>`;
+    const mobileRateButton=`<button class="trackLove ${current?"hasUserRating":""}" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Rate ${escapeHtml(track.name)}">${current?'&#9829;':'&#9825;'}</button>`;
     const mobileOverflow=`<details class="mobileTrackOverflow"><summary aria-label="More actions for ${escapeHtml(track.name)}" title="More actions">&#8942;</summary><div>${mobileRateButton}${trackCommentButtonHtml(albumId,key,track.name,commentCount)}${trackShareButtonHtml(albumId,key,track.name)}</div></details>`;
     return `<div class="linerTrackRow" data-track-key="${escapeHtml(key)}"><div class="linerTrackSwipe"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button>${mobileOverflow}</div></div>`;
   }).join("");
@@ -5176,17 +5323,124 @@ function renderTrackList(albumId,suppliedTracks=null){
   const editorialDescription=String(savedOverview.loved_track_description||savedOverview.loved_track_note||first.editorial_description||first.description||"").trim();
   const featureLabel="Most loved track";
   const featuredTrackNumber=String(Math.max(1,tracks.indexOf(first)+1)).padStart(2,"0");
-  const featuredHtml=`<section class="linerFeaturedTrack trackJourneyHeart ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="trackHeartCopy"><span class="trackHeartType">${featureLabel}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="trackHeartPlay"><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><b>Play</b>${firstDuration?`<time>${escapeHtml(firstDuration)}</time>`:""}</div>${lovedAdmin}</div><div class="trackHeartInsight"><span class="trackHeartNumber" aria-hidden="true">${featuredTrackNumber}</span>${editorialDescription?`<p class="trackHeartInsightLabel">Why listeners return to it</p><p class="trackHeartDescription">${escapeHtml(editorialDescription)}</p>`:""}<p class="trackHeartPulseLabel">Community pulse</p><div class="trackHeartPulse">${communityPulseHtml(firstScoreValue,first.name,"large")}${firstScore?`<strong>${escapeHtml(firstScore)}</strong>`:""}</div></div><div class="trackHeartArtwork" aria-label="${escapeHtml(first.name)} artwork">${singleArtHtml}<div><strong>${escapeHtml(album.title||"")}</strong><span>${escapeHtml(album.artist||"")}</span></div></div></section>`;
-  const mobileFeaturedHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>${escapeHtml(featureLabel)}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>${lovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong></div><div class="momentWhy singleArtMoment">${singleArtHtml}</div><div class="featureCover">${coverHtml}</div></section>`;
-  const trackHeader=`<div class="trackJourneyHeader" aria-hidden="true"><span>#</span><span></span><span>Title</span><span>Community rating</span><span class="trackTimeHeading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.3 2"></path></svg>Time</span><span></span></div>`;
-  const tableHtml=`<section class="linerTrackTable trackJourneyList" aria-label="Album track journey">${trackHeader}${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks &uarr;":"View full tracklist &darr;"}</button>`:""}</section>`;
+  const crowdAvatarCount=Math.min(6,firstRatingsCount);
+  const crowdAvatars=Array.from({length:crowdAvatarCount},()=>`<img src="${escapeHtml(DEFAULT_AVATAR_URL)}" alt="" aria-hidden="true">`).join("");
+  const crowdHtml=crowdAvatarCount?`<div class="trackHeartCrowd" aria-hidden="true">${crowdAvatars}${firstRatingsCount>crowdAvatarCount?`<span>+${escapeHtml((firstRatingsCount-crowdAvatarCount).toLocaleString())}</span>`:""}</div>`:"";
+  const featuredHtml=`<section class="linerFeaturedTrack trackJourneyHeart ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="trackHeartCopy"><span class="trackHeartType">${featureLabel}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><p class="trackHeartArtist">by <span>${escapeHtml(album.artist||"")}</span></p><div class="trackHeartPlay"><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><b>Play</b>${firstDuration?`<time>${escapeHtml(firstDuration)}</time>`:""}</div>${lovedAdmin}</div><div class="trackHeartInsight"><span class="trackHeartNumber" aria-hidden="true">${featuredTrackNumber}</span><p class="trackHeartPulseLabel">Community pulse</p><div class="trackHeartPulse">${communityPulseHtml(firstScoreValue,first.name,"large")}${firstScore?`<span class="trackHeartScore"><strong>${escapeHtml(firstScore)}</strong><small>/10</small></span>`:""}</div><small class="trackHeartPulseMeta">${escapeHtml(firstRatingsLabel)}</small>${crowdHtml}</div><div class="trackHeartArtwork" aria-label="${escapeHtml(first.name)} artwork">${singleArtHtml}<button class="trackHeartArtworkPlay featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div><strong>${escapeHtml(album.title||"")}</strong><span>${escapeHtml(album.artist||"")}${album.year?` &middot; ${escapeHtml(album.year)}`:""}</span></div></div></section>`;
+  const mobileFeaturedHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>${escapeHtml(featureLabel)}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>${mobileLovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong></div><div class="momentWhy singleArtMoment">${singleArtHtml}</div><div class="featureCover">${coverHtml}</div></section>`;
+  const trackHeader=`<div class="trackJourneyHeader" aria-hidden="true"><span>#</span><span></span><span>Title</span><span>Rating</span><span class="trackTimeHeading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.3 2"></path></svg>Time</span><span class="trackCommentHeading">Comment</span><span class="trackFavoriteHeading">Rate</span><span></span></div>`;
+  const totalTrackSeconds=Math.floor(tracks.reduce((sum,track)=>sum+Math.max(0,Number(track?.duration_ms)||0),0)/1000);
+  const totalTrackDuration=totalTrackSeconds>=3600?`${Math.floor(totalTrackSeconds/3600)}:${String(Math.floor((totalTrackSeconds%3600)/60)).padStart(2,"0")}:${String(totalTrackSeconds%60).padStart(2,"0")}`:`${Math.floor(totalTrackSeconds/60)}:${String(totalTrackSeconds%60).padStart(2,"0")}`;
+  const trackFooter=`<footer class="trackJourneyFooter"><i aria-hidden="true"></i><span>${tracks.length} track${tracks.length===1?"":"s"} <b>&bull;</b> ${escapeHtml(totalTrackDuration)}</span><i aria-hidden="true"></i></footer>`;
+  const tableHtml=`<section class="linerTrackTable trackJourneyList" aria-label="Album track journey"${coverStyle}>${trackHeader}${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks &uarr;":"View full tracklist &darr;"}</button>`:""}${trackFooter}</section>`;
   const mobileTableHtml=`<section class="linerTrackTable" aria-label="Album track list"><div class="trackTableHead"><span>#</span><span>Title</span><span>Score</span><span aria-label="Actions">Actions</span></div>${mobileRows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks":"View full tracklist"}</button>`:""}</section>`;
   const arcHtml=albumArcHtml(albumArcEditorialData(savedOverview,album));
   const relatedHtml=albumDiscoveryRailHtml(album);
   const useLegacyMobileLayout=window.matchMedia&&window.matchMedia("(max-width: 768px)").matches;
-  host.innerHTML=useLegacyMobileLayout?mobileFeaturedHtml+mobileTableHtml:featuredHtml.replace("<b>Play</b>","<b>Listen</b>")+tableHtml+arcHtml+relatedHtml;
-  if(!useLegacyMobileLayout){bindAlbumLegacyCarousel(host);hydrateAlbumRecommendations(album)}
+  host.innerHTML=useLegacyMobileLayout?mobileFeaturedHtml+mobileTableHtml:`<div class="albumTrackSectionLayout"><div class="albumTrackMain">${featuredHtml.replace("<b>Play</b>","<b>Listen</b>")}${tableHtml}${arcHtml}</div><div class="albumTrackRailResizeHandle" role="separator" aria-label="Resize discovery panel" aria-orientation="vertical" tabindex="0"></div>${relatedHtml}</div>`;
+  if(!useLegacyMobileLayout){
+    fitTrackHeartTitle(host);
+    bindAlbumTrackRailResize(host);
+    bindAlbumLegacyCarousel(host);
+    hydrateAlbumRecommendations(album);
+    hydrateArtistDiscoveryAlbums(album);
+  }
   syncMobileTrackHeaderScroll();
+}
+
+function fitTrackHeartTitle(host){
+  const title=host?.querySelector?.(".trackJourneyHeart h4");
+  if(!title||!window.matchMedia?.("(min-width: 1051px)")?.matches)return;
+  if(title.dataset.fitScheduled==="true")return;
+  title.dataset.fitScheduled="true";
+  requestAnimationFrame(()=>{
+    title.dataset.fitScheduled="false";
+    if(!title.isConnected)return;
+    title.style.removeProperty("font-size");
+    const available=title.clientWidth;
+    const naturalSize=parseFloat(getComputedStyle(title).fontSize)||40;
+    if(!available||title.scrollWidth<=available)return;
+    let low=18;
+    let high=naturalSize;
+    for(let i=0;i<8;i+=1){
+      const size=(low+high)/2;
+      title.style.setProperty("font-size",`${size}px`,"important");
+      if(title.scrollWidth<=available)low=size;
+      else high=size;
+    }
+    title.style.setProperty("font-size",`${Math.max(18,low-.25).toFixed(2)}px`,"important");
+  });
+}
+
+function bindAlbumTrackRailResize(host){
+  const layout=host?.querySelector?.(".albumTrackSectionLayout");
+  const handle=layout?.querySelector?.(".albumTrackRailResizeHandle");
+  if(!layout||!handle||!window.matchMedia?.("(min-width: 1051px)")?.matches)return;
+  const storageKey="muzeAlbumDiscoveryRailWidth";
+  const limits=()=>{
+    const layoutWidth=layout.getBoundingClientRect().width;
+    const min=320;
+    const max=Math.max(min,Math.min(500,layoutWidth-620));
+    return {min,max};
+  };
+  const setWidth=(value,persist=false)=>{
+    const {min,max}=limits();
+    const width=Math.round(Math.min(max,Math.max(min,Number(value)||360)));
+    layout.style.setProperty("--album-discovery-rail-width",`${width}px`);
+    fitTrackHeartTitle(host);
+    handle.setAttribute("aria-valuemin",String(min));
+    handle.setAttribute("aria-valuemax",String(Math.round(max)));
+    handle.setAttribute("aria-valuenow",String(width));
+    if(persist){
+      try{localStorage.setItem(storageKey,String(width));}catch(error){}
+    }
+    return width;
+  };
+  let storedWidth=360;
+  try{storedWidth=Number(localStorage.getItem(storageKey))||360;}catch(error){}
+  let currentWidth=setWidth(storedWidth);
+  let activePointer=null;
+  handle.addEventListener("pointerdown",event=>{
+    if(event.button!==0)return;
+    activePointer=event.pointerId;
+    handle.setPointerCapture?.(event.pointerId);
+    layout.classList.add("isResizingRail");
+    event.preventDefault();
+  });
+  handle.addEventListener("pointermove",event=>{
+    if(activePointer!==event.pointerId)return;
+    currentWidth=setWidth(layout.getBoundingClientRect().right-event.clientX);
+  });
+  const finishResize=event=>{
+    if(activePointer!==event.pointerId)return;
+    currentWidth=setWidth(currentWidth,true);
+    activePointer=null;
+    layout.classList.remove("isResizingRail");
+    handle.releasePointerCapture?.(event.pointerId);
+  };
+  handle.addEventListener("pointerup",finishResize);
+  handle.addEventListener("pointercancel",finishResize);
+  handle.addEventListener("mousedown",event=>{
+    if(event.button!==0)return;
+    layout.classList.add("isResizingRail");
+    const move=moveEvent=>{
+      currentWidth=setWidth(layout.getBoundingClientRect().right-moveEvent.clientX);
+    };
+    const finish=()=>{
+      currentWidth=setWidth(currentWidth,true);
+      layout.classList.remove("isResizingRail");
+      window.removeEventListener("mousemove",move);
+      window.removeEventListener("mouseup",finish);
+    };
+    window.addEventListener("mousemove",move);
+    window.addEventListener("mouseup",finish,{once:true});
+    event.preventDefault();
+  });
+  handle.addEventListener("keydown",event=>{
+    if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight"&&event.key!=="Home")return;
+    event.preventDefault();
+    currentWidth=setWidth(event.key==="Home"?360:currentWidth+(event.key==="ArrowLeft"?16:-16),true);
+  });
 }
 
 function syncMobileTrackHeaderScroll(){
@@ -8021,11 +8275,13 @@ function normalizeOwnLibrary(library={}){
 }
 function profileAvatarFields(profile=state.userProfile||{}){
   const avatarOverride=profileAvatarOverride(profile);
+  const hasCustomAvatar=Boolean(profile.avatar_config||profile.avatar_svg);
+  const avatarUrl=avatarOverride||profile.avatar_url||(!hasCustomAvatar?DEFAULT_AVATAR_URL:null);
   return {
-    avatar_url:avatarOverride||profile.avatar_url||null,
+    avatar_url:avatarUrl,
     avatar_config:profile.avatar_config||null,
     avatar_svg:profile.avatar_svg||null,
-    profile_avatar_url:avatarOverride||profile.avatar_url||null,
+    profile_avatar_url:avatarUrl,
     profile_avatar_config:profile.avatar_config||null,
     profile_avatar_svg:profile.avatar_svg||null
   };
@@ -8663,7 +8919,8 @@ function libraryAvatarMarkup(library){
   if(avatarSvgValue.startsWith("<svg"))return avatarSvgValue;
   let config=resolved.avatar_config||resolved.profile_avatar_config||null;
   if(typeof config==="string"){try{config=JSON.parse(config)}catch(e){config=null}}
-  return avatarSvg(config&&typeof config==="object"?config:libraryAvatarConfig(resolved));
+  if(config&&typeof config==="object")return avatarSvg(config);
+  return defaultAvatarMarkup(label);
 }
 function lightweightLibraryAvatar(library){
   const profile=profileForLibrary(library);
@@ -8671,7 +8928,7 @@ function lightweightLibraryAvatar(library){
   const label=String(resolved.username||resolved.title||"Listener");
   const avatarUrl=String(profileAvatarOverride(resolved)||resolved.avatar_url||resolved.profile_avatar_url||resolved.photo_url||"").trim();
   if(avatarUrl)return avatarImgMarkup(avatarUrl,label);
-  return '<span>'+escapeHtml(label.slice(0,1).toUpperCase()||"L")+'</span>';
+  return defaultAvatarMarkup(label);
 }
 function libraryPreviewBlock(library){
   const allItems=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
@@ -8794,7 +9051,7 @@ function ownLibraryHero(library){
   const recentCovers=items.slice(0,3).map(item=>'<div class="ownRecentCover">'+(item.cover_url?'<img src="'+escapeHtml(item.cover_url)+'" alt="'+escapeHtml(item.title||"Album cover")+'">':'<strong>'+escapeHtml(String(item.title||"M").slice(0,1))+'</strong>')+'</div>').join("");
   const recentMore=items.length>3?'<div class="ownRecentCover ownRecentMore">+'+(items.length-3)+'</div>':"";
   const recent=recentCovers+recentMore;
-  const avatarCover=items[0]?.cover_url?'<img src="'+escapeHtml(items[0].cover_url)+'" alt="">':'<span>'+escapeHtml(String(library.username||"L").slice(0,1).toUpperCase())+'</span>';
+  const avatarCover=libraryAvatarMarkup(library);
   const ghostStyle=[items[0]?.cover_url?`--own-ghost-a:url("${escapeHtml(items[0].cover_url)}")`:"",items[1]?.cover_url?`--own-ghost-b:url("${escapeHtml(items[1].cover_url)}")`:""].filter(Boolean).join(";");
   return '<section class="mockYourLibrary"'+(ghostStyle?` style='${ghostStyle}'`:"")+'><div class="ownIdentity"><div class="ownAvatar">'+avatarCover+'</div><div><p>Your Library</p><h3>'+escapeHtml(library.title||"Your Library")+'</h3>'+(subtitle?'<small class="ownLibrarySubtitle">'+escapeHtml(subtitle)+'</small>':'')+'<span>100% match</span><em>'+items.length+' albums &middot; '+followers+' follower'+(followers===1?'':'s')+'</em><button onclick="openLibraryDetailsById(\''+key+'\')">View your library</button></div></div><div class="ownRecent"><p>Recently added</p><div>'+recent+'</div></div><div class="ownNumbers"><p>Your taste in numbers</p><div><strong>100%</strong><span>Albums you love</span></div><div><strong>'+items.length+'</strong><span>New discoveries</span></div><div><strong>'+items.length+'</strong><span>Shared albums</span></div></div></section>';
 }
@@ -9507,9 +9764,7 @@ function chatAvatarMarkup(person,online=false,index=0){
   const profile=typeof person==="object"&&person?person:null;
   const name=profile?String(profile.username||profile.name||profile.title||"Chat participant"):String(person||"Chat participant");
   if(profile)return `<span class="chatAvatar ${online?"online":""} hasChatPhoto">${libraryAvatarMarkup({...profile,username:name})}</span>`;
-  const seed=String(name||"Muze").split("").reduce((sum,ch)=>sum+ch.charCodeAt(0),0)+index;
-  const url=MUZE_AVATAR_ICONS[seed%MUZE_AVATAR_ICONS.length]||DEFAULT_AVATAR_URL;
-  return `<span class="chatAvatar ${online?"online":""} hasChatPhoto"><img src="${escapeHtml(url)}" alt="${escapeHtml(name||"Chat participant")}"></span>`;
+  return `<span class="chatAvatar ${online?"online":""} hasChatPhoto">${defaultAvatarMarkup(name||"Chat participant")}</span>`;
 }
 function chatSharedAlbumCard(album,note=""){
   const id=escapeJsString(album.id||"");
@@ -11822,9 +12077,10 @@ async function requestHomepageAlbumPage({reset=false,force=false,query=homepageQ
   homepageRankingsRequest=(async()=>{
     try{
       const work=queryHomepageAlbumPage(query,offset,{signal:controller.signal,useCache:true});
-      const page=window.MuzeHomepageLoading?await window.MuzeHomepageLoading.withTimeout(work,8000):await Promise.race([work,homepageTimeout(8000,"Muze rankings request timed out")]);
-      if(token!==homepageRankingsToken)return false;
-      const combined=reset?dedupeAlbumRows(page.albums):mergeUniqueHomepageAlbums(state.albums,page.albums);
+       const page=window.MuzeHomepageLoading?await window.MuzeHomepageLoading.withTimeout(work,8000):await Promise.race([work,homepageTimeout(8000,"Muze rankings request timed out")]);
+       if(token!==homepageRankingsToken)return false;
+       extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,page.albums||[]);
+       const combined=reset?dedupeAlbumRows(page.albums):mergeUniqueHomepageAlbums(state.albums,page.albums);
       const ranked=combined.sort(homepageCompareForMode(query.sortMode));
       state.homeOverflow=reset?ranked.slice(state.homePageSize):[];
       const visibleRanked=reset?ranked.slice(0,state.homePageSize):ranked;
