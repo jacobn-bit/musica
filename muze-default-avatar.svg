@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Muze listener">
+  <defs>
+    <linearGradient id="muzeGold" x1="56" y1="28" x2="204" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7CE55"/>
+      <stop offset="0.54" stop-color="#EDB625"/>
+      <stop offset="1" stop-color="#D99A08"/>
+    </linearGradient>
+  </defs>
+  <circle cx="128" cy="128" r="120" fill="url(#muzeGold)"/>
+  <circle cx="128" cy="91" r="27" fill="#FFFDF8"/>
+  <path d="M62 183c8-34 34-53 66-53s58 19 66 53c-17 21-40 32-66 32s-49-11-66-32Z" fill="#FFFDF8"/>
+</svg>
