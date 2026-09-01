@@ -2913,7 +2913,7 @@ function backCoverDisabledForAlbum(album){
 }
 function flippableAlbumCover(a,albumId){
   const popularTrackTitle=albumMostPopularTrackTitle(a);
-  const previewButton=popularTrackTitle?`<button type="button" class="albumCoverPreviewButton" aria-label="Play ${escapeHtml(popularTrackTitle)} preview" title="Play" onclick="event.stopPropagation();playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(popularTrackTitle)}',this)"></button>`:"";
+  const previewButton=popularTrackTitle?`<button type="button" class="albumCoverPreviewButton" aria-label="Play ${escapeHtml(popularTrackTitle)} preview" title="${escapeHtml(popularTrackTitle)}" onclick="event.stopPropagation();playOverviewMomentPreview('${escapeJsString(albumId)}','${escapeJsString(popularTrackTitle)}',this)"></button>`:"";
   if(backCoverDisabledForAlbum(a))return `${cover(a)}${previewButton}`;
   return `<div class="linerCoverFlip" data-flipped="0" onclick="flipAlbumCover('${escapeJsString(albumId)}')" title="Click album cover to flip"><div class="linerCoverFlipCard"><div class="linerCoverFace linerCoverFront">${cover(a)}</div><div class="linerCoverFace linerCoverBack"><div class="cover"><div class="backCoverLoading">Back cover</div></div></div></div></div>${previewButton}`;
 }
@@ -3778,6 +3778,7 @@ function uniqueTrackCommentRows(rows=[]){
 }
 function localTrackRating(albumId,key){return localTrackRatings()[`${albumRef(albumId)}::${key}`]||null}
 function setLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();ratings[`${albumRef(albumId)}::${key}`]=value;saveLocalTrackRatings(ratings)}
+function restoreLocalTrackRating(albumId,key,value){const ratings=localTrackRatings();const storageKey=`${albumRef(albumId)}::${key}`;if(Number(value)>0)ratings[storageKey]=value;else delete ratings[storageKey];saveLocalTrackRatings(ratings)}
 function localTrackRatingsForAlbum(albumId){
   const ref=albumRef(albumId);
   return Object.fromEntries(Object.entries(localTrackRatings()).filter(([key])=>key.startsWith(ref+"::")).map(([key,value])=>[key.slice(ref.length+2),value]));
@@ -4743,7 +4744,13 @@ async function loadTrackRatings(albumId){
   const ref=albumRef(albumId);
   const localForAlbum=localTrackRatingsForAlbum(ref);
   if(db){
-    const {data,error}=await db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref).eq("device_id",state.deviceId);
+    const userId=loggedInUser()?.id||"";
+    let query=db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref);
+    query=userId?query.or(`user_id.eq.${userId},device_id.eq.${state.deviceId}`):query.eq("device_id",state.deviceId);
+    let {data,error}=await query;
+    if(error&&userId&&/column|schema cache|user_id/i.test(error.message||"")){
+      ({data,error}=await db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref).eq("device_id",state.deviceId));
+    }
     if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;rememberProfileSongRating(albumId,r.track_key);if(r.track_name)mapped[String(r.track_name).toLowerCase()]=r.rating});extras.trackRatings[ref]={...mapped,...localForAlbum};Object.keys(localForAlbum).forEach(key=>rememberProfileSongRating(albumId,key));return extras.trackRatings[ref]}
   }
   extras.trackRatings[ref]=localForAlbum;
@@ -5053,7 +5060,7 @@ function spotifyInfluenceMatch(results,reference){
 }
 async function importVerifiedInfluenceAlbum(reference){
   const existing=verifiedInfluenceAlbum(reference);
-  if(existing?.id)return existing;
+  if(existing?.id&&existing.cover_url)return existing;
   const query=`${reference.title} ${reference.artist}`;
   const res=await fetch(`/.netlify/functions/album-search?q=${encodeURIComponent(query)}&v=influence-import-1`,{cache:"no-store"});
   const data=await res.json().catch(()=>({}));
@@ -5062,7 +5069,16 @@ async function importVerifiedInfluenceAlbum(reference){
   if(!spotifyAlbum)throw new Error(`Spotify could not find the exact ${reference.title} album by ${reference.artist}.`);
   const album={title:spotifyAlbum.title,artist:spotifyAlbum.artist,year:spotifyAlbum.year,genre:albumGenreLabel(spotifyAlbum),cover_url:spotifyAlbum.cover_url,spotify_url:spotifyAlbum.spotify_url,summary:spotifyAlbumSummary(spotifyAlbum),spotify_id:spotifyAlbum.spotify_id||""};
   const duplicate=existingAlbumMatch(album);
-  if(duplicate)return duplicate;
+  if(duplicate){
+    const repaired={...duplicate,cover_url:duplicate.cover_url||album.cover_url||"",spotify_url:duplicate.spotify_url||album.spotify_url||"",spotify_id:duplicate.spotify_id||album.spotify_id||""};
+    if(repaired.cover_url!==duplicate.cover_url||repaired.spotify_url!==duplicate.spotify_url||repaired.spotify_id!==duplicate.spotify_id){
+      await saveResolvedSpotifyId(repaired);
+      state.albums=state.albums.map(item=>String(item.id)===String(repaired.id)?{...item,...repaired}:item);
+      extras.discoveryCatalogue=(extras.discoveryCatalogue||[]).map(item=>String(item.id)===String(repaired.id)?{...item,...repaired}:item);
+      saveBootAlbums(materializedBootAlbums());
+    }
+    return repaired;
+  }
   const pending=showPendingSpotifyAlbum(album);
   try{
     const saved=await saveSpotifyAlbumRecord(album);
@@ -5110,6 +5126,45 @@ function influenceLegacyAlbums(album,excludedIds=new Set()){
   if(!relationships)return {earlier:[],later:[]};
   const resolve=items=>(items||[]).map(verifiedInfluenceAlbum).filter(Boolean).filter(item=>!excludedIds.has(String(item.id))).slice(0,2);
   return {earlier:resolve(relationships.earlier),later:resolve(relationships.later)};
+}
+async function hydrateVerifiedInfluenceAlbums(album){
+  const key=verifiedInfluenceKey(album);
+  const relationships=verifiedAlbumInfluenceRelationships[key]||((key.includes("beatles")&&key.includes("abbey road"))?verifiedAlbumInfluenceRelationships["the beatles::abbey road"]:null);
+  if(!relationships)return;
+  extras.verifiedInfluenceLoaded=extras.verifiedInfluenceLoaded||{};
+  extras.verifiedInfluenceRequests=extras.verifiedInfluenceRequests||{};
+  if(extras.verifiedInfluenceLoaded[key])return;
+  if(extras.verifiedInfluenceRequests[key])return extras.verifiedInfluenceRequests[key];
+  const references=[...(relationships.earlier||[]),...(relationships.later||[])].filter(reference=>{
+    const resolved=verifiedInfluenceAlbum(reference);
+    return !resolved?.id||!resolved?.cover_url;
+  });
+  if(!references.length){extras.verifiedInfluenceLoaded[key]=true;return}
+  extras.verifiedInfluenceRequests[key]=(async()=>{
+    let changed=false;
+    try{
+      const rows=await Promise.all(references.map(async reference=>{
+        const resolved=verifiedInfluenceAlbum(reference);
+        if(resolved?.id&&!resolved.cover_url)return importVerifiedInfluenceAlbum(reference).catch(()=>null);
+        const query=`${reference.title} ${reference.artist}`;
+        const res=await fetch(`/.netlify/functions/homepage-rankings?q=${encodeURIComponent(query)}&limit=8&sort=score`,{cache:"no-store"});
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok)return null;
+        return (data.albums||[]).find(item=>normalizeArtistKey(item.artist)===normalizeArtistKey(reference.artist)&&normalizeOverviewTitle(clientCleanAlbumTitle(item.title||""))===normalizeOverviewTitle(clientCleanAlbumTitle(reference.title||"")))||null;
+      }));
+      const found=rows.filter(Boolean);
+      if(found.length){
+        state.albums=mergeAlbumSources(state.albums,found);
+        extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,found);
+        changed=true;
+      }
+      extras.verifiedInfluenceLoaded[key]=true;
+    }finally{
+      delete extras.verifiedInfluenceRequests[key];
+      if(changed&&albumRef(extras.currentAlbumId)===albumRef(album.id))renderTrackList(album.id);
+    }
+  })();
+  return extras.verifiedInfluenceRequests[key];
 }
 function influenceLegacyHtml(album,excludedIds){
   const groups=influenceLegacyAlbums(album,excludedIds);
@@ -5341,6 +5396,7 @@ function renderTrackList(albumId,suppliedTracks=null){
     bindAlbumLegacyCarousel(host);
     hydrateAlbumRecommendations(album);
     hydrateArtistDiscoveryAlbums(album);
+    hydrateVerifiedInfluenceAlbums(album);
   }
   syncMobileTrackHeaderScroll();
 }
@@ -7476,11 +7532,21 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
   const sync=async()=>{
     if(db){
       const userId=loggedInUser()?.id||null;
-      let result=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,user_id:userId,rating:value},{onConflict:"album_ref,track_key,device_id"});
+      let result=await db.rpc("save_track_rating",{p_album_ref:ref,p_track_key:trackKeyValue,p_track_name:trackName,p_device_id:state.deviceId,p_rating:value,p_username:username});
+      if(result.error&&/function|schema cache|save_track_rating/i.test(result.error.message||"")){
+        result=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,user_id:userId,rating:value},{onConflict:"album_ref,track_key,device_id"});
+      }
       if(result.error&&/column|schema cache|user_id/i.test(result.error.message||"")){
         result=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,rating:value},{onConflict:"album_ref,track_key,device_id"});
       }
-      if(result.error)console.warn("Song rating saved locally but Supabase sync failed",result.error.message||result.error);
+      if(result.error){
+        console.warn("Song rating sync failed",result.error.message||result.error);
+        restoreLocalTrackRating(albumId,trackKeyValue,previousValue);
+        await Promise.all([loadTrackRatings(albumId),loadSongScores(albumId)]);
+        renderTrackList(albumId);
+        alert("Your song rating could not be saved. Please try again.");
+        return;
+      }
     }
     await Promise.all([loadTrackRatings(albumId),loadSongScores(albumId),loadTrackRatingDetails(albumId,trackKeyValue)]);
     const scoreAfter=(extras.songScores[ref]||{})[trackKeyValue]||(trackName?(extras.songScores[ref]||{})[String(trackName).toLowerCase()]:null);
@@ -12214,7 +12280,7 @@ async function searchSpotify(){
 }
 async function saveSpotifyAlbumRecord(album){
   if(db){
-    const payload={title:album.title,artist:album.artist,year:album.year,genre:album.genre,cover_url:album.cover_url,spotify_url:album.spotify_url,summary:album.summary};
+    const payload={title:album.title,artist:album.artist,year:album.year,genre:album.genre,cover_url:album.cover_url,spotify_url:album.spotify_url,spotify_id:album.spotify_id||null,summary:album.summary};
     const {data,error}=await db.from("albums").insert(payload).select().single();
     if(error)throw error;
     return data||payload;
