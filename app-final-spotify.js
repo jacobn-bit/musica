@@ -81,6 +81,7 @@ function clearLocalOverviewOverride(key){
 }
 const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",albumCatalogueView:savedAlbumCatalogueView(),artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,homePageSize:120,homeOffset:0,homeHasMore:true,homeOverflow:[],homeTopAlbum:null,homeGenres:[],homeLoading:false,homeLoadState:"idle",homeLoadMessage:"",theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},albumRecommendations:{},albumInfluenceRelationships:{},albumRecommendationRequests:{},discoveryCatalogue:[],discoveryArtistRequests:{},discoveryArtistLoaded:{},discoveryAdminDraft:null,trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+let songScoreRealtimeChannel=null;
 let deepLinkHandled=false;
 const initialPublicListSlug=publicListSlugFromPath();
 if(initialPublicListSlug){state.view="public-list";state.publicListSlug=initialPublicListSlug}
@@ -4608,6 +4609,25 @@ async function loadSongScores(albumId){
   extras.songScores[ref]=scores;
   return scores;
 }
+function stopSongScoreRealtime(){
+  if(!songScoreRealtimeChannel||!db)return;
+  db.removeChannel(songScoreRealtimeChannel);
+  songScoreRealtimeChannel=null;
+}
+function startSongScoreRealtime(albumId){
+  stopSongScoreRealtime();
+  if(!db?.channel)return;
+  const ref=albumRef(albumId);
+  songScoreRealtimeChannel=db.channel(`muze-song-scores-${ref}-${Date.now()}`)
+    .on("postgres_changes",{event:"*",schema:"public",table:"song_score_aggregates",filter:`album_ref=eq.${ref}`},async()=>{
+      if(albumRef(extras.currentAlbumId)!==ref)return;
+      await loadSongScores(albumId);
+      if(albumRef(extras.currentAlbumId)===ref)renderTrackList(albumId);
+    })
+    .subscribe(status=>{
+      if(status==="CHANNEL_ERROR")console.warn("[Muze] Live song scores are temporarily unavailable.");
+    });
+}
 function displaySongScore(score){return score&&Number(score.ratings_count)>0?Number(score.avg_rating||0).toFixed(1):"-"}
 function applyOptimisticSongScore(albumId,trackKeyValue,trackName,value,previousValue=0){
   const ref=albumRef(albumId);
@@ -6457,6 +6477,7 @@ window.editAlbumInfoCertification=id=>window.addAlbumInfoCertification(id);
 window.deleteAlbumInfoCertification=async function(id){if(confirm("Delete this certification?"))await albumInfoAdminRequest({...albumInfoAdminBase("delete_certification"),id})}
 async function loadAlbumExtras(album){
   extras.currentAlbumId=albumRef(album.id);
+  startSongScoreRealtime(album.id);
   await Promise.all([loadComments(album.id),loadTrackRatings(album.id),loadSongScores(album.id),loadRatingDetails(album.id)]);
   renderComments(album.id);
   renderRatingDetails(album.id);
@@ -12362,7 +12383,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".avatarCategoryDropd
 document.querySelectorAll("[data-avatar-type]").forEach(button=>button.onclick=()=>applyAvatarType(button.dataset.avatarType||"androgynous"));
 $("#avatarType")?.addEventListener("change",e=>applyAvatarType(e.target.value));
 $("#authLogout")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();logoutAuth()});
-function closeAlbumPopup(){stopTrackPreview();$("#albumModal").classList.add("hidden")}$("#closeAlbumModal").onclick=closeAlbumPopup;$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#closeAuthModal").onclick=closeAuthModal;$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")closeAlbumPopup()};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};$("#authModal").onclick=e=>{if(e.target.id==="authModal")closeAuthModal()};
+function closeAlbumPopup(){stopTrackPreview();stopSongScoreRealtime();$("#albumModal").classList.add("hidden")}$("#closeAlbumModal").onclick=closeAlbumPopup;$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#closeAuthModal").onclick=closeAuthModal;$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")closeAlbumPopup()};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};$("#authModal").onclick=e=>{if(e.target.id==="authModal")closeAuthModal()};
 function goHome(){state.view="rankings";state.artistProfile=null;state.artistProfileAlbums=[];document.querySelectorAll(".tab,.navItem[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view==="rankings"));render();closeNav();window.scrollTo({top:0,behavior:"smooth"})}
 async function navigateToView(view){
   if(artistSlugFromPath()||publicListSlugFromPath())history.pushState({musica:"inside",view},"","/");
