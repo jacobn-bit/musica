@@ -7,11 +7,16 @@ function currentValue(name) {
   return match ? match[1] : "";
 }
 
-const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || currentValue("SUPABASE_URL");
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || currentValue("SUPABASE_ANON_KEY");
+function usableValue(value) {
+  const text = String(value || "").trim();
+  return text && !/^\*+/.test(text) ? text : "";
+}
+
+const url = usableValue(process.env.VITE_SUPABASE_URL) || usableValue(process.env.SUPABASE_URL) || usableValue(currentValue("SUPABASE_URL"));
+const anonKey = usableValue(process.env.VITE_SUPABASE_ANON_KEY) || usableValue(process.env.SUPABASE_ANON_KEY) || usableValue(currentValue("SUPABASE_ANON_KEY"));
 const adminPin = process.env.NETLIFY === "true"
   ? ""
-  : process.env.VITE_ADMIN_PIN || process.env.ADMIN_PIN || process.env.MUSICA_ADMIN_PIN || process.env.NEXT_PUBLIC_ADMIN_PIN || currentValue("VITE_ADMIN_PIN") || currentValue("ADMIN_PIN") || currentValue("MUSICA_ADMIN_PIN") || currentValue("NEXT_PUBLIC_ADMIN_PIN");
+  : usableValue(process.env.VITE_ADMIN_PIN) || usableValue(process.env.ADMIN_PIN) || usableValue(process.env.MUSICA_ADMIN_PIN) || usableValue(process.env.NEXT_PUBLIC_ADMIN_PIN) || usableValue(currentValue("VITE_ADMIN_PIN")) || usableValue(currentValue("ADMIN_PIN")) || usableValue(currentValue("MUSICA_ADMIN_PIN")) || usableValue(currentValue("NEXT_PUBLIC_ADMIN_PIN"));
 
 if (!url || !anonKey) {
   console.warn("Supabase config was not generated because URL or anon key is missing.");
