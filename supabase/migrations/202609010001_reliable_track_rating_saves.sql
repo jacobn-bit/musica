@@ -76,4 +76,20 @@ $$;
 revoke all on function public.save_track_rating(text, text, text, text, integer, text) from public, anon;
 grant execute on function public.save_track_rating(text, text, text, text, integer, text) to authenticated;
 
+-- Broadcast aggregate changes so an open album immediately receives ratings
+-- submitted by another listener. Keep this idempotent for repeated deploys.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'song_score_aggregates'
+  ) then
+    alter publication supabase_realtime add table public.song_score_aggregates;
+  end if;
+end;
+$$;
+
 notify pgrst, 'reload schema';
