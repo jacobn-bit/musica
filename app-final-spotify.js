@@ -8008,9 +8008,9 @@ async function openNavProfileMenu(){
   if(!loggedInUser()){openAuthModal("Log in to manage your Muze profile.");return}
   showAvatarSetup(Boolean(currentUsername()||savedProfileUsername()||avatarHasValue()));
 }
-function localLibraries(){return JSON.parse(localStorage.getItem("musicaPublicLibraries")||"[]")}
+function localLibraries(){try{const rows=JSON.parse(localStorage.getItem("musicaPublicLibraries")||"[]");return Array.isArray(rows)?rows:[]}catch(error){return []}}
 function saveLocalLibraries(libraries){localStorage.setItem("musicaPublicLibraries",JSON.stringify(libraries))}
-function myLibraryItems(){return JSON.parse(localStorage.getItem("musicaMyLibraryItems")||"[]")}
+function myLibraryItems(){try{const rows=JSON.parse(localStorage.getItem("musicaMyLibraryItems")||"[]");return Array.isArray(rows)?rows:[]}catch(error){return []}}
 function saveMyLibraryItems(items){localStorage.setItem("musicaMyLibraryItems",JSON.stringify(items))}
 function albumToLibraryItem(a){return {
   id:String(a.id),
@@ -8559,7 +8559,7 @@ function albumLibrarySaveCount(album){
     seen.add(key);
     return 1;
   };
-  let total=extras.libraries.reduce((sum,library)=>sum+countSource(library,String(library.device_id||library.id||library.username||sum)),0);
+  let total=(Array.isArray(extras.libraries)?extras.libraries:[]).reduce((sum,library)=>sum+countSource(library,String(library.device_id||library.id||library.username||sum)),0);
   if(myLibraryItems().some(item=>isSameAlbum(item,album)||String(item.id)===String(album.id))){
     total+=countSource({items:myLibraryItems()},String(state.deviceId));
   }
@@ -12129,6 +12129,7 @@ function albumOpenRequest(promise,fallback,label,timeoutMs=4000){
 window.openAlbum=async function(id,routeOptions={}){
   const albumModal=$("#albumModal");
   const albumModalContent=$("#albumModalContent");
+  if(albumModalContent)delete albumModalContent.dataset.openError;
   albumModal?.classList.remove("libraryDetailModal");
   try{
     let a=state.albums.find(x=>String(x.id)===String(id))||(String(state.homeTopAlbum?.id||"")===String(id)?state.homeTopAlbum:null);
@@ -12158,13 +12159,14 @@ window.openAlbum=async function(id,routeOptions={}){
   const structuredOverview=albumStructuredOverview(a);
   const manualDescription=albumManualDescriptionOverride(a);
   const hasPublishedReview=albumHasPublishedReview(a,savedOverview,manualDescription);
-  const approvedCommunityReview=!hasPublishedReview?communityReviewState.approved:null;
+  const safeCommunityReviewState=communityReviewState&&typeof communityReviewState==="object"?communityReviewState:{approved:null,pending:null,adminQueue:[]};
+  const approvedCommunityReview=!hasPublishedReview?safeCommunityReviewState.approved:null;
   const summary=hasPublishedReview
     ? manualDescription||structuredOverview.intro_summary||albumHeroLine(a)
     : String(approvedCommunityReview?.review_text||"").trim();
   const heroReviewMarkup=summary
     ? `<p class="albumHeroDescription">${formatParagraphText(summary)}</p>${approvedCommunityReview?`<p class="albumReviewByline">Review by ${escapeHtml(String(approvedCommunityReview.username||"Listener").replace(/^@/,""))}</p>`:""}`
-    : emptyAlbumReviewMarkup(a,communityReviewState.pending,communityReviewState.adminQueue);
+    : emptyAlbumReviewMarkup(a,safeCommunityReviewState.pending,safeCommunityReviewState.adminQueue);
   const customOverview=manualDescription||albumCustomOverview(a);
   const canEditOverview=isAdminUnlocked();
   const tags=[albumGenreLabel(a),a.year?String(a.year):"Classic","Community pick"].filter(Boolean).slice(0,4);
@@ -12290,6 +12292,7 @@ window.openAlbum=async function(id,routeOptions={}){
   loadAlbumExtras(a);
   }catch(error){
     console.error("[Muze album] Album could not be opened",error);
+    if(albumModalContent)albumModalContent.dataset.openError=`${error?.name||"Error"}: ${error?.message||String(error)}`;
     const albumPageAlreadyRendered=Boolean(albumModalContent?.querySelector(".linerAlbumPage"));
     if(albumModalContent&&!albumPageAlreadyRendered)albumModalContent.innerHTML='<div class="emptyMini" role="alert">This album could not be opened. Please try again.</div>';
     albumModal?.classList.remove("hidden");
