@@ -28,7 +28,9 @@ function validSupabaseConfig(){
     && !String(SUPABASE_ANON_KEY).includes("PASTE_");
 }
 const configured=validSupabaseConfig();
-const db=configured&&window.supabase&&typeof window.supabase.createClient==="function"?window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim()):null;
+const db=configured&&window.supabase&&typeof window.supabase.createClient==="function"
+  ?window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim(),{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})
+  :null;
 // Public catalogue data must not change with authentication state. A separate
 // stateless client prevents an OAuth session token (or an authenticated RLS
 // policy mistake) from reducing the catalogue visible to signed-in listeners.
@@ -79,7 +81,8 @@ function clearLocalOverviewOverride(key){
     }
   }catch(error){}
 }
-const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",albumCatalogueView:savedAlbumCatalogueView(),artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,homePageSize:120,homeOffset:0,homeHasMore:true,homeTotal:null,homeOverflow:[],homeTopAlbum:null,homeGenres:[],homeLoading:false,homeLoadState:"idle",homeLoadMessage:"",theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
+const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",albumCatalogueView:savedAlbumCatalogueView(),artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,homePageSize:120,homeOffset:0,homeHasMore:true,homeTotal:null,homeOverflow:[],homeTopAlbum:null,homeGenres:[],homeLoading:false,homeLoadState:"idle",homeLoadMessage:"",theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,spotifyPremium:{userId:"",status:"disconnected",displayName:""},avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
+let authInitializationPromise=null;
 const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},albumRecommendations:{},albumInfluenceRelationships:{},albumRecommendationRequests:{},discoveryCatalogue:[],discoveryArtistRequests:{},discoveryArtistLoaded:{},discoveryAdminDraft:null,trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 const initialRoutedView=window.MuzeRoutes?.viewFromPath(location.pathname);
 if(initialRoutedView)state.view=initialRoutedView;
@@ -240,9 +243,35 @@ function authErrorMessage(error){
   if(/rate limit|too many|over email send rate limit/i.test(message))return "Supabase is rate limiting confirmation emails. Wait a few minutes, then try again.";
   if(/invalid login credentials/i.test(message))return "Email or password is incorrect.";
   if(/user already registered|already registered|already exists/i.test(message))return "That email already has a Muze account. Try logging in instead.";
+  if(/manual linking|identity linking|linking is disabled/i.test(message))return "Spotify account linking must be enabled in Supabase Authentication settings before this option can be used.";
   if(/password/i.test(message)&&/(weak|short|least|characters|min)/i.test(message))return message;
   if(/email/i.test(message)&&/invalid/i.test(message))return "Enter a valid email address.";
   return message;
+}
+const OAUTH_RETURN_KEYS=["error","error_code","error_description"];
+function oauthReturnError(){
+  const query=new URLSearchParams(location.search||"");
+  const hash=new URLSearchParams(String(location.hash||"").replace(/^#/,""));
+  const value=key=>query.get(key)||hash.get(key)||"";
+  const code=value("error_code")||value("error");
+  const description=value("error_description");
+  if(!code&&!description)return null;
+  const detail=String(description||code).replace(/\+/g," ").trim();
+  let message=`Spotify sign-in could not be completed${detail?`: ${detail}`:"."}`;
+  if(/confirm|confirmation|email.*not.*confirmed/i.test(`${code} ${detail}`)){
+    message="Your Spotify sign-in is almost complete. Check your email for the Muze confirmation link, open it, then return and sign in again.";
+  }else if(/allowlist|not.*registered|not.*authorized|user.*management/i.test(`${code} ${detail}`)){
+    message="This Spotify account is not yet authorized for the Muze test app. Add it in Spotify User Management, then try again.";
+  }
+  return {code,detail,message};
+}
+function clearOAuthReturnError(){
+  const url=new URL(location.href);
+  OAUTH_RETURN_KEYS.forEach(key=>url.searchParams.delete(key));
+  const hash=new URLSearchParams(String(url.hash||"").replace(/^#/,""));
+  OAUTH_RETURN_KEYS.forEach(key=>hash.delete(key));
+  url.hash=hash.toString()?`#${hash.toString()}`:"";
+  history.replaceState(history.state,"",`${url.pathname}${url.search}${url.hash}`);
 }
 function defaultAvatarConfig(){
   return {
@@ -1075,7 +1104,8 @@ function showSignupOnboarding(){
   showAuthEmailForm("signup");
 }
 async function startOAuthSignup(provider){
-  const providerName={google:"Google",facebook:"Facebook",spotify:"Spotify"}[provider]||provider;
+  if(provider==="spotify")return startSpotifyPremiumAuth();
+  const providerName={google:"Google",facebook:"Facebook"}[provider]||provider;
   if(!db){
     setAuthStatus("Muze is temporarily unavailable. Please try again.","error");
     return;
@@ -1089,6 +1119,84 @@ async function startOAuthSignup(provider){
     const providerDisabled=/unsupported provider|provider is not enabled|not enabled|not configured/i.test(message);
     setAuthStatus(providerDisabled?"This login option is not enabled yet.":message,"error");
   }
+}
+const SPOTIFY_PLAYBACK_SCOPES="streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state";
+const SPOTIFY_LINK_INTENT_KEY="muzeSpotifyPremiumLinkIntent";
+function spotifyIdentity(user=loggedInUser()){
+  return (user?.identities||[]).find(identity=>identity?.provider==="spotify")||null;
+}
+function spotifyPremiumCopy(){
+  const userId=String(loggedInUser()?.id||"");
+  const linked=Boolean(spotifyIdentity());
+  const current=state.spotifyPremium?.userId===userId?state.spotifyPremium:{status:linked?"linked":"disconnected",displayName:""};
+  if(!linked)return {status:"disconnected",message:"Connect Spotify Premium for full-track playback in Muze.",button:"Connect Spotify Premium",disabled:false};
+  if(current.status==="checking")return {status:"checking",message:"Checking your Spotify subscription...",button:"Checking Spotify...",disabled:true};
+  if(current.status==="premium")return {status:"premium",message:`${current.displayName?`${current.displayName} is c`:"C"}onnected with Spotify Premium.`,button:"Spotify Premium connected",disabled:true};
+  if(current.status==="free")return {status:"free",message:"This Spotify account is linked, but Premium is required for full-track playback.",button:"Use a Premium account",disabled:false};
+  if(current.status==="error")return {status:"error",message:"Spotify is linked, but Muze could not verify the subscription. Reconnect to try again.",button:"Reconnect Spotify Premium",disabled:false};
+  return {status:"linked",message:"Spotify is linked. Reconnect to authorize a fresh playback session.",button:"Reconnect Spotify Premium",disabled:false};
+}
+function syncSpotifyPremiumUi(){
+  const card=$("#spotifyPremiumConnection");
+  if(!card)return;
+  const copy=spotifyPremiumCopy();
+  card.dataset.status=copy.status;
+  const message=$("#spotifyPremiumStatus");
+  const button=$("#spotifyPremiumConnect");
+  if(message)message.textContent=copy.message;
+  if(button){button.textContent=copy.button;button.disabled=copy.disabled}
+}
+async function verifySpotifyPremium(session=state.authSession){
+  const user=session?.user||null;
+  const userId=String(user?.id||"");
+  const linked=Boolean(spotifyIdentity(user));
+  if(!linked){state.spotifyPremium={userId,status:"disconnected",displayName:""};syncSpotifyPremiumUi();return state.spotifyPremium}
+  const token=String(session?.provider_token||"").trim();
+  if(!token){
+    if(state.spotifyPremium?.userId!==userId)state.spotifyPremium={userId,status:"linked",displayName:""};
+    syncSpotifyPremiumUi();
+    return state.spotifyPremium;
+  }
+  state.spotifyPremium={userId,status:"checking",displayName:""};syncSpotifyPremiumUi();
+  try{
+    const response=await fetch("https://api.spotify.com/v1/me",{headers:{Authorization:`Bearer ${token}`}});
+    if(!response.ok)throw new Error(`Spotify profile request failed (${response.status}).`);
+    const profile=await response.json();
+    state.spotifyPremium={userId,status:String(profile?.product||"").toLowerCase()==="premium"?"premium":"free",displayName:String(profile?.display_name||"").trim()};
+  }catch(error){
+    console.warn("[Muze Spotify] Premium verification failed",error?.message||error);
+    state.spotifyPremium={userId,status:"error",displayName:""};
+  }
+  syncSpotifyPremiumUi();
+  return state.spotifyPremium;
+}
+async function startSpotifyPremiumAuth(){
+  if(!db){setAuthStatus("Muze is temporarily unavailable. Please try again.","error");return}
+  const user=loggedInUser();
+  const alreadyLinked=Boolean(spotifyIdentity(user));
+  const options={redirectTo:`${window.location.origin}/`,scopes:SPOTIFY_PLAYBACK_SCOPES};
+  sessionStorage.setItem(SPOTIFY_LINK_INTENT_KEY,user?"link":"login");
+  setAuthStatus(user?(alreadyLinked?"Opening Spotify to renew playback access...":"Opening Spotify to link your Premium account..."):"Opening Spotify Premium login...","");
+  authDebug("spotify premium oauth redirect",{mode:user?(alreadyLinked?"reauthorize":"link"):"login",redirectTo:options.redirectTo,hostname:window.location.hostname});
+  const result=user&&!alreadyLinked&&typeof db.auth.linkIdentity==="function"
+    ?await db.auth.linkIdentity({provider:"spotify",options})
+    :await db.auth.signInWithOAuth({provider:"spotify",options});
+  if(result?.error){
+    sessionStorage.removeItem(SPOTIFY_LINK_INTENT_KEY);
+    setAuthStatus(authErrorMessage(result.error),"error");
+  }
+}
+async function finishSpotifyPremiumReturn(session=state.authSession){
+  const intent=sessionStorage.getItem(SPOTIFY_LINK_INTENT_KEY);
+  const result=await verifySpotifyPremium(session);
+  if(!intent||!session?.user||!spotifyIdentity(session.user))return result;
+  sessionStorage.removeItem(SPOTIFY_LINK_INTENT_KEY);
+  openAuthModal("Manage your Muze session and connected music services.");
+  if(result.status==="premium")setAuthStatus("Spotify Premium is now connected to Muze.","success");
+  else if(result.status==="free")setAuthStatus("Spotify was linked, but this account does not have Premium.","error");
+  else if(result.status==="linked")setAuthStatus("Spotify is linked. Reconnect if playback access is unavailable.","success");
+  else setAuthStatus("Spotify was linked, but Muze could not verify Premium access.","error");
+  return result;
 }
 function syncAuthUi(){
   const user=loggedInUser();
@@ -1110,6 +1218,7 @@ function syncAuthUi(){
   if(email)email.textContent=user?.email||"your account";
   syncProfileUsernameUi();
   renderAvatarTargets();
+  syncSpotifyPremiumUi();
   updateNavUsername();
 }
 function openAuthModal(message="Log in to join the conversation."){
@@ -1278,6 +1387,8 @@ async function logoutAuth(){
   if(error){setAuthStatus(error.message,"error");return}
   state.authSession=null;
   state.userProfile=null;
+  state.spotifyPremium={userId:"",status:"disconnected",displayName:""};
+  sessionStorage.removeItem(SPOTIFY_LINK_INTENT_KEY);
   state.avatarPromptedForUser=null;
   syncAuthUi();
   setAuthStatus("Logged out.","success");
@@ -1286,10 +1397,32 @@ async function logoutAuth(){
 async function initAuth(){
   authDebug("init",{configured,urlHost:supabaseUrlHost(),hasAnonKey:Boolean(SUPABASE_ANON_KEY)});
   if(!db){syncAuthUi();return}
+  const returnError=oauthReturnError();
+  db.auth.onAuthStateChange((event,session)=>{
+    // Supabase advises keeping the auth callback synchronous. Schedule the
+    // profile/database work separately so session persistence cannot be held
+    // up by another Supabase request during an OAuth return.
+    setTimeout(async()=>{
+      authDebug("state change",{event,hasSession:Boolean(session),email:session?.user?.email||null});
+      const wasLoggedOut=!loggedInUser();
+      state.authSession=session||null;
+      await loadUserProfile();
+      await finishSpotifyPremiumReturn(state.authSession);
+      if(session)startPresenceHeartbeat();else stopPresenceHeartbeat();
+      syncAuthUi();
+      if(state.view==="libraries"){
+        loadLibraries().catch(error=>console.warn("Unable to refresh libraries after auth change",error));
+      }else if(state.view==="chat"){
+        await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence()]);render();
+      }
+      if(wasLoggedOut&&session)resumePendingAuthAction();
+    },0);
+  });
   const {data,error}=await db.auth.getSession();
   if(error)authDebug("get session error",{message:error.message,status:error.status,name:error.name});
   state.authSession=data?.session||null;
   await loadUserProfile();
+  await finishSpotifyPremiumReturn(state.authSession);
   startPresenceHeartbeat();
   syncAuthUi();
   if(state.view==="libraries"){
@@ -1297,20 +1430,12 @@ async function initAuth(){
   }else if(state.view==="chat"){
     await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence()]);render();
   }
-  db.auth.onAuthStateChange(async (event,session)=>{
-    authDebug("state change",{event,hasSession:Boolean(session),email:session?.user?.email||null});
-    const wasLoggedOut=!loggedInUser();
-    state.authSession=session||null;
-    await loadUserProfile();
-    if(session)startPresenceHeartbeat();else stopPresenceHeartbeat();
-    syncAuthUi();
-    if(state.view==="libraries"){
-      loadLibraries().catch(error=>console.warn("Unable to refresh libraries after auth change",error));
-    }else if(state.view==="chat"){
-      await Promise.all([loadLibraries(),loadChatMessages(),loadUserPresence()]);render();
-    }
-    if(wasLoggedOut&&session)resumePendingAuthAction();
-  });
+  if(returnError){
+    sessionStorage.removeItem(SPOTIFY_LINK_INTENT_KEY);
+    openAuthModal("Spotify returned to Muze, but the account still needs attention.");
+    setAuthStatus(returnError.message,"error");
+    clearOAuthReturnError();
+  }
 }
 window.requireAuth=requireAuth;
 window.gateLikeAction=function(){requireAuth("like",()=>window.gateLikeAction())}
@@ -7732,7 +7857,12 @@ function setLibraryUsername(){
   localStorage.setItem("musicaUsername",name);
   updateNavUsername();
 }
-function openNavProfileMenu(){closeNav();if(!loggedInUser()){openAuthModal("Log in to manage your Muze profile.");return}showAvatarSetup(Boolean(currentUsername()||savedProfileUsername()||avatarHasValue()))}
+async function openNavProfileMenu(){
+  closeNav();
+  if(authInitializationPromise){try{await authInitializationPromise}catch(error){authDebug("profile auth wait failed",{message:error?.message||String(error)})}}
+  if(!loggedInUser()){openAuthModal("Log in to manage your Muze profile.");return}
+  showAvatarSetup(Boolean(currentUsername()||savedProfileUsername()||avatarHasValue()));
+}
 function localLibraries(){return JSON.parse(localStorage.getItem("musicaPublicLibraries")||"[]")}
 function saveLocalLibraries(libraries){localStorage.setItem("musicaPublicLibraries",JSON.stringify(libraries))}
 function myLibraryItems(){return JSON.parse(localStorage.getItem("musicaMyLibraryItems")||"[]")}
@@ -11781,6 +11911,8 @@ function albumArtistVerifiedMark(){
   return '<span class="linerArtistVerified" aria-label="Verified artist"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="linerArtistVerifiedSeal" d="M23 12l-2.44-2.79.34-3.69-3.61-.82L15.4 1.5 12 2.96 8.6 1.5 6.71 4.69 3.1 5.5l.34 3.7L1 12l2.44 2.79-.34 3.7 3.61.81L8.6 22.5l3.4-1.47 3.4 1.47 1.89-3.19 3.61-.82-.34-3.69L23 12z"/><path class="linerArtistVerifiedCheck" d="M10.05 16.15 6.4 12.5l1.5-1.5 2.15 2.15 5.75-5.75 1.5 1.5-7.25 7.25z"/></svg></span>';
 }
 function albumRouteId(){return window.MuzeRoutes?.albumIdFromPath(location.pathname)||""}
+function albumRouteParts(){return window.MuzeRoutes?.albumRouteParts(location.pathname)||{key:albumRouteId(),slug:"",legacyId:""}}
+function albumRouteSlug(album){return window.MuzeRoutes?.albumSlug(album)||window.MuzeRoutes?.slug([album?.title,album?.artist].filter(Boolean).join(" "))||""}
 function albumRouteUrl(album,track=""){
   const path=window.MuzeRoutes?.albumPath(album)||`/?album=${encodeURIComponent(String(album?.id||""))}`;
   if(!track)return path;
@@ -11788,8 +11920,10 @@ function albumRouteUrl(album,track=""){
 }
 function writeAlbumRoute(album,{replace=false,track="",direct=false}={}){
   if(!album?.id)return;
-  const currentId=albumRouteId();
-  const sameAlbum=String(currentId)===String(album.id);
+  const currentRoute=albumRouteParts();
+  const sameAlbum=String(history.state?.albumId||"")===String(album.id)
+    ||String(currentRoute.legacyId||"")===String(album.id)
+    ||(!currentRoute.legacyId&&currentRoute.slug===albumRouteSlug(album));
   const returnView=sameAlbum&&history.state?.returnView?history.state.returnView:state.view;
   const historyState={musica:"album",albumId:String(album.id),returnView,direct:Boolean(direct||(sameAlbum&&history.state?.direct))};
   const url=albumRouteUrl(album,track);
@@ -11799,24 +11933,36 @@ function writeAlbumRoute(album,{replace=false,track="",direct=false}={}){
 async function loadAlbumForRoute(id){
   const wanted=String(id||"").trim();
   if(!wanted)return null;
-  const known=[...(state.albums||[]),...(state.artistProfileAlbums||[]),...(extras.discoveryCatalogue||[]),...(typeof seedAlbums!=="undefined"?seedAlbums:[])].find(album=>String(album?.id||"")===wanted);
+  const matchesRoute=album=>String(album?.id||"")===wanted||albumRouteSlug(album)===wanted;
+  const known=[...(state.albums||[]),...(state.artistProfileAlbums||[]),...(extras.discoveryCatalogue||[]),...(typeof seedAlbums!=="undefined"?seedAlbums:[])].find(matchesRoute);
   if(known){state.albums=mergeAlbumSources(state.albums,[known]);return known}
   const catalogueDb=publicDataDb||db;
   if(!catalogueDb)return null;
   try{
-    const scoreResult=await catalogueDb.from("album_scores").select("*").eq("id",wanted).maybeSingle();
-    if(!scoreResult.error&&scoreResult.data){
-      const album=normalizeHomepageAlbum(scoreResult.data);
-      state.albums=mergeAlbumSources(state.albums,[album]);
-      extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,[album]);
-      return album;
+    const currentRoute=albumRouteParts();
+    const slugOnlyRequest=!currentRoute.legacyId&&currentRoute.slug===wanted;
+    if(!slugOnlyRequest){
+      const scoreResult=await catalogueDb.from("album_scores").select("*").eq("id",wanted).maybeSingle();
+      if(!scoreResult.error&&scoreResult.data){
+        const album=normalizeHomepageAlbum(scoreResult.data);
+        state.albums=mergeAlbumSources(state.albums,[album]);
+        extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,[album]);
+        return album;
+      }
+      const albumResult=await catalogueDb.from("albums").select("id,title,artist,year,genre,cover_url,spotify_url,summary,spotify_id").eq("id",wanted).maybeSingle();
+      if(!albumResult.error&&albumResult.data){
+        const album=normalizeHomepageAlbum(albumResult.data);
+        state.albums=mergeAlbumSources(state.albums,[album]);
+        extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,[album]);
+        return album;
+      }
     }
-    const albumResult=await catalogueDb.from("albums").select("id,title,artist,year,genre,cover_url,spotify_url,summary,spotify_id").eq("id",wanted).maybeSingle();
-    if(!albumResult.error&&albumResult.data){
-      const album=normalizeHomepageAlbum(albumResult.data);
-      state.albums=mergeAlbumSources(state.albums,[album]);
-      extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,[album]);
-      return album;
+    const scoreRows=await loadAllAlbumScoreRows();
+    const slugMatch=scoreRows.map(normalizeHomepageAlbum).find(matchesRoute);
+    if(slugMatch){
+      state.albums=mergeAlbumSources(state.albums,[slugMatch]);
+      extras.discoveryCatalogue=mergeAlbumSources(extras.discoveryCatalogue,[slugMatch]);
+      return slugMatch;
     }
   }catch(error){console.warn("[Muze routes] Album route lookup failed",error)}
   return null;
@@ -12518,6 +12664,7 @@ document.querySelectorAll("#avatarCategoryMenu [data-avatar-category]").forEach(
 document.addEventListener("click",e=>{if(!e.target.closest(".avatarCategoryDropdown")){$("#avatarCategoryMenu")?.classList.add("hidden");$("#avatarCategoryToggle")?.setAttribute("aria-expanded","false")}});
 document.querySelectorAll("[data-avatar-type]").forEach(button=>button.onclick=()=>applyAvatarType(button.dataset.avatarType||"androgynous"));
 $("#avatarType")?.addEventListener("change",e=>applyAvatarType(e.target.value));
+$("#spotifyPremiumConnect")?.addEventListener("click",startSpotifyPremiumAuth);
 $("#authLogout")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();logoutAuth()});
 function closeAlbumPopup(options={}){
   stopTrackPreview();stopSongScoreRealtime();$("#albumModal").classList.add("hidden");
@@ -12625,7 +12772,7 @@ document.addEventListener("pointerdown",event=>{if(!event.target.closest(".muzeS
 $("#genreFilter").onchange=e=>{state.genre=e.target.value;state.yearFilter="";requestHomepageAlbumPage({reset:true,force:true})};$("#sortSelect").onchange=e=>{state.sort=e.target.value;requestHomepageAlbumPage({reset:true,force:true})};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
 document.addEventListener("visibilitychange",()=>{if(document.hidden)updateOwnPresence(false);else startPresenceHeartbeat()});
 window.addEventListener("pagehide",()=>updateOwnPresence(false));
-initAuth();
+authInitializationPromise=initAuth();
 loadData().catch(error=>{
   console.error("Muze data initialization failed",error);
   state.dataReady=true;
