@@ -108,7 +108,7 @@ create table if not exists track_ratings (
   track_key text not null,
   track_name text not null,
   device_id text not null,
-  rating int not null check (rating between 1 and 10),
+  rating numeric(3,1) not null check (rating between 0.5 and 10 and rating * 2 = trunc(rating * 2)),
   created_at timestamptz default now(),
   unique(album_ref, track_key, device_id)
 );

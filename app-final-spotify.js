@@ -150,7 +150,7 @@ function artistBiographyMarkup(value){
   const previewCount=4;
   const remaining=paragraphs.slice(previewCount).map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
   const visible=paragraphs.slice(0,previewCount).map((part,index)=>{
-    const toggle=remaining&&index===Math.min(paragraphs.length,previewCount)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>':"";
+    const toggle=remaining&&index===Math.min(paragraphs.length,previewCount)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more</button>':"";
     return `<p>${formatParagraphText(part)}${toggle}</p>`;
   }).join("");
   if(!remaining)return `<div class="muzeArtistHeroBio">${visible}</div>`;
@@ -163,7 +163,7 @@ function syncMobileArtistBiography(){
   const fullText=biography._fullBiographyText||biography.textContent.replace(/\s+/g," ").trim();
   biography._fullBiographyHtml=fullHtml;
   biography._fullBiographyText=fullText;
-  const toggle='<button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more <span aria-hidden="true">&rarr;</span></button>';
+  const toggle='<button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more</button>';
   biography.classList.remove("is-expanded");
   biography.innerHTML=`<p>${escapeHtml(fullText)} ${toggle}</p>`;
   const lineHeight=parseFloat(getComputedStyle(biography).lineHeight)||23;
@@ -205,7 +205,7 @@ window.toggleArtistBiography=function(button){
   button.setAttribute("aria-expanded",String(!expanded));
   const destination=expanded?preview?.lastElementChild:remainder.lastElementChild;
   if(destination){destination.append(document.createTextNode(" "),button)}
-  button.innerHTML=expanded?'See more <span aria-hidden="true">&rarr;</span>':'Show less <span aria-hidden="true">&uarr;</span>';
+  button.innerHTML=expanded?'See more':'Show less <span aria-hidden="true">&uarr;</span>';
 };
 function compactPreviewText(value){
   const chunks=paragraphChunks(value);
@@ -1648,11 +1648,12 @@ function beautifulAlbumDescription(a){
   ];
   const exact=known.find(([pattern])=>pattern.test(key));
   const hasRealSummary=saved&&saved!==factual&&!/was added from spotify/i.test(saved)&&!/This album was released/i.test(saved)&&!/^.+ by .+\. This album/i.test(saved);
-  let opening=exact?exact[1]:(hasRealSummary?saved:`${title} needs a researched Muze overview before editorial copy is shown.`);
+  if(!exact&&!hasRealSummary)return "";
+  const opening=exact?exact[1]:saved;
   const lowerGenre=genre.toLowerCase();
   const genreLines={
     "punk":"The record thrives on speed, impact, and directness, with songs that hit quickly and leave a charge behind.",
-    "rock":"Research is needed before Muze writes a sound summary for this album.",
+    "rock":"",
     "classic rock":"It carries the warmth and craft of classic rock without feeling frozen in the past, balancing familiarity with real character.",
     "alternative":"Its best moments live in the tension between melody and unease, turning left-field instincts into something surprisingly inviting.",
     "hip-hop":"The album is driven by voice, rhythm, and point of view, where personality matters as much as production.",
@@ -1664,10 +1665,10 @@ function beautifulAlbumDescription(a){
     "jazz":"It moves with conversation and instinct, rewarding listeners who follow the shifts in tone, space, and performance.",
     "electronic":"It treats texture and rhythm like emotional language, building atmosphere through movement, repetition, and sound design."
   };
-  const genreLine=genreLines[lowerGenre]||genreLines[Object.keys(genreLines).find(g=>lowerGenre.includes(g))]||"Research is needed before Muze writes a sound summary for this album.";
+  const genreLine=genreLines[lowerGenre]||genreLines[Object.keys(genreLines).find(g=>lowerGenre.includes(g))]||"";
   const era=Number(year)||0;
-  const eraLine=era>=2020?`As a newer release, ${title} still feels open-ended, with its reputation being shaped in real time by listeners.`:era>=2000?`Research is needed before Muze writes an impact summary for this album.`:era>=1990?`Coming out of the ${Math.floor(era/10)*10}s, it has the kind of immediacy that still cuts through decades later.`:era?`Heard now, its ${year} setting gives the record a sense of history without making it feel distant.`:`Heard now, it feels less tied to a date than to a particular state of mind.`;
-  return `${opening} ${genreLine} ${eraLine}`;
+  const eraLine=era>=2020?`As a newer release, ${title} still feels open-ended, with its reputation being shaped in real time by listeners.`:era>=2000?"":era>=1990?`Coming out of the ${Math.floor(era/10)*10}s, it has the kind of immediacy that still cuts through decades later.`:era?`Heard now, its ${year} setting gives the record a sense of history without making it feel distant.`:`Heard now, it feels less tied to a date than to a particular state of mind.`;
+  return [opening,genreLine,eraLine].filter(Boolean).join(" ");
 }
 const customAlbumOverviews={
   "thriller": "Thriller is more than just a blockbuster album, it?s the moment pop music became cinematic. Building on the sleek disco-funk foundations of Off the Wall, Michael Jackson and producer Quincy Jones crafted a record that fused pop, funk, rock, soul, and spectacle into something universal. From the razor-sharp groove of ?Billie Jean? to the explosive crossover energy of ?Beat It? and the theatrical horror of ?Thriller,? every track feels engineered for maximum impact. At the height of his powers, Jackson balanced charisma, vulnerability, paranoia, and ambition with unmatched precision, creating an album that didn?t just dominate the charts, it reshaped the possibilities of mainstream music. Decades later, Thriller remains less like an album and more like a cultural event permanently frozen in time.",
@@ -1868,6 +1869,8 @@ function finishAdminUnlock(pin,message){
   sessionStorage.setItem("musicaAdminPin",String(pin||"").trim());
   syncAdminUnlockButton();
   setAdminInlineStatus(message||"Admin overview editing is unlocked for this browser tab.","success");
+  const openTrackAlbum=state.albums.find(item=>albumRef(item.id)===albumRef(extras.currentAlbumId));
+  if(openTrackAlbum&&!document.querySelector("#albumModal.hidden"))renderTrackList(openTrackAlbum.id);
   const album=typeof albumInfoCurrentAlbum==="function"?albumInfoCurrentAlbum():null;
   if(album&&!document.querySelector("#albumInfoPopup.hidden")){
     const info=extras.albumInfo[albumRef(album.id)];
@@ -2144,7 +2147,7 @@ function hasManualOverviewOverride(row){
   ].some(value=>value!==undefined&&value!==null&&String(value).trim()!==""));
 }
 function clientCleanAlbumTitle(title){return String(title||"").replace(/\s*[-\u2013\u2014]\s*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|bonus).*$/i,"").replace(/\s*\((?=[^)]*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|edition|version|bonus|mono|stereo|reissue))[^)]*\)/gi,"").replace(/\s*\[(?=[^\]]*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|edition|version|bonus|mono|stereo|reissue))[^\]]*\]/gi,"").replace(/\s+/g," ").trim()||String(title||"").trim()}
-function genericOverviewText(text){return /building a world with its own mood|its guitars, melodies|made to be argued over|from the \d{4}s|old scenes and new listening habits|as ratings come in|individual tracks start to connect|ratings come in, its place|atmosphere, gravity, and afterlife|period when albums were stretching|researched source data|source data|source notes|sources connect|sourced album data|public source|research notes|metadata points/i.test(String(text||""))}
+function genericOverviewText(text){return /building a world with its own mood|its guitars, melodies|made to be argued over|from the \d{4}s|old scenes and new listening habits|as ratings come in|individual tracks start to connect|ratings come in, its place|atmosphere, gravity, and afterlife|period when albums were stretching|researched source data|source data|source notes|sources connect|sourced album data|public source|research notes|metadata points|needs a researched muze overview|research is needed before muze writes|muze could not finish the overview|check the console|netlify function logs|custom overview did not save|regenerate the ai overview|waiting for the full muze story|writing the record into focus|no sound description yet|no impact note yet|no legacy note yet/i.test(String(text||""))}
 function overviewSectionTokens(value){const stop=new Set(["the","and","that","this","with","for","from","into","its","album","record","music","sound"]);return String(value||"").toLowerCase().replace(/[^a-z0-9]+/g," ").split(" ").filter(token=>token.length>2&&!stop.has(token))}
 function overviewSectionSimilarity(a,b){const left=String(a||"").replace(/\s+/g," ").trim().toLowerCase();const right=String(b||"").replace(/\s+/g," ").trim().toLowerCase();if(!left||!right)return 0;if(left===right)return 1;if((left.length>45||right.length>45)&&(left.includes(right)||right.includes(left)))return .95;const lt=new Set(overviewSectionTokens(left));const rt=new Set(overviewSectionTokens(right));if(!lt.size||!rt.size)return 0;const shared=[...lt].filter(token=>rt.has(token)).length;return shared/(new Set([...lt,...rt]).size||1)}
 function albumHasDuplicateOverviewSections(row){const fields=["sound_summary","impact_summary","legacy_summary"];for(let i=0;i<fields.length;i++){for(let j=i+1;j<fields.length;j++){if(overviewSectionSimilarity(row?.[fields[i]],row?.[fields[j]])>=.72)return true}}return false}
@@ -2163,12 +2166,7 @@ function albumNeedsResearch(a,row=albumOverviewRow(a)){
   return hasStructuredAlbumOverview(row)&&!String(row.source_summary||"").trim();
 }
 function researchPlaceholderOverview(a,row={}){
-  const title=a?.title||"This album";
-  const artist=a?.artist||"the artist";
-  if(row.__generationError){
-    return {intro_summary:`Muze could not finish the overview for ${title}. Check the console or Netlify function logs for the API error.`,sound_summary:"The custom overview did not save, so Muze is holding back generic filler here.",impact_summary:"Regenerate the AI overview after fixing the logged error.",legacy_summary:"This section will update once a finished Muze overview is saved.",quote_headline:"Waiting for the full Muze story."};
-  }
-  return {intro_summary:`${title} by ${artist}.`,sound_summary:"No sound description yet.",impact_summary:"No impact note yet.",legacy_summary:"No legacy note yet.",quote_headline:"Writing the record into focus."};
+  return {intro_summary:"",sound_summary:"",impact_summary:"",legacy_summary:"",quote_headline:""};
 }
 function normalizeOverviewList(value){
   if(Array.isArray(value))return value.map(item=>typeof item==="string"?item:(item?.name||item?.title||item?.trackTitle||item?.url||"")).map(item=>String(item||"").trim()).filter(Boolean);
@@ -4589,17 +4587,48 @@ async function fetchAlbumTracks(album){
   extras.tracks[ref]=tracks;
   return tracks;
 }
+const songScoreArtistRefCache=new Map();
+function songScoreCanonicalTrackKey(value){return canonicalCommentTrackKey(value)||normalizedTrackName(value)}
+async function publicSongScoreAlbumRefs(albumId){
+  const ref=albumRef(albumId);
+  const album=state.albums.find(item=>albumRef(item.id)===ref)||{};
+  const artist=String(album.artist||album.artist_name||"").trim();
+  const cacheKey=normalizeArtistKey(artist);
+  if(!db||!cacheKey)return [ref];
+  if(songScoreArtistRefCache.has(cacheKey))return [...new Set([ref,...songScoreArtistRefCache.get(cacheKey)])];
+  const {data,error}=await db.from("albums").select("id").ilike("artist",artist).limit(80);
+  const refs=error?[]:(data||[]).map(row=>albumRef(row.id)).filter(Boolean);
+  songScoreArtistRefCache.set(cacheKey,refs);
+  return [...new Set([ref,...refs])];
+}
+function mapPublicSongScores(rows=[]){
+  const canonicalScores=new Map();
+  (rows||[]).forEach(row=>{
+    const canonical=songScoreCanonicalTrackKey(row.track_name||row.track_key);
+    if(!canonical)return;
+    const count=Math.max(0,Number(row.ratings_count)||0);
+    if(!count)return;
+    const existing=canonicalScores.get(canonical);
+    if(!existing){canonicalScores.set(canonical,{...row,ratings_count:count,avg_rating:Number(row.avg_rating)||0});return}
+    const combinedCount=Number(existing.ratings_count)+count;
+    canonicalScores.set(canonical,{...existing,track_name:existing.track_name||row.track_name,avg_rating:((Number(existing.avg_rating)*Number(existing.ratings_count))+(Number(row.avg_rating)*count))/combinedCount,ratings_count:combinedCount});
+  });
+  const mapped={};
+  canonicalScores.forEach((row,canonical)=>{
+    mapped[canonical]=row;
+    if(row.track_key)mapped[String(row.track_key).toLowerCase()]=row;
+    if(row.track_name)mapped[String(row.track_name).toLowerCase()]=row;
+  });
+  return mapped;
+}
 async function loadSongScores(albumId){
   const ref=albumRef(albumId);
   const localForAlbum=localTrackRatingsForAlbum(ref);
   if(db){
-    const {data,error}=await db.from("song_scores").select("track_key,track_name,avg_rating,ratings_count").eq("album_ref",ref);
+    const scoreRefs=await publicSongScoreAlbumRefs(albumId);
+    const {data,error}=await db.from("song_scores").select("album_ref,track_key,track_name,avg_rating,ratings_count").in("album_ref",scoreRefs);
     if(!error){
-      const mapped={};
-      (data||[]).forEach(s=>{mapped[s.track_key]=s;if(s.track_name)mapped[String(s.track_name).toLowerCase()]=s});
-      Object.entries(localForAlbum).forEach(([trackKeyValue,value])=>{
-        if(!mapped[trackKeyValue])mapped[trackKeyValue]={track_key:trackKeyValue,avg_rating:Number(value),ratings_count:1};
-      });
+      const mapped=mapPublicSongScores(data||[]);
       extras.songScores[ref]=mapped;
       return extras.songScores[ref];
     }
@@ -4608,6 +4637,37 @@ async function loadSongScores(albumId){
   Object.entries(localForAlbum).forEach(([trackKeyValue,value])=>{scores[trackKeyValue]={track_key:trackKeyValue,avg_rating:Number(value),ratings_count:1}});
   extras.songScores[ref]=scores;
   return scores;
+}
+async function syncLocalSongRatings(album,tracks=[]){
+  const user=loggedInUser();
+  if(!db||!user||!album?.id)return false;
+  const ref=albumRef(album.id);
+  const sourceRefs=await publicSongScoreAlbumRefs(album.id);
+  const allowedRefs=new Set(sourceRefs);
+  const localEntries=Object.entries(localTrackRatings()).map(([storageKey,value])=>{
+    const splitAt=storageKey.indexOf("::");
+    return splitAt<0?null:{sourceRef:storageKey.slice(0,splitAt),storedKey:storageKey.slice(splitAt+2),value};
+  }).filter(entry=>entry&&allowedRefs.has(entry.sourceRef)&&Number(entry.value)>0);
+  const personal=extras.trackRatings[ref]||{};
+  const entries=(tracks||[]).map(track=>{
+    const key=trackKey(track),canonical=songScoreCanonicalTrackKey(track.name);
+    const localMatch=localEntries.find(entry=>entry.storedKey===key||sameCommentTrackKey(entry.storedKey,track.name));
+    const value=localMatch?.value??personal[key]??personal[canonical]??personal[String(track.name||"").toLowerCase()];
+    return Number(value)>0?[key,Number(value),track]:null;
+  }).filter(Boolean);
+  if(!entries.length)return false;
+  const signature=JSON.stringify(entries.map(([key,value])=>[key,value]));
+  const markerKey=`muzeSongRatingsSynced:v3:${user.id}:${ref}`;
+  if(localStorage.getItem(markerKey)===signature)return false;
+  let allSaved=true;
+  for(const [storedKey,value,track] of entries){
+    let result=await db.rpc("save_track_rating",{p_album_ref:ref,p_track_key:storedKey,p_track_name:track.name,p_device_id:state.deviceId,p_rating:Number(value),p_username:ratingName(),p_source_album_refs:sourceRefs});
+    if(result.error&&/function|schema cache|save_track_rating/i.test(result.error.message||""))result=await db.rpc("save_track_rating",{p_album_ref:ref,p_track_key:storedKey,p_track_name:track.name,p_device_id:state.deviceId,p_rating:Number(value),p_username:ratingName()});
+    if(result.error){allSaved=false;console.warn("[Muze] A saved local song rating could not be synchronized",result.error.message||result.error)}
+  }
+  if(!allSaved)return false;
+  localStorage.setItem(markerKey,signature);
+  return true;
 }
 function stopSongScoreRealtime(){
   if(!songScoreRealtimeChannel||!db)return;
@@ -4765,13 +4825,14 @@ async function loadTrackRatings(albumId){
   const localForAlbum=localTrackRatingsForAlbum(ref);
   if(db){
     const userId=loggedInUser()?.id||"";
-    let query=db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref);
+    const ratingRefs=await publicSongScoreAlbumRefs(albumId);
+    let query=db.from("track_ratings").select("album_ref,track_key,track_name,rating").in("album_ref",ratingRefs);
     query=userId?query.or(`user_id.eq.${userId},device_id.eq.${state.deviceId}`):query.eq("device_id",state.deviceId);
     let {data,error}=await query;
     if(error&&userId&&/column|schema cache|user_id/i.test(error.message||"")){
       ({data,error}=await db.from("track_ratings").select("track_key,track_name,rating").eq("album_ref",ref).eq("device_id",state.deviceId));
     }
-    if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;rememberProfileSongRating(albumId,r.track_key);if(r.track_name)mapped[String(r.track_name).toLowerCase()]=r.rating});extras.trackRatings[ref]={...mapped,...localForAlbum};Object.keys(localForAlbum).forEach(key=>rememberProfileSongRating(albumId,key));return extras.trackRatings[ref]}
+    if(!error){const mapped={};(data||[]).forEach(r=>{mapped[r.track_key]=r.rating;rememberProfileSongRating(albumId,r.track_key);if(r.track_name){mapped[String(r.track_name).toLowerCase()]=r.rating;mapped[songScoreCanonicalTrackKey(r.track_name)]=r.rating}});extras.trackRatings[ref]={...mapped,...localForAlbum};Object.keys(localForAlbum).forEach(key=>rememberProfileSongRating(albumId,key));return extras.trackRatings[ref]}
   }
   extras.trackRatings[ref]=localForAlbum;
   Object.keys(extras.trackRatings[ref]||{}).forEach(key=>rememberProfileSongRating(albumId,key));
@@ -6484,6 +6545,12 @@ async function loadAlbumExtras(album){
   const tracks=await fetchAlbumTracks(album);
   if(extras.currentAlbumId!==albumRef(album.id))return;
   renderTrackList(album.id,tracks);
+  syncLocalSongRatings(album,tracks).then(async changed=>{
+    if(!changed||extras.currentAlbumId!==albumRef(album.id))return;
+    songScoreArtistRefCache.delete(normalizeArtistKey(album.artist));
+    await Promise.all([loadTrackRatings(album.id),loadSongScores(album.id)]);
+    if(extras.currentAlbumId===albumRef(album.id))renderTrackList(album.id,tracks);
+  });
   renderAlbumOverviewMoments(album.id,tracks);
   if(!document.querySelector("#albumInfoPopup.hidden"))renderAlbumInfo(album.id);
 }
@@ -7553,7 +7620,9 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
   const sync=async()=>{
     if(db){
       const userId=loggedInUser()?.id||null;
-      let result=await db.rpc("save_track_rating",{p_album_ref:ref,p_track_key:trackKeyValue,p_track_name:trackName,p_device_id:state.deviceId,p_rating:value,p_username:username});
+      const sourceRefs=await publicSongScoreAlbumRefs(albumId);
+      let result=await db.rpc("save_track_rating",{p_album_ref:ref,p_track_key:trackKeyValue,p_track_name:trackName,p_device_id:state.deviceId,p_rating:value,p_username:username,p_source_album_refs:sourceRefs});
+      if(result.error&&/function|schema cache|save_track_rating/i.test(result.error.message||""))result=await db.rpc("save_track_rating",{p_album_ref:ref,p_track_key:trackKeyValue,p_track_name:trackName,p_device_id:state.deviceId,p_rating:value,p_username:username});
       if(result.error&&/function|schema cache|save_track_rating/i.test(result.error.message||"")){
         result=await db.from("track_ratings").upsert({album_ref:ref,track_key:trackKeyValue,track_name:trackName,device_id:state.deviceId,username,user_id:userId,rating:value},{onConflict:"album_ref,track_key,device_id"});
       }
@@ -11374,9 +11443,26 @@ function dedupeArtistDiscography(albums=[]){
   });
   return rows;
 }
+function sortArtistDiscographyByRelease(albums=[]){
+  const releaseOrder=album=>{
+    const year=Number(albumReleaseYear(album)||String(album?.release_date||album?.original_release_date||"").slice(0,4))||0;
+    const exactDate=String(albumOriginalReleaseDateOverrides[albumIdentityKey(album)]||album?.original_release_date||album?.release_date||"").trim();
+    const exactYear=Number(exactDate.slice(0,4))||0;
+    const timestamp=year&&exactYear===year&&/^\d{4}-\d{2}-\d{2}$/.test(exactDate)?Date.parse(`${exactDate}T00:00:00Z`):Date.UTC(year||0,0,1);
+    return {year,timestamp:Number.isFinite(timestamp)?timestamp:0};
+  };
+  return [...albums].sort((left,right)=>{
+    const leftRelease=releaseOrder(left);
+    const rightRelease=releaseOrder(right);
+    return rightRelease.year-leftRelease.year
+      ||rightRelease.timestamp-leftRelease.timestamp
+      ||String(left?.title||"").localeCompare(String(right?.title||""),undefined,{sensitivity:"base"})
+      ||String(left?.id||"").localeCompare(String(right?.id||""));
+  });
+}
 function artistDiscographyCards(albums=[]){
   const rendered=new Set();
-  return albums.map(album=>{
+  return sortArtistDiscographyByRelease(albums).map(album=>{
     const key=artistDiscographyDisplayKey(album);
     if(key&&rendered.has(key))return "";
     if(key)rendered.add(key);
