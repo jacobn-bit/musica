@@ -8570,15 +8570,18 @@ function albumPublicAppearanceCounts(album){
   let libraries=0;
   let suggestions=0;
   const addSource=(source,type,index)=>{
-    if(!source||!hasMatchingAlbum(source.items||[],album))return;
+    const items=Array.isArray(source?.items)?source.items:[];
+    if(!source||!hasMatchingAlbum(items,album))return;
     const key=String(source.id||source.device_id||source.slug||`${source.username||"listener"}-${source.title||index}`);
     if(!key||seen.has(key))return;
     seen.add(key);
     if(type==="library")libraries+=1;
     else suggestions+=1;
   };
-  (extras.libraries||[]).forEach((library,index)=>addSource(library,String(library.curation_type||"").toLowerCase()==="list"?"suggestion":"library",index));
-  [...localPublicLists(),...(extras.publicLists||[])].forEach((list,index)=>addSource(list,publicListCurationType(list)==="library"?"library":"suggestion",index));
+  const communityLibraries=Array.isArray(extras.libraries)?extras.libraries:[];
+  const publicLists=Array.isArray(extras.publicLists)?extras.publicLists:[];
+  communityLibraries.forEach((library,index)=>addSource(library,String(library.curation_type||"").toLowerCase()==="list"?"suggestion":"library",index));
+  [...localPublicLists(),...publicLists].forEach((list,index)=>addSource(list,publicListCurationType(list)==="library"?"library":"suggestion",index));
   addSource({items:myLibraryItems(),device_id:state.deviceId},"library","mine");
   return {libraries,suggestions,total:libraries+suggestions};
 }
