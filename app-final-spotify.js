@@ -1202,6 +1202,131 @@ async function finishSpotifyPremiumReturn(session=state.authSession){
   else setAuthStatus("Spotify was linked, but Muze could not verify Premium access.","error");
   return result;
 }
+let spotifyWebPlaybackSdkPromise=null;
+let spotifyWebPlayer=null;
+let spotifyWebPlayerReadyPromise=null;
+let spotifyWebPlayerDeviceId="";
+let spotifyWebPlayerUserId="";
+let spotifyWebPlaybackButton=null;
+let spotifyWebPlaybackTrackId="";
+function spotifyProviderToken(){return String(state.authSession?.provider_token||"").trim()}
+function loadSpotifyWebPlaybackSdk(){
+  if(window.Spotify?.Player)return Promise.resolve(window.Spotify);
+  if(spotifyWebPlaybackSdkPromise)return spotifyWebPlaybackSdkPromise;
+  spotifyWebPlaybackSdkPromise=new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>reject(new Error("Spotify's browser player took too long to load.")),15000);
+    const ready=()=>{clearTimeout(timeout);window.Spotify?.Player?resolve(window.Spotify):reject(new Error("Spotify's browser player is unavailable."))};
+    window.onSpotifyWebPlaybackSDKReady=ready;
+    let script=document.querySelector('script[data-muze-spotify-player]');
+    if(!script){
+      script=document.createElement("script");
+      script.src="https://sdk.scdn.co/spotify-player.js";
+      script.async=true;
+      script.dataset.muzeSpotifyPlayer="true";
+      script.onerror=()=>{clearTimeout(timeout);spotifyWebPlaybackSdkPromise=null;reject(new Error("Spotify's browser player could not be loaded."))};
+      document.head.appendChild(script);
+    }
+  }).catch(error=>{spotifyWebPlaybackSdkPromise=null;throw error});
+  return spotifyWebPlaybackSdkPromise;
+}
+function resetSpotifyWebPlayer(){
+  try{spotifyWebPlayer?.disconnect?.()}catch(error){}
+  spotifyWebPlayer=null;
+  spotifyWebPlayerReadyPromise=null;
+  spotifyWebPlayerDeviceId="";
+  spotifyWebPlayerUserId="";
+  spotifyWebPlaybackButton=null;
+  spotifyWebPlaybackTrackId="";
+  document.body.classList.remove("spotifyPlaying");
+}
+async function ensureSpotifyWebPlayer(){
+  const user=loggedInUser();
+  const token=spotifyProviderToken();
+  if(!user||!spotifyIdentity(user))throw new Error("Connect Spotify Premium from your Muze profile first.");
+  if(!token)throw new Error("Reconnect Spotify Premium from your Muze profile to renew playback access.");
+  if(spotifyWebPlayer&&spotifyWebPlayerDeviceId&&spotifyWebPlayerUserId===String(user.id))return {player:spotifyWebPlayer,deviceId:spotifyWebPlayerDeviceId};
+  if(spotifyWebPlayerReadyPromise&&spotifyWebPlayerUserId===String(user.id))return spotifyWebPlayerReadyPromise;
+  resetSpotifyWebPlayer();
+  spotifyWebPlayerUserId=String(user.id);
+  spotifyWebPlayerReadyPromise=(async()=>{
+    const SpotifySdk=await loadSpotifyWebPlaybackSdk();
+    return new Promise((resolve,reject)=>{
+      let settled=false;
+      const timer=setTimeout(()=>{if(!settled){settled=true;reject(new Error("Spotify's Muze player did not become ready."))}},15000);
+      const fail=message=>{
+        console.error("[Muze Spotify playback]",message);
+        if(!settled){settled=true;clearTimeout(timer);reject(new Error(message||"Spotify playback could not start."))}
+      };
+      const player=new SpotifySdk.Player({name:"Muze Web Player",getOAuthToken:callback=>callback(spotifyProviderToken()),volume:.8,enableMediaSession:true});
+      spotifyWebPlayer=player;
+      player.addListener("ready",({device_id})=>{spotifyWebPlayerDeviceId=String(device_id||"");if(!settled){settled=true;clearTimeout(timer);resolve({player,deviceId:spotifyWebPlayerDeviceId})}});
+      player.addListener("not_ready",({device_id})=>{if(String(device_id||"")===spotifyWebPlayerDeviceId)spotifyWebPlayerDeviceId=""});
+      player.addListener("initialization_error",({message})=>fail(message));
+      player.addListener("authentication_error",({message})=>fail(message));
+      player.addListener("account_error",({message})=>fail(message));
+      player.addListener("playback_error",({message})=>console.error("[Muze Spotify playback]",message));
+      player.addListener("player_state_changed",playbackState=>{
+        const currentId=String(playbackState?.track_window?.current_track?.id||"");
+        if(playbackState?.paused||!currentId){if(currentId===spotifyWebPlaybackTrackId)setPreviewingButton(null);return}
+        if(currentId===spotifyWebPlaybackTrackId&&spotifyWebPlaybackButton)setPreviewingButton(spotifyWebPlaybackButton,"spotify");
+      });
+      Promise.resolve(player.connect()).then(connected=>{if(!connected)fail("Spotify's browser player could not connect.")}).catch(error=>fail(error?.message||String(error)));
+    });
+  })().catch(error=>{spotifyWebPlayerReadyPromise=null;throw error});
+  return spotifyWebPlayerReadyPromise;
+}
+async function spotifyPlaybackRequest(path,{method="PUT",body}={}){
+  const token=spotifyProviderToken();
+  if(!token)throw new Error("Reconnect Spotify Premium from your Muze profile to renew playback access.");
+  const response=await fetch(`https://api.spotify.com${path}`,{method,headers:{Authorization:`Bearer ${token}`,...(body?{"Content-Type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});
+  if(response.ok)return response;
+  if(response.status===401)throw new Error("Your Spotify playback access expired. Reconnect Spotify Premium from your Muze profile.");
+  if(response.status===403)throw new Error("Spotify Premium is required for full-song playback in Muze.");
+  throw new Error(`Spotify could not start this song (${response.status}).`);
+}
+async function resolveSpotifyPlaybackTrack(track){
+  if(track?.spotifyId)return track;
+  const name=String(track?.name||"").trim();
+  const artist=String(track?.artist||"").trim();
+  if(!name||!artist)return track;
+  const album=String(track?.album||"").trim();
+  const searchValue=value=>`"${String(value).replace(/["\\]/g," ").trim()}"`;
+  const query=[`track:${searchValue(name)}`,`artist:${searchValue(artist)}`,album&&`album:${searchValue(album)}`].filter(Boolean).join(" ");
+  const response=await spotifyPlaybackRequest(`/v1/search?type=track&limit=10&q=${encodeURIComponent(query)}`,{method:"GET"});
+  const data=await response.json();
+  const wantedArtist=normalizedTrackName(artist);
+  const albumKey=value=>normalizedTrackName(value).replace(/\b(?:remaster(?:ed)?|deluxe|anniversary|expanded|edition|mono|stereo|\d{4})\b/g," ").replace(/\s+/g," ").trim();
+  const wantedAlbum=albumKey(album);
+  const candidates=data?.tracks?.items||[];
+  const artistMatches=candidates.filter(item=>(item?.artists||[]).some(value=>normalizedTrackName(value?.name)===wantedArtist));
+  const titleMatches=artistMatches.filter(item=>sameCommentTrackKey(item?.name,name));
+  const match=(wantedAlbum&&titleMatches.find(item=>albumKey(item?.album?.name)===wantedAlbum))||titleMatches[0];
+  if(!match?.id)throw new Error(`Spotify could not find the exact recording of ${name} by ${artist}.`);
+  return {...track,spotifyId:String(match.id)};
+}
+async function playSpotifyPremiumTrack(track,button){
+  track=await resolveSpotifyPlaybackTrack(track);
+  const spotifyId=String(track?.spotifyId||track?.spotify_id||"").trim();
+  if(!spotifyId)throw new Error("This song does not have a Spotify playback ID.");
+  spotifyWebPlayer?.activateElement?.();
+  const {player,deviceId}=await ensureSpotifyWebPlayer();
+  await player.activateElement?.();
+  const current=await player.getCurrentState().catch(()=>null);
+  const currentId=String(current?.track_window?.current_track?.id||"");
+  if(currentId===spotifyId){
+    await player.togglePlay();
+    spotifyWebPlaybackButton=button;
+    spotifyWebPlaybackTrackId=spotifyId;
+    if(current?.paused)setPreviewingButton(button,"spotify");else setPreviewingButton(null);
+    return;
+  }
+  releasePreviewAudio();
+  await spotifyPlaybackRequest("/v1/me/player",{body:{device_ids:[deviceId],play:false}});
+  await spotifyPlaybackRequest(`/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{body:{uris:[`spotify:track:${spotifyId}`]}});
+  spotifyWebPlaybackButton=button;
+  spotifyWebPlaybackTrackId=spotifyId;
+  setPreviewingButton(button,"spotify");
+}
 function syncAuthUi(){
   const user=loggedInUser();
   const button=$("#authButton");
@@ -1392,6 +1517,7 @@ async function logoutAuth(){
   state.authSession=null;
   state.userProfile=null;
   state.spotifyPremium={userId:"",status:"disconnected",displayName:""};
+  resetSpotifyWebPlayer();
   sessionStorage.removeItem(SPOTIFY_LINK_INTENT_KEY);
   state.avatarPromptedForUser=null;
   syncAuthUi();
@@ -3792,7 +3918,9 @@ function rememberProfileSongRating(albumId,key,identity=profileStatsIdentity()){
   });
   saveProfileSongRatingIndex(index);
 }
-function previewPayload(track){return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||""}))}
+function previewPayload(track){const album=state.albums.find(item=>albumRef(item.id)===albumRef(extras.currentAlbumId))||{};return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||"",spotifyId:track.spotify_id||"",artist:album.artist||"",album:album.title||""}))}
+function trackPlaybackAvailable(track){return Boolean(track?.preview_url||track?.spotify_id)}
+function trackPlaybackTitle(track){return track?.spotify_id?"Play full song with Spotify Premium":track?.preview_url?"Play 30 second sample":"Playback unavailable"}
 function normalizedTrackName(value){return String(value||"").toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[^a-z0-9]+/g," ").trim()}
 function mostLovedTrackWhyLine(track){
   const name=String(track?.name||"").trim();
@@ -3811,7 +3939,7 @@ function mostLovedTrackWhyLines(track){
     name?`${name} anchors the album experience`:"A defining moment in the album experience"
   ];
 }
-function setPreviewingButton(button){
+function setPreviewingButton(button,playbackMode="sample"){
   document.querySelectorAll(".isPreviewing").forEach(x=>{
     x.classList.remove("isPreviewing");
     if(x.dataset.playAriaLabel)x.setAttribute("aria-label",x.dataset.playAriaLabel);
@@ -3820,12 +3948,13 @@ function setPreviewingButton(button){
   });
   if(button){
     button.dataset.playLabel=button.dataset.playLabel||button.textContent;
-    button.dataset.playAriaLabel=button.dataset.playAriaLabel||button.getAttribute("aria-label")||"Play sample";
+    button.dataset.playAriaLabel=button.dataset.playAriaLabel||button.getAttribute("aria-label")||(playbackMode==="spotify"?"Play full song":"Play sample");
     button.classList.add("isPreviewing");
-    button.setAttribute("aria-label","Pause sample");
+    button.setAttribute("aria-label",playbackMode==="spotify"?"Pause Spotify song":"Pause sample");
     if(!button.classList.contains("overviewMomentChip")&&!button.classList.contains("albumGlanceFact-music"))button.textContent=""
   }
-  document.body.classList.toggle("samplePlaying",!!button);
+  document.body.classList.toggle("samplePlaying",!!button&&playbackMode!=="spotify");
+  document.body.classList.toggle("spotifyPlaying",!!button&&playbackMode==="spotify");
 }
 function releasePreviewAudio(){
   const audio=extras.previewAudio;
@@ -3845,9 +3974,21 @@ function startPreviewAudio(audio,token){
     },80);
   });
 }
-window.playTrackPreview=function(payload,button){
+window.playTrackPreview=async function(payload,button){
   let data={};
   try{data=JSON.parse(decodeURIComponent(payload||"{}"))}catch(e){}
+  if((data.spotifyId||(data.name&&data.artist))&&spotifyIdentity()){
+    let premium=state.spotifyPremium?.status;
+    if(premium!=="premium")premium=(await verifySpotifyPremium(state.authSession)).status;
+    if(premium==="premium"){
+      try{await playSpotifyPremiumTrack(data,button)}catch(error){setPreviewingButton(null);alert(error?.message||"Spotify full-song playback could not start.")}
+      return;
+    }
+    if(premium==="linked"||premium==="error"){
+      alert("Reconnect Spotify Premium from your Muze profile to enable full-song playback.");
+      return;
+    }
+  }
   if(!data.url){alert("Spotify does not provide a 30 second sample for this track.");return}
   if(extras.previewAudio&&extras.previewKey===data.url){
     if(extras.previewAudio.paused){setPreviewingButton(button);startPreviewAudio(extras.previewAudio,extras.previewToken)}else{extras.previewAudio.pause();setPreviewingButton(null)}
@@ -3879,10 +4020,10 @@ window.playOverviewMomentPreview=async function(albumId,trackName,button){
     const candidate=normalizedTrackName(item.name);
     return candidate&&wanted&&(candidate.includes(wanted)||wanted.includes(candidate));
   });
-  if(!track||!track.preview_url){setPreviewingButton(null);alert("Spotify does not provide a 30 second sample for this track.");return}
+  if(!track||(!track.preview_url&&!track.spotify_id)){setPreviewingButton(null);alert("This track is not available for playback.");return}
   playTrackPreview(previewPayload(track),button);
 }
-function stopTrackPreview(){releasePreviewAudio();extras.previewKey=null;extras.previewToken=null;setPreviewingButton(null)}function trackKey(track){return String(track.name||track.spotify_id||track.id||"").toLowerCase()}
+function stopTrackPreview(){releasePreviewAudio();spotifyWebPlayer?.pause?.().catch(()=>{});spotifyWebPlaybackButton=null;spotifyWebPlaybackTrackId="";extras.previewKey=null;extras.previewToken=null;setPreviewingButton(null)}function trackKey(track){return String(track.name||track.spotify_id||track.id||"").toLowerCase()}
 function canonicalCommentTrackKey(value){
   return normalizedTrackName(String(value||"")
     .replace(/\((?=[^)]*(?:feat|featuring|ft\.?|with))[^)]*\)/gi," ")
@@ -4535,7 +4676,7 @@ window.addAlbumComment=async function(albumId){
 function fallbackAlbumTracks(album){
   const title=normalizeAlbumName(album?.title||"");
   const artist=normalizeAlbumName(album?.artist||"");
-  const make=names=>names.map((name,i)=>({name,track_number:i+1,spotify_id:`fallback-${artist}-${title}-${i+1}`,preview_url:"",preview_source:"",duration_ms:0}));
+  const make=names=>names.map((name,i)=>({name,track_number:i+1,spotify_id:"",preview_url:"",preview_source:"",duration_ms:0}));
   const rawTitle=String(album?.title||"").trim().toLowerCase();
   if(artist==="ed sheeran"&&(title.includes("subtract")||rawTitle==="-"||rawTitle.includes("subtract")))return make([
     "Boat","Salt Water","Eyes Closed","Life Goes On","Dusty","End of Youth","Colourblind","Curtains","Borderline","Spark","Vega","Sycamore","No Strings","The Hills of Aberfeldy"
@@ -4618,7 +4759,7 @@ async function fetchTracksFromItunes(album){
   const lookup=await fetchWithTimeout(`https://itunes.apple.com/lookup?id=${collectionId}&entity=song`,{cache:"force-cache"},4500);
   if(!lookup.ok)return [];
   const data=await lookup.json();
-  return (data.results||[]).filter(x=>x.wrapperType==="track").map((x,i)=>({name:x.trackName,track_number:x.trackNumber||i+1,spotify_id:String(x.trackId||x.trackName),preview_url:x.previewUrl||"",preview_source:x.previewUrl?"itunes":"",duration_ms:x.trackTimeMillis||0,single_art_url:String(x.artworkUrl100||"").replace("100x100bb","600x600bb"),single_art_collection:x.collectionName||"",single_art_artist:x.artistName||""}));
+  return (data.results||[]).filter(x=>x.wrapperType==="track").map((x,i)=>({name:x.trackName,track_number:x.trackNumber||i+1,spotify_id:"",preview_url:x.previewUrl||"",preview_source:x.previewUrl?"itunes":"",duration_ms:x.trackTimeMillis||0,single_art_url:String(x.artworkUrl100||"").replace("100x100bb","600x600bb"),single_art_collection:x.collectionName||"",single_art_artist:x.artistName||""}));
 }
 async function searchItunesAlbums(query){
   const res=await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=10`,{cache:"no-store"},6000);
@@ -5573,7 +5714,7 @@ function renderTrackList(albumId,suppliedTracks=null){
     if(side)previousSide=side;
     const pulse=`<button class="trackJourneyPulseButton" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Open the community rating for ${escapeHtml(track.name)}">${trackRatingStarsHtml(scoreValue,track.name)}${scoreValue===null?"":`<small>${escapeHtml(scoreValue.toFixed(1))}</small>`}</button>`;
     const duration=trackDurationText(track);
-    return `${sideMarker}<div class="linerTrackRow trackJourneyRow${isOtherDefiningTrack?" isDefiningTrack":""}${key===firstKey?" isMostLoved":""}" data-track-key="${escapeHtml(key)}" tabindex="0" aria-label="Track ${trackIndex+1}, ${escapeHtml(track.name)}${isOtherDefiningTrack?", defining track":""}${duration?`, ${duration}`:""}">${definingDot}<span class="trackNo">${trackIndex+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><div class="trackJourneyTitle"><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${distinction?`<span class="trackDistinction">${escapeHtml(distinction)}</span>`:""}<em>${escapeHtml(trackVibe)}</em></div>${pulse}<time>${duration?escapeHtml(duration):"&mdash;"}</time><div class="trackJourneyComment">${trackCommentButtonHtml(albumId,key,track.name,commentCount)}</div><div class="trackJourneyFavorite">${rateButton}</div>${overflow}</div>`;
+    return `${sideMarker}<div class="linerTrackRow trackJourneyRow${isOtherDefiningTrack?" isDefiningTrack":""}${key===firstKey?" isMostLoved":""}" data-track-key="${escapeHtml(key)}" tabindex="0" aria-label="Track ${trackIndex+1}, ${escapeHtml(track.name)}${isOtherDefiningTrack?", defining track":""}${duration?`, ${duration}`:""}">${definingDot}<span class="trackNo">${trackIndex+1}</span><button class="trackPulse ${trackPlaybackAvailable(track)?'':'noPreview'}" aria-label="${trackPlaybackAvailable(track)?'Play':'Playback unavailable for'} ${escapeHtml(track.name)}" title="${trackPlaybackTitle(track)}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><div class="trackJourneyTitle"><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong>${distinction?`<span class="trackDistinction">${escapeHtml(distinction)}</span>`:""}<em>${escapeHtml(trackVibe)}</em></div>${pulse}<time>${duration?escapeHtml(duration):"&mdash;"}</time><div class="trackJourneyComment">${trackCommentButtonHtml(albumId,key,track.name,commentCount)}</div><div class="trackJourneyFavorite">${rateButton}</div>${overflow}</div>`;
   }).join("");
   const mobileRows=visibleTracks.map((track,i)=>{
     const key=trackKey(track);
@@ -5584,7 +5725,7 @@ function renderTrackList(albumId,suppliedTracks=null){
     const commentCount=trackCommentCountForTrack(trackCommentCounts,key,track.name);
     const mobileRateButton=`<button class="trackLove ${current?"hasUserRating":""}" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')" aria-label="Rate ${escapeHtml(track.name)}">${current?'&#9829;':'&#9825;'}</button>`;
     const mobileOverflow=`<details class="mobileTrackOverflow"><summary aria-label="More actions for ${escapeHtml(track.name)}" title="More actions">&#8942;</summary><div>${mobileRateButton}${trackCommentButtonHtml(albumId,key,track.name,commentCount)}${trackShareButtonHtml(albumId,key,track.name)}</div></details>`;
-    return `<div class="linerTrackRow" data-track-key="${escapeHtml(key)}"><div class="linerTrackSwipe"><span class="trackNo">${i+1}</span><button class="trackPulse ${track.preview_url?'':'noPreview'}" aria-label="${track.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(track.name)}" title="${track.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button>${mobileOverflow}</div></div>`;
+    return `<div class="linerTrackRow" data-track-key="${escapeHtml(key)}"><div class="linerTrackSwipe"><span class="trackNo">${i+1}</span><button class="trackPulse ${trackPlaybackAvailable(track)?'':'noPreview'}" aria-label="${trackPlaybackAvailable(track)?'Play':'Playback unavailable for'} ${escapeHtml(track.name)}" title="${trackPlaybackTitle(track)}" onclick="playTrackPreview('${previewPayload(track)}',this)">&#9654;</button><strong>${escapeHtml(track.name)} <span class="rowPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></strong><button class="trackRowScore" onclick="openTrackRating('${escapeJsString(albumId)}','${escapeJsString(key)}','${escapeJsString(track.name)}')">${scoreHtml}</button>${mobileOverflow}</div></div>`;
   }).join("");
   const singleArtUrl=featuredTrackArtworkUrl(first,album,album.cover_url||momentCover||heroScene||"");
   const singleArtHtml=singleArtUrl?`<img src="${escapeHtml(singleArtUrl)}" alt="${escapeHtml(first.name)} artwork">`:coverHtml;
@@ -11994,8 +12135,6 @@ window.openAlbum=async function(id,routeOptions={}){
     if(!a)a=await albumOpenRequest(loadAlbumForRoute(id),null,"album route",5000);
     if(!a)return;
     if(routeOptions.route!==false)writeAlbumRoute(a,routeOptions);
-    if(albumModalContent)albumModalContent.innerHTML=`<div class="emptyMini" role="status">Opening ${escapeHtml(a.title||"album")}...</div>`;
-    albumModal?.classList.remove("hidden");
   const verifiedYear=albumReleaseYear(a);
   if(verifiedYear&&Number(a.year)!==Number(verifiedYear))a={...a,year:verifiedYear};
   const [detail,,communityReviewState]=await Promise.all([
@@ -12151,7 +12290,8 @@ window.openAlbum=async function(id,routeOptions={}){
   loadAlbumExtras(a);
   }catch(error){
     console.error("[Muze album] Album could not be opened",error);
-    if(albumModalContent)albumModalContent.innerHTML='<div class="emptyMini" role="alert">This album could not be opened. Please try again.</div>';
+    const albumPageAlreadyRendered=Boolean(albumModalContent?.querySelector(".linerAlbumPage"));
+    if(albumModalContent&&!albumPageAlreadyRendered)albumModalContent.innerHTML='<div class="emptyMini" role="alert">This album could not be opened. Please try again.</div>';
     albumModal?.classList.remove("hidden");
   }
 }
@@ -12849,7 +12989,7 @@ loadData().catch(error=>{
 
 
 
-window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const track=(extras.tracks[ref]||[]).find(t=>t.preview_url);if(!track){alert("Spotify does not provide 30 second samples for this album.");return}playTrackPreview(previewPayload(track),button)};
+window.playFirstAlbumPreview=function(button){const ref=extras.currentAlbumId;const premium=state.spotifyPremium?.status==="premium";const track=(extras.tracks[ref]||[]).find(t=>premium?t.spotify_id:t.preview_url)||(extras.tracks[ref]||[]).find(t=>t.preview_url||t.spotify_id);if(!track){alert("This album does not have a playable track.");return}playTrackPreview(previewPayload(track),button)};
 
 
 
