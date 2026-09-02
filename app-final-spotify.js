@@ -7573,7 +7573,7 @@ enableHeroImageDrag();
 function enableMomentImageDrag(){
   document.addEventListener("pointerdown",event=>{
     const panel=event.target.closest?.(".linerFeaturedTrack.canDragMoment");
-    if(!panel||event.target.closest("button,a,textarea,input,select"))return;
+    if(!panel||event.target.closest("button,a,textarea,input,select,details,summary,.heartAdminMenu"))return;
     const albumId=panel.dataset.albumId;
     if(!albumId||!isAdminUnlocked())return;
     event.preventDefault();
