@@ -258,7 +258,7 @@ function oauthReturnError(){
   if(!code&&!description)return null;
   const detail=String(description||code).replace(/\+/g," ").trim();
   let message=`Spotify sign-in could not be completed${detail?`: ${detail}`:"."}`;
-  if(/confirm|confirmation|email.*not.*confirmed/i.test(`${code} ${detail}`)){
+  if(/confirm|confirmation|unverified\s+email|provider_email_needs_verification|email.*not.*confirmed/i.test(`${code} ${detail}`)){
     message="Your Spotify sign-in is almost complete. Check your email for the Muze confirmation link, open it, then return and sign in again.";
   }else if(/allowlist|not.*registered|not.*authorized|user.*management/i.test(`${code} ${detail}`)){
     message="This Spotify account is not yet authorized for the Muze test app. Add it in Spotify User Management, then try again.";
@@ -1174,7 +1174,11 @@ async function startSpotifyPremiumAuth(){
   if(!db){setAuthStatus("Muze is temporarily unavailable. Please try again.","error");return}
   const user=loggedInUser();
   const alreadyLinked=Boolean(spotifyIdentity(user));
-  const options={redirectTo:`${window.location.origin}/`,scopes:SPOTIFY_PLAYBACK_SCOPES};
+  const options={
+    redirectTo:`${window.location.origin}/`,
+    scopes:SPOTIFY_PLAYBACK_SCOPES,
+    queryParams:{show_dialog:"true"}
+  };
   sessionStorage.setItem(SPOTIFY_LINK_INTENT_KEY,user?"link":"login");
   setAuthStatus(user?(alreadyLinked?"Opening Spotify to renew playback access...":"Opening Spotify to link your Premium account..."):"Opening Spotify Premium login...","");
   authDebug("spotify premium oauth redirect",{mode:user?(alreadyLinked?"reauthorize":"link"):"login",redirectTo:options.redirectTo,hostname:window.location.hostname});
