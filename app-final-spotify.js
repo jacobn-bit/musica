@@ -4837,12 +4837,29 @@ async function requestSpotifyTracks(album,cacheVersion="v10"){
   const data=await res.json();
   return data.tracks||[];
 }
+function mergePinnedSpotifyTracks(pinnedTracks,spotifyTracks){
+  const official=Array.isArray(spotifyTracks)?spotifyTracks:[];
+  const used=new Set();
+  return pinnedTracks.map(pinned=>{
+    const index=official.findIndex((candidate,candidateIndex)=>!used.has(candidateIndex)&&sameCommentTrackKey(candidate?.name,pinned?.name));
+    if(index<0)return pinned;
+    used.add(index);
+    return {...pinned,...official[index],name:pinned.name,track_number:pinned.track_number};
+  });
+}
 async function fetchAlbumTracks(album){
   const ref=albumRef(album.id);
   if(Array.isArray(extras.tracks[ref])&&extras.tracks[ref].length)return extras.tracks[ref];
   const pinnedTracks=fallbackAlbumTracks(album);
   if(pinnedTracks.length){
-    const tracks=await enrichFallbackTrackPreviews(album,pinnedTracks);
+    const hadSpotifyId=Boolean(album.spotify_id);
+    album=await resolveSpotifyAlbum(album,true);
+    let spotifyTracks=[];
+    if(album.spotify_id){
+      try{spotifyTracks=await requestSpotifyTracks(album,"v26-pinned-spotify-ids")}catch(error){}
+      if(spotifyTracks.length&&!hadSpotifyId)saveResolvedSpotifyId(album);
+    }
+    const tracks=await enrichFallbackTrackPreviews(album,mergePinnedSpotifyTracks(pinnedTracks,spotifyTracks));
     extras.tracks[ref]=tracks;
     return tracks;
   }
@@ -12058,11 +12075,31 @@ function refreshAlbumChartStat(album){
 function albumArtistVerifiedMark(){
   return '<span class="linerArtistVerified" aria-label="Verified artist"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="linerArtistVerifiedSeal" d="M23 12l-2.44-2.79.34-3.69-3.61-.82L15.4 1.5 12 2.96 8.6 1.5 6.71 4.69 3.1 5.5l.34 3.7L1 12l2.44 2.79-.34 3.7 3.61.81L8.6 22.5l3.4-1.47 3.4 1.47 1.89-3.19 3.61-.82-.34-3.69L23 12z"/><path class="linerArtistVerifiedCheck" d="M10.05 16.15 6.4 12.5l1.5-1.5 2.15 2.15 5.75-5.75 1.5 1.5-7.25 7.25z"/></svg></span>';
 }
-function albumRouteId(){return window.MuzeRoutes?.albumIdFromPath(location.pathname)||""}
-function albumRouteParts(){return window.MuzeRoutes?.albumRouteParts(location.pathname)||{key:albumRouteId(),slug:"",legacyId:""}}
-function albumRouteSlug(album){return window.MuzeRoutes?.albumSlug(album)||window.MuzeRoutes?.slug([album?.title,album?.artist].filter(Boolean).join(" "))||""}
+function albumRouteParts(){
+  if(typeof window.MuzeRoutes?.albumRouteParts==="function")return window.MuzeRoutes.albumRouteParts(location.pathname);
+  const path=String(location.pathname||"/").replace(/\/{2,}/g,"/").replace(/^\/+|\/+$/g,"");
+  const match=path.match(/^album\/([^/]+)(?:\/([^/]+))?$/i);
+  if(!match)return {key:"",slug:"",legacyId:""};
+  const decode=value=>{try{return decodeURIComponent(value||"")}catch(error){return value||""}};
+  const first=decode(match[1]);
+  const second=decode(match[2]);
+  return second?{key:first,slug:second,legacyId:first}:{key:first,slug:first,legacyId:""};
+}
+function albumRouteId(){
+  if(typeof window.MuzeRoutes?.albumIdFromPath==="function")return window.MuzeRoutes.albumIdFromPath(location.pathname)||"";
+  return albumRouteParts().key;
+}
+function albumRouteSlug(album){
+  if(typeof window.MuzeRoutes?.albumSlug==="function")return window.MuzeRoutes.albumSlug(album)||"";
+  const label=[album?.title,album?.artist].filter(Boolean).join(" ");
+  if(typeof window.MuzeRoutes?.slug==="function")return window.MuzeRoutes.slug(label)||"";
+  return String(label).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90)||"album";
+}
 function albumRouteUrl(album,track=""){
-  const path=window.MuzeRoutes?.albumPath(album)||`/?album=${encodeURIComponent(String(album?.id||""))}`;
+  const modernRoutes=typeof window.MuzeRoutes?.albumRouteParts==="function"&&typeof window.MuzeRoutes?.albumSlug==="function";
+  const path=modernRoutes&&typeof window.MuzeRoutes?.albumPath==="function"
+    ?window.MuzeRoutes.albumPath(album)
+    :`/album/${albumRouteSlug(album)}`;
   if(!track)return path;
   return `${path}?track=${encodeURIComponent(String(track))}#track`;
 }
