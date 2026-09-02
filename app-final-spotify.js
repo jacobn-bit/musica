@@ -11971,17 +11971,40 @@ async function loadAlbumForRoute(id){
   }catch(error){console.warn("[Muze routes] Album route lookup failed",error)}
   return null;
 }
+function albumOpenRequest(promise,fallback,label,timeoutMs=4000){
+  let timer=0;
+  const timeout=new Promise(resolve=>{
+    timer=setTimeout(()=>{
+      console.warn(`[Muze album] ${label} timed out; opening with the available album data.`);
+      resolve(fallback);
+    },timeoutMs);
+  });
+  const guarded=Promise.resolve(promise).catch(error=>{
+    console.warn(`[Muze album] ${label} could not be loaded`,error?.message||error);
+    return fallback;
+  });
+  return Promise.race([guarded,timeout]).finally(()=>clearTimeout(timer));
+}
 window.openAlbum=async function(id,routeOptions={}){
-  $("#albumModal")?.classList.remove("libraryDetailModal");
-  let a=state.albums.find(x=>String(x.id)===String(id))||(String(state.homeTopAlbum?.id||"")===String(id)?state.homeTopAlbum:null);
-  if(!a)a=await loadAlbumForRoute(id);
-  if(!a)return;
-  if(routeOptions.route!==false)writeAlbumRoute(a,routeOptions);
+  const albumModal=$("#albumModal");
+  const albumModalContent=$("#albumModalContent");
+  albumModal?.classList.remove("libraryDetailModal");
+  try{
+    let a=state.albums.find(x=>String(x.id)===String(id))||(String(state.homeTopAlbum?.id||"")===String(id)?state.homeTopAlbum:null);
+    if(!a)a=await albumOpenRequest(loadAlbumForRoute(id),null,"album route",5000);
+    if(!a)return;
+    if(routeOptions.route!==false)writeAlbumRoute(a,routeOptions);
+    if(albumModalContent)albumModalContent.innerHTML=`<div class="emptyMini" role="status">Opening ${escapeHtml(a.title||"album")}...</div>`;
+    albumModal?.classList.remove("hidden");
   const verifiedYear=albumReleaseYear(a);
   if(verifiedYear&&Number(a.year)!==Number(verifiedYear))a={...a,year:verifiedYear};
-  const [detail,,communityReviewState]=await Promise.all([loadAlbumCardDetail(a),loadAlbumOverviewForAlbum(a),loadCommunityAlbumReview(a)]);
+  const [detail,,communityReviewState]=await Promise.all([
+    albumOpenRequest(loadAlbumCardDetail(a),a,"album details"),
+    albumOpenRequest(loadAlbumOverviewForAlbum(a),null,"album overview"),
+    albumOpenRequest(loadCommunityAlbumReview(a),{approved:null,pending:null,adminQueue:[]},"listener review")
+  ]);
   a=detail||a;
-  await fetchAlbumMoodScore(a);
+  await albumOpenRequest(fetchAlbumMoodScore(a),null,"mood score");
   extras.currentAlbumId=albumRef(a.id);
   const albumScore=displayScore(a);
   const total=count(a).toLocaleString();
@@ -12126,6 +12149,11 @@ window.openAlbum=async function(id,routeOptions={}){
   const refreshChartMetadata=Boolean(!cachedAlbumInfo?.metadata?.chart_checked_at||cachedAlbumInfo?.metadata?.chart_lookup_version!==ALBUM_CHART_LOOKUP_VERSION);
   loadAlbumInfo(a,refreshChartMetadata,true).then(()=>refreshAlbumChartStat(a)).catch(()=>{});
   loadAlbumExtras(a);
+  }catch(error){
+    console.error("[Muze album] Album could not be opened",error);
+    if(albumModalContent)albumModalContent.innerHTML='<div class="emptyMini" role="alert">This album could not be opened. Please try again.</div>';
+    albumModal?.classList.remove("hidden");
+  }
 }
 window.toggleHeroInfluenceCard=function(card,event){
   if(event)event.preventDefault();
