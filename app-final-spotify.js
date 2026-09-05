@@ -10,6 +10,7 @@ const seedAlbums=[
 const cfg=window.MUSICA_CONFIG||{};
 const SUPABASE_URL=cfg.SUPABASE_URL||cfg.VITE_SUPABASE_URL||window.VITE_SUPABASE_URL||"";
 const SUPABASE_ANON_KEY=cfg.SUPABASE_ANON_KEY||cfg.VITE_SUPABASE_ANON_KEY||window.VITE_SUPABASE_ANON_KEY||"";
+const GOOGLE_WEB_CLIENT_ID=cfg.GOOGLE_CLIENT_ID||"915132856412-11lrhhj64l3uo24q6rdi2r8gu0uhdma0.apps.googleusercontent.com";
 function firstConfigValue(keys){
   for(const key of keys){
     const value=cfg[key]??window[key];
@@ -83,7 +84,7 @@ function clearLocalOverviewOverride(key){
 }
 const state={view:"rankings",search:"",genre:"All",yearFilter:"",sort:"score",albumCatalogueView:savedAlbumCatalogueView(),artistLetter:"All",artistGenre:"All",artistSearch:"",artistProfile:null,artistProfileAlbums:[],artistProfilePortraits:[],artistProfileLoading:false,artistProfileError:"",artistEditing:false,artistBioDraftSources:[],artistBioDraftModel:"",artistBioDraftedAt:"",chatThread:"",albums:[],ratingMap:{},dataReady:false,albumCatalogueReady:false,homePageSize:120,homeOffset:0,homeHasMore:true,homeTotal:null,homeOverflow:[],homeTopAlbum:null,homeGenres:[],homeLoading:false,homeLoadState:"idle",homeLoadMessage:"",theme:localStorage.getItem("musicaThemePreference")==="light"?"light":"dark",deviceId:localStorage.getItem("musicaDeviceId")||crypto.randomUUID(),authSession:null,authMode:"login",pendingAuthAction:null,userProfile:null,spotifyPremium:{userId:"",status:"disconnected",displayName:""},avatarMode:"upload",avatarConfig:null,avatarPhotoFile:null,selectedAvatarIcon:null,avatarPromptedForUser:null,avatarEditControlsOpen:false,publicListSlug:"",listDraft:null};
 let authInitializationPromise=null;
-const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},albumRecommendations:{},albumInfluenceRelationships:{},albumRecommendationRequests:{},discoveryCatalogue:[],discoveryArtistRequests:{},discoveryArtistLoaded:{},discoveryAdminDraft:null,trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
+const extras={tracks:{},trackRatings:{},songScores:{},ratingDetails:{},trackRatingDetails:{},comments:{},commentReplies:{},communityReviews:{},communityReviewSubmissions:{},communityDescriptionSubmissions:{},communityReviewAdminQueues:{},communityDefiningTrackAdminQueues:{},libraries:[],libraryFollows:[],publicLists:[],listFollows:[],publicListsLoaded:false,publicListsRequest:null,profileDirectory:[],profileDirectoryLoaded:false,chatMessages:[],chatAdHocThreads:{},userPresence:{},notifications:[],chatSchemaReady:false,selfStats:null,overviews:{},overviewRequests:{},albumInfo:{},albumInfoRequests:{},albumRecommendations:{},albumInfluenceRelationships:{},albumRecommendationRequests:{},discoveryCatalogue:[],discoveryArtistRequests:{},discoveryArtistLoaded:{},discoveryAdminDraft:null,trendingArtists:null,trendingArtistsLoaded:false,trendingArtistsRequest:null,artistBackgroundImages:{},artistBackgroundRequests:{},artistProfileHeroImages:{},artistProfileHeroRequests:{},albumArtistBackgrounds:{},album3dFaces:{},album3dFaceRequests:{},currentAlbumId:null,spotifyTarget:"musica",previewAudio:null,previewKey:null};
 const initialRoutedView=window.MuzeRoutes?.viewFromPath(location.pathname);
 if(initialRoutedView)state.view=initialRoutedView;
 let songScoreRealtimeChannel=null;
@@ -150,9 +151,7 @@ function firstParagraphText(value){
 function artistBiographyMarkup(value){
   const paragraphs=paragraphChunks(value);
   if(!paragraphs.length)return "";
-  const fullMarkup=paragraphs.map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
-  if(window.matchMedia?.("(max-width: 560px)").matches)return `<div class="muzeArtistHeroBio muzeArtistHeroBioMobile">${fullMarkup}</div>`;
-  const previewCount=4;
+  const previewCount=2;
   const remaining=paragraphs.slice(previewCount).map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
   const visible=paragraphs.slice(0,previewCount).map((part,index)=>{
     const toggle=remaining&&index===Math.min(paragraphs.length,previewCount)-1?' <button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more</button>':"";
@@ -162,17 +161,25 @@ function artistBiographyMarkup(value){
   return `<div class="muzeArtistHeroBio"><div class="muzeArtistBioPreview">${visible}</div><div class="muzeArtistBioRemainder" hidden>${remaining}</div></div>`;
 }
 function syncMobileArtistBiography(){
-  const biography=document.querySelector(".muzeArtistHeroBioMobile");
-  if(!biography||!window.matchMedia("(max-width: 560px)").matches)return;
-  const fullHtml=biography._fullBiographyHtml||biography.innerHTML;
-  const fullText=biography._fullBiographyText||biography.textContent.replace(/\s+/g," ").trim();
+  const biography=document.querySelector(".muzeArtistHeroBio");
+  if(!biography)return;
+  if(!window.matchMedia("(max-width: 560px)").matches){
+    if(biography.classList.contains("muzeArtistHeroBioMobile")&&biography._desktopBiographyHtml){biography.innerHTML=biography._desktopBiographyHtml;biography.classList.remove("muzeArtistHeroBioMobile","is-expanded")}
+    return;
+  }
+  if(!biography._desktopBiographyHtml)biography._desktopBiographyHtml=biography.innerHTML;
+  const paragraphs=paragraphChunks(state.artistProfile?.bio||"");
+  const fullHtml=paragraphs.map(part=>`<p>${formatParagraphText(part)}</p>`).join("");
+  const fullText=paragraphs.join(" ").replace(/\s+/g," ").trim();
+  if(!fullText)return;
   biography._fullBiographyHtml=fullHtml;
   biography._fullBiographyText=fullText;
   const toggle='<button type="button" class="muzeArtistBioToggle" aria-expanded="false" onclick="toggleArtistBiography(this)">See more</button>';
+  biography.classList.add("muzeArtistHeroBioMobile");
   biography.classList.remove("is-expanded");
-  biography.innerHTML=`<p>${escapeHtml(fullText)} ${toggle}</p>`;
+  biography.innerHTML=`<p>${escapeHtml(fullText)}</p>`;
   const lineHeight=parseFloat(getComputedStyle(biography).lineHeight)||23;
-  const maxHeight=lineHeight*8+.5;
+  const maxHeight=lineHeight*5+.5;
   if(biography.scrollHeight<=maxHeight){
     biography.innerHTML=fullHtml;
     return;
@@ -1103,9 +1110,123 @@ function showAuthEmailForm(mode="login"){
 function showSignupOnboarding(){
   showAuthEmailForm("signup");
 }
+const GOOGLE_AUTH_CALLBACK="https://themuze.app/.netlify/functions/google-auth-callback";
+const GOOGLE_AUTH_FLOW_KEY="muzeGoogleOAuthFlow";
+let googleAuthPopup=null;
+function base64UrlBytes(bytes){
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
+function randomBase64Url(size=32){return base64UrlBytes(crypto.getRandomValues(new Uint8Array(size)))}
+async function sha256Base64Url(value){
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+  return base64UrlBytes(new Uint8Array(digest));
+}
+async function googleIdentityNonce(){
+  const bytes=crypto.getRandomValues(new Uint8Array(32));
+  const raw=btoa(String.fromCharCode(...bytes));
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
+  const hashed=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");
+  return {raw,hashed};
+}
+async function completeGoogleIdentitySignIn(response,nonce){
+  const token=String(response?.credential||"").trim();
+  if(!token){setAuthStatus("Google did not return a sign-in credential. Please try again.","error");return}
+  setAuthStatus("Signing in to Muze with Google...","");
+  const {data,error}=await db.auth.signInWithIdToken({provider:"google",token,nonce});
+  if(error){setAuthStatus(authErrorMessage(error),"error");return}
+  state.authSession=data?.session||state.authSession;
+  await loadUserProfile();
+  syncAuthUi();
+  if(state.authMode==="signup"&&!avatarHasValue())showAvatarSetup(false);else closeAuthModal();
+  resumePendingAuthAction();
+}
+function googleAuthExchangeUrl(){
+  return /^(127\.0\.0\.1|localhost)$/i.test(window.location.hostname)
+    ?"https://themuze.app/.netlify/functions/google-auth-exchange"
+    :"/.netlify/functions/google-auth-exchange";
+}
+async function startGoogleCodeAuth(){
+  if(!db){setAuthStatus("Muze is temporarily unavailable. Please try again.","error");return}
+  if(!GOOGLE_WEB_CLIENT_ID){setAuthStatus("Google sign-in is not configured yet.","error");return}
+  const popup=window.open("","muzeGoogleAuth","popup=yes,width=520,height=700,resizable=yes,scrollbars=yes");
+  if(!popup){setAuthStatus("Google sign-in could not open. Allow pop-ups for Muze and try again.","error");return}
+  googleAuthPopup=popup;
+  try{
+    setAuthStatus("Opening Google sign-in...","");
+    const [nonce,codeVerifier,flowId,stateToken]=await Promise.all([
+      googleIdentityNonce(),
+      Promise.resolve(randomBase64Url(64)),
+      Promise.resolve(randomBase64Url(24)),
+      Promise.resolve(randomBase64Url(24))
+    ]);
+    const codeChallenge=await sha256Base64Url(codeVerifier);
+    const returnOrigin=window.location.origin;
+    const statePayload=base64UrlBytes(new TextEncoder().encode(JSON.stringify({
+      token:stateToken,
+      flow:flowId,
+      origin:returnOrigin
+    })));
+    sessionStorage.setItem(GOOGLE_AUTH_FLOW_KEY,JSON.stringify({
+      token:stateToken,
+      flow:flowId,
+      state:statePayload,
+      nonce:nonce.raw,
+      codeVerifier,
+      createdAt:Date.now()
+    }));
+    const params=new URLSearchParams({
+      client_id:GOOGLE_WEB_CLIENT_ID,
+      redirect_uri:GOOGLE_AUTH_CALLBACK,
+      response_type:"code",
+      scope:"openid email profile",
+      state:statePayload,
+      nonce:nonce.hashed,
+      code_challenge:codeChallenge,
+      code_challenge_method:"S256",
+      prompt:"select_account"
+    });
+    popup.location.replace(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  }catch(error){
+    try{popup.close()}catch(ignore){}
+    googleAuthPopup=null;
+    sessionStorage.removeItem(GOOGLE_AUTH_FLOW_KEY);
+    setAuthStatus(error?.message||"Google sign-in could not be opened.","error");
+  }
+}
+async function handleGoogleCodeMessage(event){
+  if(event.origin!==new URL(GOOGLE_AUTH_CALLBACK).origin)return;
+  if(googleAuthPopup&&event.source!==googleAuthPopup)return;
+  const message=event.data;
+  if(!message||message.type!=="muze-google-oauth")return;
+  let flow=null;
+  try{flow=JSON.parse(sessionStorage.getItem(GOOGLE_AUTH_FLOW_KEY)||"null")}catch(ignore){}
+  if(!flow||message.state!==flow.state||message.flow!==flow.flow){
+    setAuthStatus("Google sign-in could not be verified. Please try again.","error");
+    return;
+  }
+  sessionStorage.removeItem(GOOGLE_AUTH_FLOW_KEY);
+  googleAuthPopup=null;
+  if(message.error){setAuthStatus(message.error,"error");return}
+  try{
+    setAuthStatus("Completing Google sign-in...","");
+    const response=await fetch(googleAuthExchangeUrl(),{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        code:message.code,
+        code_verifier:flow.codeVerifier,
+        redirect_uri:GOOGLE_AUTH_CALLBACK
+      })
+    });
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok||!payload.id_token)throw new Error(payload.error||"Google sign-in could not be completed.");
+    await completeGoogleIdentitySignIn({credential:payload.id_token},flow.nonce);
+  }catch(error){setAuthStatus(error?.message||"Google sign-in could not be completed.","error")}
+}
+window.addEventListener("message",handleGoogleCodeMessage);
 async function startOAuthSignup(provider){
   if(provider==="spotify")return startSpotifyPremiumAuth();
-  const providerName={google:"Google",facebook:"Facebook"}[provider]||provider;
+  const providerName={google:"Google",facebook:"Facebook",apple:"Apple"}[provider]||provider;
   if(!db){
     setAuthStatus("Muze is temporarily unavailable. Please try again.","error");
     return;
@@ -1143,7 +1264,7 @@ function syncSpotifyPremiumUi(){
   card.dataset.status=copy.status;
   const message=$("#spotifyPremiumStatus");
   const button=$("#spotifyPremiumConnect");
-  if(message)message.textContent=copy.message;
+  if(message)message.textContent=["premium","linked"].includes(copy.status)&&window.matchMedia?.("(max-width: 850px)").matches?"Spotify is linked":copy.message;
   if(button){button.textContent=copy.button;button.disabled=copy.disabled}
 }
 async function verifySpotifyPremium(session=state.authSession){
@@ -1176,8 +1297,7 @@ async function startSpotifyPremiumAuth(){
   const alreadyLinked=Boolean(spotifyIdentity(user));
   const options={
     redirectTo:`${window.location.origin}/`,
-    scopes:SPOTIFY_PLAYBACK_SCOPES,
-    queryParams:{show_dialog:"true"}
+    scopes:SPOTIFY_PLAYBACK_SCOPES
   };
   sessionStorage.setItem(SPOTIFY_LINK_INTENT_KEY,user?"link":"login");
   setAuthStatus(user?(alreadyLinked?"Opening Spotify to renew playback access...":"Opening Spotify to link your Premium account..."):"Opening Spotify Premium login...","");
@@ -2403,7 +2523,7 @@ function hasManualOverviewOverride(row){
     row.mood_score
   ].some(value=>value!==undefined&&value!==null&&String(value).trim()!==""));
 }
-function clientCleanAlbumTitle(title){return String(title||"").replace(/\s*[-\u2013\u2014]\s*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|bonus).*$/i,"").replace(/\s*\((?=[^)]*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|edition|version|bonus|mono|stereo|reissue))[^)]*\)/gi,"").replace(/\s*\[(?=[^\]]*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|edition|version|bonus|mono|stereo|reissue))[^\]]*\]/gi,"").replace(/\s+/g," ").trim()||String(title||"").trim()}
+function clientCleanAlbumTitle(title){return String(title||"").replace(/\s+\d{1,3}(?:st|nd|rd|th)\s+anniversary\b.*$/i,"").replace(/\s*[-\u2013\u2014]\s*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|bonus).*$/i,"").replace(/\s*\((?=[^)]*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|edition|version|bonus|mono|stereo|reissue))[^)]*\)/gi,"").replace(/\s*\[(?=[^\]]*(deluxe|expanded|anniversary|collector\x27?s?|special|super deluxe|legacy|remaster(?:ed)?|edition|version|bonus|mono|stereo|reissue))[^\]]*\]/gi,"").replace(/\s+/g," ").trim()||String(title||"").trim()}
 function genericOverviewText(text){return /building a world with its own mood|its guitars, melodies|made to be argued over|from the \d{4}s|old scenes and new listening habits|as ratings come in|individual tracks start to connect|ratings come in, its place|atmosphere, gravity, and afterlife|period when albums were stretching|researched source data|source data|source notes|sources connect|sourced album data|public source|research notes|metadata points|needs a researched muze overview|research is needed before muze writes|muze could not finish the overview|check the console|netlify function logs|custom overview did not save|regenerate the ai overview|waiting for the full muze story|writing the record into focus|no sound description yet|no impact note yet|no legacy note yet/i.test(String(text||""))}
 function overviewSectionTokens(value){const stop=new Set(["the","and","that","this","with","for","from","into","its","album","record","music","sound"]);return String(value||"").toLowerCase().replace(/[^a-z0-9]+/g," ").split(" ").filter(token=>token.length>2&&!stop.has(token))}
 function overviewSectionSimilarity(a,b){const left=String(a||"").replace(/\s+/g," ").trim().toLowerCase();const right=String(b||"").replace(/\s+/g," ").trim().toLowerCase();if(!left||!right)return 0;if(left===right)return 1;if((left.length>45||right.length>45)&&(left.includes(right)||right.includes(left)))return .95;const lt=new Set(overviewSectionTokens(left));const rt=new Set(overviewSectionTokens(right));if(!lt.size||!rt.size)return 0;const shared=[...lt].filter(token=>rt.has(token)).length;return shared/(new Set([...lt,...rt]).size||1)}
@@ -2692,7 +2812,8 @@ function albumStructuredOverview(a){
   };
 }function refreshAlbumOverviewPopup(album){
   const popup=$("#albumOverviewPopup");
-  if(!popup||popup.classList.contains("hidden")||!album)return;
+  const inline=document.querySelector("#albumModal .albumPageSubview #albumOverviewSection");
+  if((!popup||popup.classList.contains("hidden"))&&!inline||!album)return;
   const section=$("#albumOverviewSection");
   if(section?.classList.contains("editing"))return;
   if(albumRef(album.id)!==albumRef(extras.currentAlbumId))return;
@@ -3918,7 +4039,7 @@ function rememberProfileSongRating(albumId,key,identity=profileStatsIdentity()){
   });
   saveProfileSongRatingIndex(index);
 }
-function previewPayload(track){const album=state.albums.find(item=>albumRef(item.id)===albumRef(extras.currentAlbumId))||{};return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||"",spotifyId:track.spotify_id||"",artist:album.artist||"",album:album.title||""}))}
+function previewPayload(track){const album=state.albums.find(item=>albumRef(item.id)===albumRef(extras.currentAlbumId))||{};return encodeURIComponent(JSON.stringify({url:track.preview_url||"",name:track.name||"",spotifyId:track.spotify_id||"",artist:album.artist||"",album:album.title||""})).replace(/'/g,"%27")}
 function trackPlaybackAvailable(track){return Boolean(track?.preview_url||track?.spotify_id)}
 function trackPlaybackTitle(track){return track?.spotify_id?"Play full song with Spotify Premium":track?.preview_url?"Play 30 second sample":"Playback unavailable"}
 function normalizedTrackName(value){return String(value||"").toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[^a-z0-9]+/g," ").trim()}
@@ -5186,6 +5307,65 @@ function featuredTrackArtworkUrl(track,album,fallback=""){
   }
   return fallback;
 }
+function album3dFaceKey(album){return `${normalizeArtistKey(album?.artist)}::${normalizeOverviewTitle(clientCleanAlbumTitle(album?.title||""))}::${String(album?.year||"")}`}
+function getAlbum3dFace(album){
+  const key=album3dFaceKey(album);
+  if(Object.prototype.hasOwnProperty.call(extras.album3dFaces,key)){
+    const cached=extras.album3dFaces[key];
+    if(cached?.url||Date.now()-Number(cached?.checkedAt||0)<15000)return Promise.resolve(cached);
+    delete extras.album3dFaces[key];
+  }
+  if(extras.album3dFaceRequests[key])return extras.album3dFaceRequests[key];
+  const params=new URLSearchParams({artist:String(album?.artist||""),title:clientCleanAlbumTitle(album?.title||""),art:"face-cd-v2"});
+  if(album?.year)params.set("year",String(album.year));
+  const request=fetch(`/.netlify/functions/theaudiodb-album?${params}`,{headers:{Accept:"application/json"}})
+    .then(response=>response.ok?response.json():null)
+    .then(data=>{
+      const licensed=data?.license?.allowed===true&&["approved","terms-permitted"].includes(data?.license?.status);
+      const faceUrl=licensed?String(data?.images?.face3d||"").trim():"";
+      const cdUrl=licensed?String(data?.images?.cdArt||"").trim():"";
+      const url=faceUrl||cdUrl;
+      extras.album3dFaces[key]=/^https:\/\//i.test(url)?{url,kind:faceUrl?"face3d":"cdArt",source:"theaudiodb",sourceUrl:String(data?.sourceUrl||"https://www.theaudiodb.com/"),license:data?.license||null,checkedAt:Date.now()}:{url:"",kind:"",checkedAt:Date.now()};
+      return extras.album3dFaces[key];
+    })
+    .catch(()=>{extras.album3dFaces[key]={url:"",kind:"",checkedAt:Date.now()};return extras.album3dFaces[key]})
+    .finally(()=>{delete extras.album3dFaceRequests[key]});
+  extras.album3dFaceRequests[key]=request;
+  return request;
+}
+async function hydrateMostLovedAlbum3dFace(album,host){
+  const artwork=await getAlbum3dFace(album);
+  const url=artwork?.url||"";
+  if(!url||!host?.isConnected||albumRef(extras.currentAlbumId)!==albumRef(album?.id))return;
+  const images=host.querySelectorAll(".trackHeartArtwork>img,.singleArtMoment img");
+  images.forEach(img=>{
+    const fallback=img.src;
+    const probe=new Image();
+    probe.onload=()=>{
+      if(!img.isConnected||albumRef(extras.currentAlbumId)!==albumRef(album?.id))return;
+      img.src=url;
+      img.alt=`${album?.title||"Album"} 3D album artwork`;
+      img.classList.toggle("isAlbum3dFace",artwork.kind==="face3d");
+      revealMostLovedTheAudioDbCredit(host,artwork.sourceUrl,artwork.license);
+    };
+    probe.onerror=()=>{img.src=fallback};
+    probe.src=url;
+  });
+}
+function revealMostLovedTheAudioDbCredit(root,sourceUrl="https://www.theaudiodb.com/",license=null){
+  const card=root?.matches?.(".trackJourneyHeart")?root:root?.querySelector?.(".trackJourneyHeart");
+  if(!card)return;
+  let link=card.querySelector(".trackAudioDbCredit");
+  if(!link){link=document.createElement("a");link.className="trackAudioDbCredit";link.target="_blank";link.rel="noopener noreferrer";card.appendChild(link)}
+  let href="https://www.theaudiodb.com/";
+  try{const candidate=new URL(String(sourceUrl||""),location.origin);if(candidate.protocol==="https:")href=candidate.href}catch(error){}
+  link.href=href;
+  const raw=String(license?.raw||"").trim();
+  const family=String(license?.family||"").trim();
+  const licenseLabel=raw&&!/^https?:\/\//i.test(raw)&&raw.length<=42?raw:family==="cc-by-sa"?"CC BY-SA":family==="cc-by"?"CC BY":family==="public-domain"?"Public domain":"";
+  link.textContent=`Artwork: TheAudioDB${licenseLabel?` · ${licenseLabel}`:""}`;
+  link.title=raw?`Artwork supplied by TheAudioDB · ${raw}`:"Artwork supplied by TheAudioDB";
+}
 function muzeTrackUrl(albumId,trackKeyValue){
   const url=new URL(location.href);
   url.searchParams.set("album",String(albumId||""));
@@ -5697,13 +5877,15 @@ function renderTrackList(albumId,suppliedTracks=null){
   const firstScoreValue=trackCommunityScoreValue(songScores[firstKey]);
   const firstScore=firstScoreValue===null?"":firstScoreValue.toFixed(1);
   const firstRatingsCount=Math.max(0,Number(songScores[firstKey]?.ratings_count)||0);
-  const firstRatingsLabel=firstRatingsCount?`Based on ${firstRatingsCount.toLocaleString()} rating${firstRatingsCount===1?"":"s"}`:"Awaiting listener ratings";
+  const firstRatingsLabel=firstRatingsCount?"":"Awaiting listener ratings";
   const firstDuration=trackDurationText(first);
   const coverHtml=album.cover_url?'<img src="'+escapeHtml(album.cover_url)+'" alt="">':'<strong>'+escapeHtml(String(album.title||"?").slice(0,1))+'</strong>';
   const momentFocus=savedOverview.moment_focus||albumMomentFocus(album);
   const momentCover=albumMomentImage(album)||album.cover_url||"";
   const heroScene=albumHeroSceneImage(album)||album.cover_url||momentCover||"";
-  const coverStyle=(album.cover_url||momentCover||heroScene)?` style="--album-cover:url('${escapeHtml(album.cover_url||momentCover)}');--hero-scene:url('${escapeHtml(heroScene)}');--moment-cover:url('${escapeHtml(momentCover||album.cover_url||heroScene||"")}');--moment-focus:${escapeHtml(momentFocus)}"`:"";
+  const albumIdentity=normalizeAlbumName(`${album.artist||""} ${clientCleanAlbumTitle(album.title||"")}`);
+  const mostLovedBackground=albumIdentity.includes("beatles")&&albumIdentity.includes("abbey road")?(albumSceneMatch(album)?.moment||momentCover||album.cover_url||heroScene):album.cover_url||momentCover||heroScene;
+  const coverStyle=(album.cover_url||momentCover||heroScene)?` style="--album-cover:url('${escapeHtml(album.cover_url||momentCover)}');--hero-scene:url('${escapeHtml(heroScene)}');--moment-cover:url('${escapeHtml(momentCover||album.cover_url||heroScene||"")}');--most-loved-background:url('${escapeHtml(mostLovedBackground)}');--moment-focus:${escapeHtml(momentFocus)}"`:"";
   const lovedAdmin=isAdminUnlocked()?`<details class="heartAdminMenu"><summary>Admin <span aria-hidden="true">&#9881;</span></summary><div class="mostLovedAdminControls"><button type="button" class="pickLovedTrackBtn" onclick="pickMostLovedTrack('${escapeJsString(albumId)}')">Pick most loved song</button><button type="button" class="pickLovedTrackBtn" onclick="uploadAlbumVisualImage('${escapeJsString(albumId)}','moment')">Upload banner image</button><button type="button" class="pickLovedTrackBtn" onclick="setMomentImageFocus('${escapeJsString(albumId)}')">Move banner image</button></div></details>`:"";
   const mobileLovedAdmin=isAdminUnlocked()?`<div class="mostLovedAdminControls"><button class="pickLovedTrackBtn" onclick="pickMostLovedTrack('${escapeJsString(albumId)}')">Pick most loved song</button><button class="pickLovedTrackBtn" onclick="uploadAlbumVisualImage('${escapeJsString(albumId)}','moment')">Upload banner image</button><button class="pickLovedTrackBtn" onclick="setMomentImageFocus('${escapeJsString(albumId)}')">Move banner image</button></div>`:"";
   const expanded=host.dataset.expanded==="true";
@@ -5752,7 +5934,7 @@ function renderTrackList(albumId,suppliedTracks=null){
   const crowdAvatarCount=Math.min(6,firstRatingsCount);
   const crowdAvatars=Array.from({length:crowdAvatarCount},()=>`<img src="${escapeHtml(DEFAULT_AVATAR_URL)}" alt="" aria-hidden="true">`).join("");
   const crowdHtml=crowdAvatarCount?`<div class="trackHeartCrowd" aria-hidden="true">${crowdAvatars}${firstRatingsCount>crowdAvatarCount?`<span>+${escapeHtml((firstRatingsCount-crowdAvatarCount).toLocaleString())}</span>`:""}</div>`:"";
-  const featuredHtml=`<section class="linerFeaturedTrack trackJourneyHeart ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="trackHeartCopy"><span class="trackHeartType">${featureLabel}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><p class="trackHeartArtist">by <span>${escapeHtml(album.artist||"")}</span></p><div class="trackHeartPlay"><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><b>Play</b>${firstDuration?`<time>${escapeHtml(firstDuration)}</time>`:""}</div>${lovedAdmin}</div><div class="trackHeartInsight"><span class="trackHeartNumber" aria-hidden="true">${featuredTrackNumber}</span><p class="trackHeartPulseLabel">Community pulse</p><div class="trackHeartPulse">${communityPulseHtml(firstScoreValue,first.name,"large")}${firstScore?`<span class="trackHeartScore"><strong>${escapeHtml(firstScore)}</strong><small>/10</small></span>`:""}</div><small class="trackHeartPulseMeta">${escapeHtml(firstRatingsLabel)}</small>${crowdHtml}</div><div class="trackHeartArtwork" aria-label="${escapeHtml(first.name)} artwork">${singleArtHtml}<button class="trackHeartArtworkPlay featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div><strong>${escapeHtml(album.title||"")}</strong><span>${escapeHtml(album.artist||"")}${album.year?` &middot; ${escapeHtml(album.year)}`:""}</span></div></div></section>`;
+  const featuredHtml=`<section class="linerFeaturedTrack trackJourneyHeart ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="trackHeartCopy"><span class="trackHeartType">${featureLabel}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><p class="trackHeartArtist">by <span>${escapeHtml(album.artist||"")}</span></p><div class="trackHeartPlay"><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><b>Play</b>${firstDuration?`<time>${escapeHtml(firstDuration)}</time>`:""}</div>${lovedAdmin}</div><div class="trackHeartInsight"><span class="trackHeartNumber" aria-hidden="true">${featuredTrackNumber}</span><p class="trackHeartPulseLabel">Community pulse</p><div class="trackHeartPulse">${communityPulseHtml(firstScoreValue,first.name,"large")}${firstScore?`<span class="trackHeartScore"><strong>${escapeHtml(firstScore)}</strong><small>/10</small></span>`:""}</div>${firstRatingsLabel?`<small class="trackHeartPulseMeta">${escapeHtml(firstRatingsLabel)}</small>`:""}${crowdHtml}</div><div class="trackHeartArtwork" aria-label="${escapeHtml(first.name)} artwork">${singleArtHtml}<button class="trackHeartArtworkPlay featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div><strong>${escapeHtml(album.title||"")}</strong><span>${escapeHtml(album.artist||"")}${album.year?` &middot; ${escapeHtml(album.year)}`:""}</span></div></div></section>`;
   const mobileFeaturedHtml=`<section class="linerFeaturedTrack ${isAdminUnlocked()?"canDragMoment":""}" data-album-id="${escapeHtml(albumId)}"${coverStyle}><div class="momentIcon">&#9829;</div><button class="featurePlay ${first.preview_url?'':'noPreview'}" aria-label="${first.preview_url?'Play':'Preview unavailable for'} ${escapeHtml(first.name)}" title="${first.preview_url?'Play 30 second sample':'No Spotify sample available'}" onclick="playTrackPreview('${previewPayload(first)}',this)">&#9654;</button><div class="featureTrackCopy"><span>${escapeHtml(featureLabel)}</span><h4>${escapeHtml(first.name)} <span class="featuredPlayingWaves" aria-hidden="true"><i></i><i></i><i></i><i></i></span></h4><div class="featureWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>${mobileLovedAdmin}</div><div class="featureTrackScore"><strong>${escapeHtml(firstScore)}</strong></div><div class="momentWhy singleArtMoment">${singleArtHtml}</div><div class="featureCover">${coverHtml}</div></section>`;
   const trackHeader=`<div class="trackJourneyHeader" aria-hidden="true"><span>#</span><span></span><span>Title</span><span>Rating</span><span class="trackTimeHeading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.3 2"></path></svg>Time</span><span class="trackCommentHeading">Comment</span><span class="trackFavoriteHeading">Rate</span><span></span></div>`;
   const tableHtml=`<section class="linerTrackTable trackJourneyList" aria-label="Album track journey"${coverStyle}>${trackHeader}${rows}${tracks.length>8?`<button class="viewTracklist" onclick="toggleFullTracklist('${escapeJsString(albumId)}')">${expanded?"Show fewer tracks &uarr;":"View full tracklist &darr;"}</button>`:""}</section>`;
@@ -5760,7 +5942,9 @@ function renderTrackList(albumId,suppliedTracks=null){
   const arcHtml=albumArcHtml(albumArcEditorialData(savedOverview,album));
   const relatedHtml=albumDiscoveryRailHtml(album);
   const useLegacyMobileLayout=window.matchMedia&&window.matchMedia("(max-width: 768px)").matches;
-  host.innerHTML=useLegacyMobileLayout?mobileFeaturedHtml+mobileTableHtml:`<div class="albumTrackSectionLayout"><div class="albumTrackMain">${featuredHtml.replace("<b>Play</b>","<b>Listen</b>")}${tableHtml}${arcHtml}</div><div class="albumTrackRailResizeHandle" role="separator" aria-label="Resize discovery panel" aria-orientation="vertical" tabindex="0"></div>${relatedHtml}</div>`;
+  host.innerHTML=useLegacyMobileLayout?mobileFeaturedHtml+mobileTableHtml:`<div class="albumTrackSectionLayout"><div class="albumTrackMain">${featuredHtml.replace("<b>Play</b>","<b>Listen</b>")}<div class="trackJourneyListSection"><header class="trackJourneyHeading"><span class="tracklist-eyebrow">Album sequence</span><h3 class="tracklist-heading">Tracklist</h3></header>${tableHtml}</div>${arcHtml}</div><div class="albumTrackRailResizeHandle" role="separator" aria-label="Resize discovery panel" aria-orientation="vertical" tabindex="0"></div>${relatedHtml}</div>`;
+  applyMostLovedArtistCutout(album,host);
+  void hydrateMostLovedAlbum3dFace(album,host);
   if(!useLegacyMobileLayout){
     fitTrackHeartTitle(host);
     bindAlbumTrackRailResize(host);
@@ -6520,7 +6704,7 @@ function albumInfoLabelLogoAudit(label){
   return `<div class="albumInfoLogoAudit status-${escapeHtml(String(logo.review_status||"needs_review"))}"><header><strong>${escapeHtml(status)}</strong>${logo.license_status_changed?"<em>Licence metadata changed</em>":""}</header><dl>${details.map(([term,value])=>`<div><dt>${escapeHtml(term)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl><div>${source}${approve}${reject}<button onclick="editAlbumInfoLabelLogo('${escapeJsString(label.id)}')">Edit source</button></div></div>`;
 }
 function renderAlbumInfo(albumId=extras.currentAlbumId){
-  const host=document.querySelector("#albumInfoPopup #albumInfoSection");
+  const host=document.querySelector("#albumModal .albumPageSubview #albumInfoSection, #albumInfoPopup #albumInfoSection");
   const album=albumInfoCurrentAlbum(albumId);
   if(!host||!album)return;
   const info=extras.albumInfo[albumRef(album.id)];
@@ -6535,7 +6719,7 @@ function renderAlbumInfo(albumId=extras.currentAlbumId){
   const originalLabel=labels.find(label=>label.is_original_label)||labels[0];
   const albumRuntime=Math.max(0,Number(metadata.total_runtime_ms)||0),spotifyRuntime=albumInfoSpotifyRuntime(album);
   const runtimeDetails=[["Runtime",albumInfoRuntime(albumRuntime||spotifyRuntime),"clock"]];
-  const hero=document.querySelector("#albumInfoPopup #albumInfoHero");
+  const hero=document.querySelector("#albumModal .albumPageSubview #albumInfoHero, #albumInfoPopup #albumInfoHero");
   if(hero)hero.outerHTML=albumInfoHeroHtml(album,info);
   const countryValue=albumInfoCountry(metadata.country),countryFlag=albumInfoCountryFlag(countryValue);
   const appleLogoOnly=normalizeAlbumName(originalLabel?.label_name)==="apple"||normalizeAlbumName(originalLabel?.label_name)==="apple records";
@@ -6842,18 +7026,31 @@ async function loadAlbumExtras(album){
     if(extras.currentAlbumId===albumRef(album.id))renderTrackList(album.id,tracks);
   });
   renderAlbumOverviewMoments(album.id,tracks);
-  if(!document.querySelector("#albumInfoPopup.hidden"))renderAlbumInfo(album.id);
+  if(document.querySelector("#albumModal .albumPageSubview #albumInfoSection")||!document.querySelector("#albumInfoPopup.hidden"))renderAlbumInfo(album.id);
+}
+function albumPageSubviewHost(view){
+  const modal=$("#albumModal");
+  const page=modal?.querySelector(".linerAlbumPage");
+  if(!modal?.classList.contains("albumPageMode")||!page)return null;
+  let host=page.querySelector(".albumPageSubview");
+  if(!host){host=document.createElement("div");host.className="albumPageSubview";page.appendChild(host)}
+  host.dataset.albumPageSubview=view;
+  page.classList.add("albumSubviewOpen");
+  modal.scrollTo({top:0,behavior:"auto"});
+  return host;
+}
+function closeAlbumPageSubview(){
+  const page=document.querySelector("#albumModal .linerAlbumPage");
+  page?.classList.remove("albumSubviewOpen");
+  page?.style.removeProperty("--overview-page-cover");
+  page?.style.removeProperty("--overview-page-position");
+  page?.querySelector(".albumPageSubview")?.remove();
 }
 window.setAlbumPopupTab=function(tab){
-  if(tab==="overview"){
-    openAlbumOverviewPopup();
-    return;
-  }
-  if(tab==="info"){
-    openAlbumInfoPopup();
-    return;
-  }
   document.querySelectorAll(".linerTabs button").forEach(btn=>btn.classList.toggle("active",btn.dataset.albumTab===tab));
+  if(tab==="overview"){openAlbumOverviewPopup();return}
+  if(tab==="info"){openAlbumInfoPopup();return}
+  closeAlbumPageSubview();
   const page=document.querySelector(".linerAlbumPage");
   if(page)page.classList.toggle("showRatingsPanels",tab==="ratings");
   if(tab==="tracks"){
@@ -7131,6 +7328,18 @@ window.openAlbumOverviewPopup=function(){
   const total=count(album).toLocaleString();
   const customOverview=albumCustomOverview(album);
   const canEditOverview=isAdminUnlocked();
+  const inlineHost=albumPageSubviewHost("overview");
+  if(inlineHost){
+    inlineHost.className="albumPageSubview albumOverviewPopupPanel";
+    inlineHost.innerHTML=albumOverviewHtml(album,{albumId,coverUrl,albumScore,total,customOverview,canEditOverview});
+    const sleeve=inlineHost.querySelector(".albumOverviewSleeve");
+    const page=inlineHost.closest(".linerAlbumPage");
+    page?.style.setProperty("--overview-page-cover",sleeve?.style.getPropertyValue("--overview-cover")||"none");
+    page?.style.setProperty("--overview-page-position",sleeve?.style.getPropertyValue("--overview-position")||"50% 20%");
+    requestAnimationFrame(syncOverviewExpandableText);
+    renderAlbumOverviewMoments(album.id,extras.tracks[albumRef(album.id)]||[]);
+    return;
+  }
   let popup=$("#albumOverviewPopup");
   if(!popup){
     popup=document.createElement("div");
@@ -7157,6 +7366,16 @@ window.openAlbumInfoPopup=async function(){
   const savedInfo=extras.albumInfo[ref];
   if(isAdminUnlocked()&&savedInfo?.metadata&&!albumInfoHasNamedPerformers(savedInfo)&&!extras.albumInfoRequests[ref])await loadAlbumInfo(album,true,true);
   if(!isAdminUnlocked()&&!extras.albumInfo[ref]&&!extras.albumInfoRequests[ref])await loadAlbumInfo(album,false,true);
+  const inlineHost=albumPageSubviewHost("info");
+  if(inlineHost){
+    const hasCachedInfo=Boolean(extras.albumInfo[ref]);
+    const initialSection=hasCachedInfo?"":'<div class="albumInfoLoading"><span></span><p>Loading verified album information...</p></div>';
+    inlineHost.className="albumPageSubview albumOverviewPopupPanel albumInfoPopupPanel";
+    inlineHost.innerHTML=`<div class="albumInfoPage">${albumInfoHeroHtml(album,extras.albumInfo[ref]||{})}<section id="albumInfoSection" class="albumInfoSection" aria-label="Album information">${initialSection}</section></div>`;
+    renderAlbumInfo(album.id);
+    if(!hasCachedInfo)loadAlbumInfo(album);
+    return;
+  }
   let popup=$("#albumInfoPopup");
   if(!popup){
     popup=document.createElement("div");
@@ -7501,6 +7720,7 @@ window.deleteAlbumAdmin=async function(albumId){
   closeAlbumOverviewPopup();
   stopTrackPreview();
   $("#albumModal")?.classList.add("hidden");
+  setAlbumPageMode(false);
   await loadData();
   navigateToView("rankings",{replace:true,path:"/"});
 }
@@ -7943,8 +8163,12 @@ window.rateTrack=async function(albumId,trackKeyValue,trackName,value){
 function updateNavUsername(){
   const el=$("#navUsername");
   const button=$("#navSetUsername");
+  const kicker=$("#navUserKicker");
+  const tagline=$("#navUserTagline");
   const username=currentUsername()||state.userProfile?.username||"";
-  if(el)el.textContent=username?"@"+username:"Sign in to save albums, rate music, and build your library.";
+  if(el)el.textContent=username?username:"Build your music library.";
+  if(kicker)kicker.textContent=username?"Your Muze profile":"Join Muze";
+  if(tagline)tagline.classList.toggle("hidden",!username);
   if(button)button.textContent=username?"Edit profile":"Sign in / Create account";
   renderAvatarTargets();
   renderNotifications();
@@ -9193,6 +9417,7 @@ function libraryProfileMetaMarkup(stats={},albumCount=0){
 }
 function openLibraryDetails(library){
   if(!library)return;
+  setAlbumPageMode(false);
   $("#albumModal").classList.add("libraryDetailModal");
   const items=liveLibraryItems(Array.isArray(library.items)?library.items:[]);
   const isMine=library.device_id===state.deviceId||library.isMine;
@@ -9647,6 +9872,7 @@ function openPublicListDetails(list){
   const header=isLibrary
     ?'<div class="sectionTitle libraryDetailTitle"><div><h2>'+escapeHtml(list.title||"Listener library")+'</h2><span class="muted">@'+escapeHtml(list.username||"listener")+' &middot; '+albumCount+' album'+(albumCount===1?'':'s')+'</span></div><div class="libraryDetailActions">'+action+'</div></div>'
     :'<header class="suggestionHeader"><div class="suggestionHeaderCopy"><span class="suggestionEyebrow"><i aria-hidden="true">&#10022;</i> Listener suggestion</span><h2 class="suggestionTitle">'+escapeHtml(list.title||"Listener suggestion")+'</h2><p class="suggestionDescription">'+escapeHtml(list.description||"A listener-curated collection of albums.")+'</p><span class="suggestionMeta">by @'+escapeHtml(list.username||"listener")+' &middot; '+libraryAlbumCountText(albumCount)+' &middot; '+followerCount+' follower'+(followerCount===1?'':'s')+'</span></div><div class="libraryDetailActions suggestionActions">'+action+'</div></header><div class="suggestionDivider" aria-hidden="true"></div>';
+  setAlbumPageMode(false);
   modal.classList.add("libraryDetailModal");
   $("#albumModalContent").innerHTML='<div class="librarySuggestionDetail '+(isLibrary?'isLibrary':'isSuggestion')+'" data-public-list-slug="'+escapeHtml(list.slug||publicListSlug(list.title))+'">'+brand+header+'<div class="libraryMetaStrip '+(isLibrary?'':'suggestionStatRow')+'">'+meta+'</div><div class="grid libraryFullGrid">'+(items.map(item=>libraryAlbumCard(item,false,false)).join("")||'<div class="empty">No albums yet.</div>')+'</div><div class="libraryDetailFlourish" aria-hidden="true"><span></span><i></i><span></span></div></div>';
   modal.classList.remove("hidden");
@@ -10921,6 +11147,7 @@ window.openAlbumOverviewFilter=function(type,value){
   hideMuzeSearchSuggestions();
   history.pushState({musica:"view",view:"rankings"},"",window.MuzeRoutes?.pathForView("rankings")||"/");
   $("#albumModal")?.classList.add("hidden");
+  setAlbumPageMode(false);
   $("#albumOverviewPopup")?.classList.add("hidden");
   $("#albumInfoPopup")?.classList.add("hidden");
   document.querySelectorAll(".tab,.navItem[data-view]").forEach(button=>button.classList.toggle("active",button.dataset.view==="rankings"));
@@ -10987,6 +11214,53 @@ function muzeSearchSuggestionItems(query){
   const albumItems=muzeSearchSuggestions(query).slice(0,Math.max(1,7-artistItems.length)).map(album=>({type:"album",album}));
   return [...artistItems,...albumItems];
 }
+async function muzeArtistSearchHeroUrl(row){
+  const slug=artistSlugForName(row?.slug||row?.name||"");
+  if(!slug)return "";
+  extras.artistSearchHeroImages=extras.artistSearchHeroImages||{};
+  if(Object.prototype.hasOwnProperty.call(extras.artistSearchHeroImages,slug))return extras.artistSearchHeroImages[slug];
+  const request=(async()=>{
+    let profile=null;
+    const artistDb=publicDataDb||db;
+    if(artistDb){
+      try{
+        const result=await artistDb.from("artists").select("*").eq("slug",slug).maybeSingle();
+        if(!result.error)profile=result.data||null;
+      }catch(error){}
+    }
+    const artist={...row,...(profile||{}),name:profile?.name||row?.name};
+    const manual=manualArtistBackgroundUrl(artist);
+    if(manual)return manual;
+    const wikimedia=await getWikimediaArtistHero(artist);
+    return String(wikimedia?.url||"").trim();
+  })().catch(()=>"");
+  extras.artistSearchHeroImages[slug]=request;
+  const url=await request;
+  extras.artistSearchHeroImages[slug]=url;
+  return url;
+}
+function muzeArtistSearchHeroPlaceholder(row){
+  const slug=artistSlugForName(row?.slug||row?.name||"");
+  const initial=String(row?.name||"A").trim().slice(0,1)||"A";
+  return `<b data-artist-search-hero="${escapeHtml(slug)}">${escapeHtml(initial)}</b>`;
+}
+function hydrateMuzeArtistSearchHeroes(container){
+  container?.querySelectorAll?.("[data-artist-search-hero]").forEach(async placeholder=>{
+    const slug=placeholder.dataset.artistSearchHero;
+    const row=artistDirectoryBaseRows().find(candidate=>candidate.slug===slug);
+    if(!row)return;
+    const url=await muzeArtistSearchHeroUrl(row);
+    if(!url||!placeholder.isConnected||placeholder.dataset.artistSearchHero!==slug)return;
+    const image=document.createElement("img");
+    image.alt="";
+    image.loading="lazy";
+    image.decoding="async";
+    image.addEventListener("load",()=>{if(placeholder.isConnected)placeholder.hidden=true},{once:true});
+    image.addEventListener("error",()=>image.remove(),{once:true});
+    placeholder.insertAdjacentElement("afterend",image);
+    image.src=url;
+  });
+}
 function hideMuzeSearchSuggestions(){
   const box=$("#muzeSearchSuggest");
   if(box){box.classList.add("hidden");box.innerHTML=""}
@@ -11014,10 +11288,8 @@ function renderMuzeSearchSuggestions(){
   box.innerHTML=rows.map(item=>{
     if(item.type==="artist"){
       const row=item.row||{};
-      const hero=row.hero||row.featured?.[0]||{};
-      const image=String(hero.cover_url||"").trim();
       const genres=(row.genres||[]).slice(0,2).join(" / ");
-      return `<button type="button" class="muzeSearchOption muzeSearchOptionArtist" role="option" onclick="selectMuzeArtistSuggestion('${escapeJsString(row.slug)}')"><span class="muzeSearchOptionCover">${image?`<img src="${escapeHtml(image)}" loading="lazy" decoding="async" onerror="this.hidden=true" alt="">`:`<b>${escapeHtml(coverText(hero.title?hero:{title:row.name}))}</b>`}</span><span class="muzeSearchOptionCopy"><strong>${escapeHtml(row.name||"Artist")}</strong><small>Artist profile</small><em>${escapeHtml(genres||"Muze artist")}</em></span></button>`;
+      return `<button type="button" class="muzeSearchOption muzeSearchOptionArtist" role="option" onclick="selectMuzeArtistSuggestion('${escapeJsString(row.slug)}')"><span class="muzeSearchOptionCover">${muzeArtistSearchHeroPlaceholder(row)}</span><span class="muzeSearchOptionCopy"><strong>${escapeHtml(row.name||"Artist")}</strong><small>Artist profile</small><em>${escapeHtml(genres||"Muze artist")}</em></span></button>`;
     }
     const album=item.album||{};
     const image=String(album.cover_url||"").trim();
@@ -11026,6 +11298,7 @@ function renderMuzeSearchSuggestions(){
     return `<button type="button" class="muzeSearchOption" role="option" onclick="selectMuzeSearchSuggestion('${escapeJsString(album.id)}')"><span class="muzeSearchOptionCover">${image?`<img src="${escapeHtml(image)}" loading="lazy" decoding="async" onerror="this.hidden=true" alt="">`:`<b>${escapeHtml(coverText(album))}</b>`}</span><span class="muzeSearchOptionCopy"><strong>${escapeHtml(album.title||"Untitled album")}</strong><small>${escapeHtml(meta)}</small><em>${escapeHtml(album.artist||"Unknown artist")}</em></span>${runtime?`<span class="muzeSearchRuntime">${escapeHtml(runtime)}</span>`:""}</button>`;
   }).join("");
   box.classList.remove("hidden");
+  hydrateMuzeArtistSearchHeroes(box);
   ensureMuzeSearchDropdownVisible();
 }
 function isMobileViewport(){return window.matchMedia?.("(max-width: 850px)").matches||window.innerWidth<=850}
@@ -11051,6 +11324,39 @@ function scheduleMuzeSearchSuggestions(){
     renderMuzeSearchSuggestions();
   },isMobileViewport()?45:0);
 }
+function hideDrawerMuzeSearchResults(){
+  const box=$("#drawerMuzeSearchResults");
+  const input=$("#drawerMuzeSearchInput");
+  if(box){box.classList.add("hidden");box.innerHTML=""}
+  input?.setAttribute("aria-expanded","false");
+}
+function renderDrawerMuzeSearchResults(){
+  const box=$("#drawerMuzeSearchResults");
+  const input=$("#drawerMuzeSearchInput");
+  if(!box||!input)return;
+  const query=input.value.trim();
+  const rows=muzeSearchSuggestionItems(query);
+  if(!query||!rows.length){hideDrawerMuzeSearchResults();return}
+  box.innerHTML=rows.map(item=>{
+    if(item.type==="artist"){
+      const row=item.row||{};
+      return `<button type="button" class="drawerMuzeSearchOption" role="option" onclick="selectDrawerMuzeArtist('${escapeJsString(row.slug)}')"><span class="drawerMuzeSearchOptionCover">${muzeArtistSearchHeroPlaceholder(row)}</span><span class="drawerMuzeSearchOptionCopy"><strong>${escapeHtml(row.name||"Artist")}</strong><small>Artist</small></span></button>`;
+    }
+    const album=item.album||{};
+    const image=String(album.cover_url||"").trim();
+    return `<button type="button" class="drawerMuzeSearchOption" role="option" onclick="selectDrawerMuzeAlbum('${escapeJsString(album.id)}')"><span class="drawerMuzeSearchOptionCover">${image?`<img src="${escapeHtml(image)}" loading="lazy" decoding="async" onerror="this.hidden=true" alt="">`:escapeHtml(coverText(album))}</span><span class="drawerMuzeSearchOptionCopy"><strong>${escapeHtml(album.title||"Untitled album")}</strong><small>${escapeHtml(album.artist||"Album")}</small></span></button>`;
+  }).join("");
+  box.classList.remove("hidden");
+  input.setAttribute("aria-expanded","true");
+  hydrateMuzeArtistSearchHeroes(box);
+}
+function scheduleDrawerMuzeSearchResults(){
+  clearTimeout(extras.drawerMuzeSearchTimer);
+  extras.drawerMuzeSearchTimer=setTimeout(renderDrawerMuzeSearchResults,70);
+}
+window.selectDrawerMuzeAlbum=function(albumId){hideDrawerMuzeSearchResults();closeNav();openAlbum(albumId)};
+window.selectDrawerMuzeArtist=function(slug){hideDrawerMuzeSearchResults();closeNav();openArtistPage(slug)};
+function submitDrawerMuzeSearch(event){event?.preventDefault?.();renderDrawerMuzeSearchResults()}
 function scheduleHomepageCatalogueSearch(query,after){
   clearTimeout(homepageCatalogueSearchTimer);
   const clean=String(query||"").trim();
@@ -11164,7 +11470,7 @@ $("#heroScore")?.classList.remove("homepageSkeletonValue");$("#heroScore")?.remo
 if(state.view==="rankings"){renderRankingsView()}
 if(state.view==="discover"){content.innerHTML=`<div class="sectionTitle"><h2>Hidden Gems</h2></div><div class="empty">Coming soon</div>`}
 if(state.view==="artists"){content.innerHTML=artistPage(true);setTimeout(()=>{renderArtistResults({chunked:true});startTrendingArtistFlip();loadTrendingArtists()},25)}
-if(state.view==="artist-profile"){content.innerHTML=artistProfilePage()}
+if(state.view==="artist-profile"){content.innerHTML=artistProfilePage();if(state.artistProfile&&!state.artistProfileLoading)requestAnimationFrame(()=>loadArtistProfileBackground(state.artistProfile))}
 if(state.view==="myratings"){let rated=state.albums.filter(a=>userScore(a));content.innerHTML=rated.length?`<div class="sectionTitle"><h2>My Ratings</h2></div><div class="list">${rated.map(row).join("")}</div>`:`<div class="empty">You haven't rated anything yet.</div>`}
 if(state.view==="libraries"){try{librariesView()}catch(error){librariesErrorView(error)}}
 if(state.view==="public-list"){publicListView()}
@@ -11195,9 +11501,490 @@ function albumSceneMatch(album){
   const text=`${album.title||""} ${album.artist||""}`.toLowerCase();
   return albumSceneImages.find(item=>item.match.every(part=>text.includes(part)));
 }
+function validArtistMusicBrainzId(value){
+  const id=String(value||"").trim().toLowerCase();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)?id:"";
+}
+function artistMusicBrainzId(artist){
+  const direct=[artist?.musicbrainz_id,artist?.musicbrainzId,artist?.artist_mbid,artist?.musicbrainz_artist_id,artist?.mbid].map(validArtistMusicBrainzId).find(Boolean);
+  if(direct)return direct;
+  const name=normalizeAlbumName(artist?.name||artist?.artist||"");
+  if(!name)return "";
+  const profileCredit=(state.artistProfilePortraits||[]).find(row=>normalizeAlbumName(row?.person_name)===name&&validArtistMusicBrainzId(row?.person_id));
+  if(profileCredit)return validArtistMusicBrainzId(profileCredit.person_id);
+  for(const info of Object.values(extras.albumInfo||{})){
+    const credit=(info?.credits||[]).find(row=>normalizeAlbumName(row?.person_name)===name&&validArtistMusicBrainzId(row?.person_id));
+    if(credit)return validArtistMusicBrainzId(credit.person_id);
+  }
+  return "";
+}
+function emptyArtistBackgroundImages(artist={}){
+  return {artistId:null,musicbrainzId:artistMusicBrainzId(artist)||null,source:"theaudiodb",sourceUrl:"https://www.theaudiodb.com/",license:{raw:null,status:"unknown",allowed:false,family:null},images:{fanart:[],wideThumb:null,banner:null,thumb:null,logo:null,cutout:null}};
+}
+function normalizeArtistBackgroundImages(data,artist={}){
+  const safeUrl=value=>{try{const url=new URL(String(value||""),location.origin);return url.protocol==="https:"?url.href:null}catch(error){return null}};
+  const unique=values=>[...new Set(values.map(safeUrl).filter(Boolean))];
+  const allowed=data?.license?.allowed===true&&["approved","terms-permitted"].includes(data?.license?.status);
+  const images=allowed?(data?.images||{}):{};
+  const license={raw:String(data?.license?.raw||"").trim()||null,status:allowed?String(data?.license?.status||"approved"):String(data?.license?.status||"unknown"),allowed,family:String(data?.license?.family||"").trim()||null};
+  return {
+    artistId:String(data?.artistId||"").trim()||null,
+    musicbrainzId:validArtistMusicBrainzId(data?.musicbrainzId)||artistMusicBrainzId(artist)||null,
+    source:"theaudiodb",
+    sourceUrl:safeUrl(data?.sourceUrl)||"https://www.theaudiodb.com/",
+    license,
+    images:{fanart:unique(Array.isArray(images.fanart)?images.fanart:[]),wideThumb:safeUrl(images.wideThumb),banner:safeUrl(images.banner),thumb:safeUrl(images.thumb),logo:safeUrl(images.logo),cutout:safeUrl(images.cutout)}
+  };
+}
+async function getArtistBackgroundImages(artist={}){
+  const mbid=artistMusicBrainzId(artist);
+  const name=String(artist?.name||artist?.artist||"").trim();
+  const key=mbid?`mbid:${mbid}`:`name:${normalizeAlbumName(name)}`;
+  if(!key.replace(/^(mbid|name):/,""))return emptyArtistBackgroundImages(artist);
+  if(Object.prototype.hasOwnProperty.call(extras.artistBackgroundImages,key))return extras.artistBackgroundImages[key];
+  if(extras.artistBackgroundRequests[key])return extras.artistBackgroundRequests[key];
+  const params=new URLSearchParams(mbid?{mbid}:{name});
+  params.set("art","cutout-v1");
+  const request=fetch(`/.netlify/functions/theaudiodb-artist?${params}`,{headers:{Accept:"application/json"}})
+    .then(async response=>response.ok?normalizeArtistBackgroundImages(await response.json(),artist):emptyArtistBackgroundImages(artist))
+    .catch(error=>{console.warn("[Muze artist imagery] TheAudioDB background unavailable.",error?.name||"Error");return emptyArtistBackgroundImages(artist)})
+    .then(result=>{extras.artistBackgroundImages[key]=result;delete extras.artistBackgroundRequests[key];return result});
+  extras.artistBackgroundRequests[key]=request;
+  return request;
+}
+window.getArtistBackgroundImages=getArtistBackgroundImages;
+function artistBackgroundCandidates(result){
+  const images=result?.images||{};
+  return [...(images.fanart||[]).map(url=>({url,kind:"fanart"})),{url:images.wideThumb,kind:"wideThumb"},{url:images.banner,kind:"banner"},{url:images.thumb,kind:"thumb"}].filter(item=>item.url);
+}
+function inspectArtistBackground(url){
+  return new Promise(resolve=>{
+    const image=new Image();
+    let settled=false;
+    const finish=value=>{if(settled)return;settled=true;clearTimeout(timer);image.onload=null;image.onerror=null;resolve(value)};
+    const timer=setTimeout(()=>finish(null),6500);
+    image.onload=()=>finish({url,width:image.naturalWidth,height:image.naturalHeight,ratio:image.naturalWidth/Math.max(1,image.naturalHeight)});
+    image.onerror=()=>finish(null);
+    image.referrerPolicy="no-referrer";
+    image.src=url;
+  });
+}
+async function selectArtistBackgroundImage(result){
+  for(const candidate of artistBackgroundCandidates(result)){
+    const image=await inspectArtistBackground(candidate.url);
+    if(!image)continue;
+    const minimumWidth=candidate.kind==="thumb"?720:900;
+    if(image.width>=minimumWidth&&image.height>=400&&image.ratio>=1.25)return {...candidate,...image};
+  }
+  return null;
+}
+function manualArtistBackgroundUrl(artist){
+  return String(artist?.artist_background_url||artist?.background_image_url||artist?.hero_image_url||artist?.background_url||"").trim();
+}
+function normalizeWikimediaArtistHero(data){
+  const safeUrl=value=>{try{const url=new URL(String(value||""));return url.protocol==="https:"?url.href:null}catch(error){return null}};
+  const normalizeImage=image=>{
+    if(!image)return null;
+    const url=safeUrl(image.url);
+    const sourceUrl=safeUrl(image.sourceUrl);
+    if(!url||!sourceUrl||!/^(?:upload|thumb)\.wikimedia\.org$/i.test(new URL(url).hostname)||new URL(sourceUrl).hostname!=="commons.wikimedia.org")return null;
+    return {url,source:"wikimedia-commons",sourceUrl,author:String(image.author||"Wikimedia Commons contributor").trim(),license:String(image.license||"").trim(),licenseUrl:safeUrl(image.licenseUrl),attribution:String(image.attribution||"").trim(),width:Number(image.width||0),height:Number(image.height||0),layout:image.layout==="portrait-focus"?"portrait-focus":"landscape"};
+  };
+  const primary=normalizeImage(data?.image);
+  if(!primary)return null;
+  const gallery=[...new Map((Array.isArray(data?.images)?data.images:[]).map(normalizeImage).filter(Boolean).map(image=>[image.sourceUrl,image])).values()];
+  return {...primary,gallery:gallery.length?gallery:[primary]};
+}
+async function getWikimediaArtistHero(artist={}){
+  const mbid=artistMusicBrainzId(artist);
+  const name=String(artist?.name||artist?.artist||"").trim();
+  const key=mbid?`mbid:${mbid}`:`name:${normalizeAlbumName(name)}`;
+  if(!name)return null;
+  if(Object.prototype.hasOwnProperty.call(extras.artistProfileHeroImages,key))return extras.artistProfileHeroImages[key];
+  if(extras.artistProfileHeroRequests[key])return extras.artistProfileHeroRequests[key];
+  const params=new URLSearchParams({name});
+  if(mbid)params.set("mbid",mbid);
+  params.set("selection","commons-gallery-v15");
+  const request=fetch(`/.netlify/functions/wikimedia-artist-hero?${params}`,{headers:{Accept:"application/json"}})
+    .then(async response=>response.ok?normalizeWikimediaArtistHero(await response.json()):null)
+    .catch(error=>{console.warn("[Muze artist imagery] Wikimedia Commons hero unavailable.",error?.name||"Error");return null})
+    .then(result=>{extras.artistProfileHeroImages[key]=result;delete extras.artistProfileHeroRequests[key];return result});
+  extras.artistProfileHeroRequests[key]=request;
+  return request;
+}
+function applyArtistProfileBackground(profile,selection,result=null){
+  if(!selection?.url||artistSlugForName(state.artistProfile?.name)!==artistSlugForName(profile?.name))return;
+  const hero=document.querySelector(".muzeArtistProfileHero");
+  if(!hero)return;
+  hero.style.setProperty("--artist-background-image",`url("${String(selection.url).replace(/["\\]/g,"\\$&")}")`);
+  hero.classList.add("hasArtistBackground");
+  const portraitGroup=result?.source==="wikimedia-commons"&&result?.layout==="portrait-focus";
+  hero.classList.toggle("artistBackgroundPortraitGroup",portraitGroup);
+  if(portraitGroup){
+    const focus=document.createElement("span");
+    focus.className="muzeArtistBackgroundFocus";
+    focus.setAttribute("aria-hidden","true");
+    hero.prepend(focus);
+  }
+  if(result?.source==="wikimedia-commons"){
+    document.querySelector(".muzeArtistPage .muzeArtistBackgroundCredit")?.remove();
+  }else if(result?.source==="theaudiodb"){
+    const creditHost=document.querySelector(".muzeArtistPage");
+    if(creditHost){
+      let credit=creditHost.querySelector(".muzeArtistBackgroundCredit");
+      if(!credit){credit=document.createElement("p");credit.className="muzeArtistBackgroundCredit";creditHost.appendChild(credit)}
+      const licenseLabel=String(result?.license?.raw||"").trim();
+      credit.innerHTML=`<a href="${escapeHtml(result.sourceUrl||"https://www.theaudiodb.com/")}" target="_blank" rel="noopener noreferrer">Image source: TheAudioDB${licenseLabel?` &middot; ${escapeHtml(licenseLabel)}`:""}</a>`;
+    }
+  }
+  requestAnimationFrame(()=>hero.classList.add("artistBackgroundReady"));
+}
+function wikimediaPhotoCreditMarkup(image,label){
+  const author=String(image?.author||"Wikimedia Commons contributor").trim();
+  const license=String(image?.license||"").trim();
+  const licenseMarkup=image?.licenseUrl?`<a href="${escapeHtml(image.licenseUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(license)}</a>`:escapeHtml(license);
+  let sourceLabel="Image source";
+  try{if(new URL(image?.sourceUrl||"").hostname==="commons.wikimedia.org")sourceLabel="Wikimedia Commons"}catch(error){}
+  return `<li><strong>${escapeHtml(label)}</strong><span>Photo: ${escapeHtml(author)}${license?` &middot; ${licenseMarkup}`:""} &middot; <a href="${escapeHtml(image.sourceUrl)}" target="_blank" rel="noopener noreferrer">${sourceLabel}</a></span></li>`;
+}
+function artistManualGalleryImage(profile){
+  const safeHttpsUrl=value=>{try{const url=new URL(String(value||"").trim());return url.protocol==="https:"?url.href:""}catch(error){return ""}};
+  const url=safeHttpsUrl(profile?.image_url);
+  if(!url)return null;
+  return {url,source:"manual-gallery",sourceUrl:safeHttpsUrl(profile?.image_source_url)||url,author:String(profile?.image_author||"Muze contributor").trim(),license:String(profile?.image_license||"").trim(),licenseUrl:safeHttpsUrl(profile?.image_license_url),attribution:String(profile?.image_attribution||"").trim(),width:0,height:0,layout:"landscape",isManualGallery:true};
+}
+function artistResultWithManualGallery(profile,result){
+  const manual=artistManualGalleryImage(profile);
+  if(!manual)return result;
+  const gallery=[...(result?.gallery||[]),manual].filter((image,index,images)=>image?.url&&images.findIndex(candidate=>candidate?.sourceUrl===image.sourceUrl||candidate?.url===image.url)===index);
+  return result?{...result,gallery}:{gallery};
+}
+function renderWikimediaPhotoCredits(profile,result,{heroSourceUrl="",galleryImages=[]}={}){
+  if(artistSlugForName(state.artistProfile?.name)!==artistSlugForName(profile?.name))return;
+  const page=document.querySelector(".muzeArtistPage");
+  if(!page)return;
+  page.querySelector(".muzeArtistPhotoCredits")?.remove();
+  page.querySelector(".muzeArtistBackgroundCredit")?.remove();
+  const rejected=new Set(artistRejectedImageUrls(profile));
+  const available=(result?.gallery||[]).filter(image=>image?.url&&image?.sourceUrl&&!rejected.has(image.url)&&!rejected.has(image.sourceUrl));
+  const hero=heroSourceUrl?available.find(image=>image.sourceUrl===heroSourceUrl)||((result?.sourceUrl===heroSourceUrl)?result:null):null;
+  const ordered=[...(hero?[hero]:[]),...galleryImages].filter((image,index,items)=>image?.sourceUrl&&items.findIndex(item=>item?.sourceUrl===image.sourceUrl)===index);
+  if(!ordered.length)return;
+  const details=document.createElement("details");
+  details.className="muzeArtistPhotoCredits";
+  const heroOffset=hero?1:0;
+  details.innerHTML=`<summary>Photo credits <span>${ordered.length}</span></summary><ol>${ordered.map((image,index)=>wikimediaPhotoCreditMarkup(image,index===0&&hero?"Hero image":`Photo ${index+1-heroOffset}`)).join("")}</ol>`;
+  const discography=page.querySelector(":scope > .muzeArtistDiscography");
+  if(discography)discography.insertAdjacentElement("afterend",details);else page.appendChild(details);
+}
+function artistImageOrderKey(profile){return `muzeArtistImageOrder:${artistSlugForName(profile?.slug||profile?.name||"")}`}
+function savedArtistImageOrder(profile){
+  try{return JSON.parse(localStorage.getItem(artistImageOrderKey(profile))||"[]").filter(Boolean)}catch(error){return []}
+}
+function orderWikimediaArtistImages(profile,result){
+  const images=[...new Map((result?.gallery||[]).map(image=>[image.sourceUrl,image])).values()];
+  const order=savedArtistImageOrder(profile);
+  if(!order.length)return {...result,gallery:images};
+  const rank=new Map(order.map((source,index)=>[source,index]));
+  images.sort((a,b)=>(rank.has(a.sourceUrl)?rank.get(a.sourceUrl):999)-(rank.has(b.sourceUrl)?rank.get(b.sourceUrl):999));
+  const hero=images.find(image=>!image.isManualGallery)||result;
+  return images.length?{...hero,gallery:images}:result;
+}
+function enableArtistImageOrdering(profile,result,heroSourceUrl){
+  if(!isAdminUnlocked()||window.matchMedia("(max-width: 850px)").matches)return;
+  const hero=document.querySelector(".muzeArtistProfileHero");
+  if(hero&&heroSourceUrl){hero.dataset.artistImageSource=heroSourceUrl;hero.draggable=true;if(!hero.querySelector(".muzeArtistImageOrderHint"))hero.insertAdjacentHTML("beforeend",'<span class="muzeArtistImageOrderHint">Drag image to swap</span>')}
+  const slots=[hero,...document.querySelectorAll(".muzeArtistImageRailCard")].filter(slot=>slot?.dataset?.artistImageSource);
+  const swap=(source,target)=>{
+    if(!source||!target||source===target)return;
+    const images=[...(result.gallery||[])];
+    const from=images.findIndex(image=>image.sourceUrl===source);const to=images.findIndex(image=>image.sourceUrl===target);
+    if(from<0||to<0)return;
+    [images[from],images[to]]=[images[to],images[from]];
+    localStorage.setItem(artistImageOrderKey(profile),JSON.stringify(images.map(image=>image.sourceUrl)));
+    const nextHero=images.find(image=>!image.isManualGallery)||images[0];
+    const reordered={...nextHero,gallery:images};
+    const key=artistMusicBrainzId(profile)?`mbid:${artistMusicBrainzId(profile)}`:`name:${normalizeAlbumName(profile.name)}`;
+    extras.artistProfileHeroImages[key]=reordered;
+    applyArtistProfileBackground(profile,nextHero,nextHero);
+    renderWikimediaArtistRail(profile,reordered,{excludeSourceUrl:nextHero.sourceUrl});
+  };
+  slots.forEach(slot=>{
+    slot.draggable=true;
+    slot.addEventListener("dragstart",event=>{event.dataTransfer.setData("text/plain",slot.dataset.artistImageSource);event.dataTransfer.effectAllowed="move";slot.classList.add("isImageDragging")});
+    slot.addEventListener("dragend",()=>{slots.forEach(item=>item.classList.remove("isImageDragging","isImageDragTarget"))});
+    slot.addEventListener("dragover",event=>{event.preventDefault();event.dataTransfer.dropEffect="move";slot.classList.add("isImageDragTarget")});
+    slot.addEventListener("dragleave",()=>slot.classList.remove("isImageDragTarget"));
+    slot.addEventListener("drop",event=>{event.preventDefault();slot.classList.remove("isImageDragTarget");swap(event.dataTransfer.getData("text/plain"),slot.dataset.artistImageSource)});
+  });
+}
+function artistPhotoLightboxImage(){
+  const images=Array.isArray(extras.artistPhotoLightboxImages)?extras.artistPhotoLightboxImages:[];
+  const index=Math.max(0,Math.min(Number(extras.artistPhotoLightboxIndex)||0,images.length-1));
+  return {images,index,image:images[index]||null};
+}
+function renderArtistPhotoLightbox(){
+  const modal=document.getElementById("artistPhotoLightbox");
+  if(!modal)return;
+  const {images,index,image}=artistPhotoLightboxImage();
+  if(!image){closeArtistPhotoLightbox();return}
+  extras.artistPhotoLightboxIndex=index;
+  const artistName=String(state.artistProfile?.name||"Artist").trim();
+  const author=String(image.author||"Wikimedia Commons contributor").trim();
+  const license=String(image.license||"License information unavailable").trim();
+  const dimensions=image.width&&image.height?`${Math.round(image.width).toLocaleString()} × ${Math.round(image.height).toLocaleString()} px`:"Dimensions unavailable";
+  let sourceName="image source";
+  try{if(new URL(image.sourceUrl).hostname==="commons.wikimedia.org")sourceName="Wikimedia Commons"}catch(error){}
+  const licenseMarkup=image.licenseUrl?`<a href="${escapeHtml(image.licenseUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(license)}</a>`:escapeHtml(license);
+  modal.innerHTML=`<div class="muzeArtistLightboxTopbar"><strong>${escapeHtml(artistName)}</strong><span aria-live="polite">${index+1} of ${images.length}</span><button type="button" class="muzeArtistLightboxClose" aria-label="Close photo viewer" onclick="closeArtistPhotoLightbox()">&times;</button></div><div class="muzeArtistLightboxStage"><button type="button" class="muzeArtistLightboxArrow isPrevious" aria-label="Previous photo" onclick="showArtistPhotoLightboxImage(-1)"${images.length<2?" hidden":""}>&lsaquo;</button><img src="${escapeHtml(image.url)}" alt="${escapeHtml(artistName)} photograph ${index+1} of ${images.length}"><button type="button" class="muzeArtistLightboxArrow isNext" aria-label="Next photo" onclick="showArtistPhotoLightboxImage(1)"${images.length<2?" hidden":""}>&rsaquo;</button></div><section class="muzeArtistLightboxMeta" aria-label="Photo metadata"><div><span>Artist</span><strong>${escapeHtml(artistName)}</strong></div><div><span>Photo</span><strong>${escapeHtml(author)}</strong></div><div><span>License</span><strong>${licenseMarkup}</strong></div><div><span>Image size</span><strong>${escapeHtml(dimensions)}</strong></div><a class="muzeArtistLightboxSource" href="${escapeHtml(image.sourceUrl)}" target="_blank" rel="noopener noreferrer">View original at ${escapeHtml(sourceName)} <span aria-hidden="true">&#8599;</span></a></section>`;
+  modal.querySelector(".muzeArtistLightboxClose")?.focus({preventScroll:true});
+}
+window.openArtistPhotoLightbox=function(index,trigger){
+  const images=Array.isArray(extras.artistPhotoLightboxImages)?extras.artistPhotoLightboxImages:[];
+  if(!images.length)return;
+  document.getElementById("artistPhotoLightbox")?.remove();
+  const modal=document.createElement("div");
+  modal.id="artistPhotoLightbox";
+  modal.className="muzeArtistLightbox";
+  modal.setAttribute("role","dialog");
+  modal.setAttribute("aria-modal","true");
+  modal.setAttribute("aria-label",`${state.artistProfile?.name||"Artist"} photo viewer`);
+  modal.tabIndex=-1;
+  modal._returnFocus=trigger||document.activeElement;
+  modal._previousBodyOverflow=document.body.style.overflow;
+  extras.artistPhotoLightboxIndex=Math.max(0,Math.min(Number(index)||0,images.length-1));
+  modal.addEventListener("click",event=>{if(event.target===modal)closeArtistPhotoLightbox()});
+  modal.addEventListener("keydown",event=>{
+    if(event.key==="Escape")closeArtistPhotoLightbox();
+    else if(event.key==="ArrowLeft")showArtistPhotoLightboxImage(-1);
+    else if(event.key==="ArrowRight")showArtistPhotoLightboxImage(1);
+  });
+  document.body.appendChild(modal);
+  document.body.style.overflow="hidden";
+  renderArtistPhotoLightbox();
+};
+window.closeArtistPhotoLightbox=function(){
+  const modal=document.getElementById("artistPhotoLightbox");
+  if(!modal)return;
+  document.body.style.overflow=modal._previousBodyOverflow||"";
+  const returnFocus=modal._returnFocus;
+  modal.remove();
+  if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
+};
+window.showArtistPhotoLightboxImage=function(direction){
+  const {images,index}=artistPhotoLightboxImage();
+  if(images.length<2)return;
+  extras.artistPhotoLightboxIndex=(index+(Number(direction)||0)+images.length)%images.length;
+  renderArtistPhotoLightbox();
+};
+function enableArtistPhotoRailSwipe(rail){
+  if(!rail)return;
+  let gesture=null;
+  let suppressClick=false;
+  rail.querySelectorAll(".muzeArtistImageRailCard").forEach(card=>{card.draggable=false;card.removeAttribute("draggable")});
+  rail.addEventListener("touchstart",event=>{
+    if(!window.matchMedia("(max-width: 850px)").matches||event.touches.length!==1)return;
+    const touch=event.touches[0];
+    gesture={identifier:touch.identifier,startX:touch.clientX,startY:touch.clientY,startScrollLeft:rail.scrollLeft,dragging:false};
+  },{passive:true});
+  rail.addEventListener("touchmove",event=>{
+    if(!gesture)return;
+    const touch=Array.from(event.touches).find(item=>item.identifier===gesture.identifier);
+    if(!touch)return;
+    const deltaX=touch.clientX-gesture.startX;
+    const deltaY=touch.clientY-gesture.startY;
+    if(!gesture.dragging){
+      if(Math.abs(deltaX)<8||Math.abs(deltaX)<=Math.abs(deltaY))return;
+      gesture.dragging=true;
+    }
+    if(event.cancelable)event.preventDefault();
+    rail.scrollLeft=gesture.startScrollLeft-deltaX;
+  },{passive:false});
+  const finishGesture=()=>{
+    if(!gesture)return;
+    if(gesture.dragging){
+      suppressClick=true;
+      setTimeout(()=>{suppressClick=false},350);
+    }
+    gesture=null;
+  };
+  rail.addEventListener("touchend",finishGesture,{passive:true});
+  rail.addEventListener("touchcancel",finishGesture,{passive:true});
+  rail.addEventListener("click",event=>{
+    if(!suppressClick||!event.target.closest(".muzeArtistPhotoOpen"))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    suppressClick=false;
+  },true);
+}
+function renderWikimediaArtistRail(profile,result,{excludeSourceUrl=""}={}){
+  if(artistSlugForName(state.artistProfile?.name)!==artistSlugForName(profile?.name))return;
+  const body=document.querySelector(".muzeArtistProfileBody");
+  if(!body)return;
+  const galleryResult=artistResultWithManualGallery(profile,result);
+  const rejected=new Set(artistRejectedImageUrls(profile));
+  const images=(galleryResult?.gallery||[]).filter(image=>image?.url&&(!excludeSourceUrl||image.sourceUrl!==excludeSourceUrl)&&!rejected.has(image.url)&&!rejected.has(image.sourceUrl));
+  extras.artistPhotoLightboxImages=images;
+  renderWikimediaPhotoCredits(profile,galleryResult,{heroSourceUrl:excludeSourceUrl,galleryImages:images});
+  if(!images.length){
+    body.querySelector(":scope > .muzeArtistPhotosSection")?.remove();
+    if(excludeSourceUrl){body.querySelector(":scope > .muzeArtistPortraitFrame")?.remove();body.classList.remove("hasPortrait","hasImageRail")}
+    return;
+  }
+  body.querySelector(":scope > .muzeArtistPortraitFrame")?.remove();
+  body.querySelector(":scope > .muzeArtistPhotosSection")?.remove();
+  const photosSection=document.createElement("section");
+  photosSection.className="muzeArtistPhotosSection";
+  photosSection.innerHTML='<header><p class="eyebrow">Photos</p></header>';
+  const rail=document.createElement("aside");
+  rail.className="muzeArtistImageRail";
+  rail.setAttribute("aria-label",`${profile.name} image gallery`);
+  rail.innerHTML=images.map((image,index)=>`<figure class="muzeArtistImageRailCard ${image.layout==="portrait-focus"?"isPortrait":"isLandscape"}" data-artist-image-source="${escapeHtml(image.sourceUrl)}" style="--rail-delay:${index*45}ms">${isAdminUnlocked()?`<button type="button" class="muzeArtistPhotoRemove" aria-label="Remove this photo" title="Remove this photo" onclick="event.preventDefault();event.stopPropagation();removeArtistGalleryImage(this,'${escapeJsString(image.sourceUrl)}','${escapeJsString(image.url)}')">&times;</button>`:""}<button type="button" class="muzeArtistPhotoOpen" aria-label="View ${escapeHtml(profile.name)} photo ${index+1} full size" onclick="openArtistPhotoLightbox(${index},this)"><img src="${escapeHtml(image.url)}" alt="${escapeHtml(profile.name)} Wikimedia Commons photograph ${index+1}" loading="lazy" decoding="async" draggable="false"></button></figure>`).join("");
+  const description=body.querySelector(":scope > .muzeArtistProfileDescription");
+  photosSection.appendChild(rail);
+  body.insertBefore(photosSection,description||body.firstChild);
+  body.classList.remove("hasPortrait");
+  body.classList.add("hasImageRail");
+  const fitRailToBiography=()=>{
+    const cards=[...rail.querySelectorAll(".muzeArtistImageRailCard")];
+    if(window.matchMedia("(max-width: 850px)").matches){
+      rail.style.removeProperty("--rail-image-height");
+      cards.forEach(card=>{card.hidden=false;card.style.removeProperty("top")});
+      return;
+    }
+    rail.style.setProperty("--rail-image-height","147px");
+    cards.forEach(card=>{card.hidden=false;card.style.removeProperty("top")});
+  };
+  requestAnimationFrame(fitRailToBiography);
+  rail.querySelectorAll("img").forEach(image=>image.addEventListener("load",fitRailToBiography,{once:true}));
+  enableArtistImageOrdering(profile,galleryResult,excludeSourceUrl);
+  enableArtistPhotoRailSwipe(rail);
+}
+window.removeArtistGalleryImage=async function(button,sourceUrl,imageUrl){
+  if(!isAdminUnlocked()||!state.artistProfile)return;
+  if(!confirm("Remove this photo from this artist's Photos section?"))return;
+  button.disabled=true;
+  try{
+    const result=await adminOverviewRequest({action:"reject_artist_gallery_image",artist_id:state.artistProfile.id,slug:state.artistProfile.slug,source_url:sourceUrl,image_url:imageUrl});
+    if(!result?.ok)throw new Error("The photo could not be removed.");
+    state.artistProfile={...state.artistProfile,...result.row};
+    localStorage.setItem(artistImageOrderKey(state.artistProfile),JSON.stringify(savedArtistImageOrder(state.artistProfile).filter(source=>source!==sourceUrl)));
+    render();
+  }catch(error){button.disabled=false;alert(error.message||"The photo could not be removed.")}
+};
+async function loadArtistProfileBackground(profile){
+  const manual=manualArtistBackgroundUrl(profile);
+  const hasPinnedWikimediaHero=normalizeAlbumName(profile?.name||profile?.artist||"")==="the beatles";
+  if(manual&&!hasPinnedWikimediaHero)applyArtistProfileBackground(profile,{url:manual});
+  const rawResult=await getWikimediaArtistHero(profile);
+  const result=rawResult?orderWikimediaArtistImages(profile,artistResultWithManualGallery(profile,rawResult)):null;
+  if(result?.url){
+    const useWikimediaAsHero=savedArtistImageOrder(profile).length>0||!manual||hasPinnedWikimediaHero;
+    if(useWikimediaAsHero)applyArtistProfileBackground(profile,result,result);
+    renderWikimediaArtistRail(profile,result,{excludeSourceUrl:useWikimediaAsHero?result.sourceUrl:""});
+    return;
+  }
+  if(artistManualGalleryImage(profile)){renderWikimediaArtistRail(profile,{gallery:[artistManualGalleryImage(profile)]});return}
+  if(manual&&!document.querySelector(".muzeArtistProfileHero.hasArtistBackground"))applyArtistProfileBackground(profile,{url:manual});
+}
+const artistCutoutFrameRequests=new Map();
+function inspectArtistCutoutFrame(url){
+  if(artistCutoutFrameRequests.has(url))return artistCutoutFrameRequests.get(url);
+  const request=new Promise(resolve=>{
+    const image=new Image();
+    const finish=value=>{clearTimeout(timer);image.onload=null;image.onerror=null;resolve(value)};
+    const timer=setTimeout(()=>finish(null),6000);
+    image.onload=()=>{
+      try{
+        const sampleSize=128;
+        const ratio=Math.min(1,sampleSize/Math.max(image.naturalWidth,image.naturalHeight));
+        const width=Math.max(1,Math.round(image.naturalWidth*ratio));
+        const height=Math.max(1,Math.round(image.naturalHeight*ratio));
+        const canvas=document.createElement("canvas");
+        canvas.width=width;canvas.height=height;
+        const context=canvas.getContext("2d",{willReadFrequently:true});
+        context.drawImage(image,0,0,width,height);
+        const pixels=context.getImageData(0,0,width,height).data;
+        let top=height,bottom=-1;
+        for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(pixels[(y*width+x)*4+3]>=24){top=Math.min(top,y);bottom=Math.max(bottom,y)}
+        finish(bottom>=top?{top:top/height,bottom:(bottom+1)/height,visibleHeight:(bottom-top+1)/height}:null);
+      }catch(error){finish(null)}
+    };
+    image.onerror=()=>finish(null);
+    image.src=`/.netlify/functions/theaudiodb-image?url=${encodeURIComponent(url)}`;
+  });
+  artistCutoutFrameRequests.set(url,request);
+  return request;
+}
+async function normalizeMostLovedArtistCutout(album,artwork){
+  if(artwork.cutoutKind!=="cutout"||artwork.cutoutScale)return;
+  const frame=await inspectArtistCutoutFrame(artwork.cutout);
+  if(!frame||albumRef(extras.currentAlbumId)!==albumRef(album.id))return;
+  const scale=Math.max(90,Math.min(120,Math.round(88/Math.max(.01,frame.visibleHeight))));
+  const top=Math.round((.06-frame.top*(scale/100))*250);
+  const stored=extras.albumArtistBackgrounds[albumRef(album.id)];
+  if(!stored||stored.cutout!==artwork.cutout)return;
+  stored.cutoutScale=`${scale}%`;
+  stored.cutoutY=`${top}px`;
+  applyMostLovedArtistCutout(album,document.querySelector("#albumModal")||document);
+}
+function applyMostLovedArtistCutout(album,root=document){
+  if(window.matchMedia?.("(max-width: 1050px)")?.matches)return;
+  const artwork=extras.albumArtistBackgrounds[albumRef(album?.id)]||{};
+  const cutout=String(artwork.cutout||"").trim();
+  if(!cutout)return;
+  const cssCutout=`url("${cutout.replace(/["\\]/g,"\\$&")}")`;
+  root.querySelectorAll?.(".trackJourneyHeart").forEach(node=>{
+    node.style.setProperty("--artist-cutout",cssCutout);
+    node.style.setProperty("--artist-cutout-scale",artwork.cutoutScale||"96%");
+    node.style.setProperty("--artist-cutout-position",artwork.cutoutPosition||"37.5%");
+    node.style.setProperty("--artist-cutout-y",artwork.cutoutY||"bottom");
+    node.classList.add("hasArtistCutout");
+    node.classList.toggle("hasArtistFanart",artwork.cutoutKind==="fanart");
+    if(artwork.source==="theaudiodb")revealMostLovedTheAudioDbCredit(node,artwork.sourceUrl,artwork.license);
+  });
+}
+function mostLovedArtistArtwork(album,result){
+  const artist=normalizeOverviewTitle(album?.artist);
+  const title=normalizeOverviewTitle(clientCleanAlbumTitle(album?.title));
+  const year=Number.parseInt(String(album?.year||""),10);
+  const licensedFanart=Array.isArray(result?.images?.fanart)?result.images.fanart:[];
+  const lateBeatlesFanart="https://r2.theaudiodb.com/images/media/artist/fanart/wwvtpp1341917310.jpg";
+  if((artist==="the beatles"||artist==="beatles")&&Number.isFinite(year)&&year>1966){
+    return licensedFanart.includes(lateBeatlesFanart)?{cutout:lateBeatlesFanart,cutoutKind:"fanart"}:{cutout:"",cutoutKind:""};
+  }
+  if(artist==="michael jackson"){
+    if(title==="bad"||title.startsWith("bad "))return {cutout:String(result?.images?.cutout||"").trim(),cutoutKind:"cutout",cutoutScale:"100%"};
+    if(title==="thriller"||title.startsWith("thriller ")){
+      const thrillerFanart="https://r2.theaudiodb.com/images/media/artist/fanart/yrxpsy1353880535.jpg";
+      return licensedFanart.includes(thrillerFanart)?{cutout:thrillerFanart,cutoutKind:"fanart"}:{cutout:"",cutoutKind:""};
+    }
+    return {cutout:"",cutoutKind:""};
+  }
+  return {cutout:String(result?.images?.cutout||"").trim(),cutoutKind:"cutout"};
+}
+async function loadAlbumArtistBackground(album){
+  if(!album?.id)return;
+  const result=await getArtistBackgroundImages({name:album.artist,artist:album.artist,musicbrainz_id:artistMusicBrainzId(album)});
+  if(albumRef(extras.currentAlbumId)!==albumRef(album.id))return;
+  const artwork=mostLovedArtistArtwork(album,result);
+  const cutout=artwork.cutout;
+  if(cutout){
+    extras.albumArtistBackgrounds[albumRef(album.id)]={...(extras.albumArtistBackgrounds[albumRef(album.id)]||{}),...artwork,source:"theaudiodb",sourceUrl:result.sourceUrl,license:result.license};
+    applyMostLovedArtistCutout(album,document.querySelector("#albumModal")||document);
+    void normalizeMostLovedArtistCutout(album,artwork);
+  }
+  if(albumOverviewRow(album).hero_image)return;
+  const selection=await selectArtistBackgroundImage(result);
+  if(!selection||albumRef(extras.currentAlbumId)!==albumRef(album.id)||albumOverviewRow(album).hero_image)return;
+  extras.albumArtistBackgrounds[albumRef(album.id)]={...(extras.albumArtistBackgrounds[albumRef(album.id)]||{}),...selection,source:"theaudiodb",sourceUrl:result.sourceUrl,license:result.license};
+  const cssUrl=`url("${String(selection.url).replace(/["\\]/g,"\\$&")}")`;
+  document.querySelectorAll("#albumModal .linerAlbumPage,#albumModal .linerHero,#albumModal .trackJourneyHeart").forEach(node=>node.style.setProperty("--hero-scene",cssUrl));
+  revealMostLovedTheAudioDbCredit(document.querySelector("#albumModal")||document,result.sourceUrl,result.license);
+}
 function albumHeroSceneImage(album){
   const saved=albumOverviewRow(album);
-  return saved.hero_image||albumSceneMatch(album)?.hero||album.cover_url||"";
+  return saved.hero_image||extras.albumArtistBackgrounds[albumRef(album.id)]?.url||albumSceneMatch(album)?.hero||album.cover_url||"";
 }
 function albumMomentImage(album){
   const saved=albumOverviewRow(album);
@@ -11656,7 +12443,6 @@ function artistProfilePortraitSource(profile){
   const rejected=artistRejectedImageUrls(profile);
   const approved=artistProfileApprovedPortraits(state.artistProfilePortraits||[],rejected);
   const exact=approved.find(row=>normalizeAlbumName(row.person_name)===normalizeAlbumName(profile.name));
-  if(profile.image_url&&normalizeAlbumName(profile.name)!=="prince"&&!rejected.includes(String(profile.image_url||"").trim()))return {type:"profile",image_url:String(profile.image_url||""),portraits:[],credit:profile};
   if(exact)return {type:"credit",image_url:String(exact.image_url||""),portraits:[exact]};
   const portraits=exact?[exact]:approved.slice(0,4);
   if(!portraits.length||(!exact&&portraits.length<2))return null;
@@ -11787,24 +12573,25 @@ function artistBioSourcesMarkup(value){
 function artistAdminEditor(profile){
   if(!isAdminUnlocked()||!state.artistEditing)return "";
   const sources=state.artistBioDraftSources.length?state.artistBioDraftSources:artistBioSources(profile.bio_sources);
-  const imageSource=artistProfilePortraitSource(profile);
-  const imageActions=imageSource?.image_url?`<div class="muzeArtistImageTools"><button type="button" onclick="rejectArtistProfileImage()">Reject current image</button><span id="artistImageStatus">Looks for the next approved linked portrait.</span></div>`:`<div class="muzeArtistImageTools"><span id="artistImageStatus">No artist image is active.</span></div>`;
-  return `<section class="muzeArtistAdmin"><header><div><span>Admin editing</span><h2>Edit artist</h2></div><button type="button" onclick="cancelArtistEdit()">Cancel</button></header><div class="muzeArtistAdminGrid">${artistEditField("artistEditName","Artist name",profile.name)}<div class="muzeArtistImageField">${artistEditField("artistEditImage","Artist image URL",profile.image_url)}${imageActions}</div>${artistEditField("artistEditCountry","Country",profile.country)}${artistEditField("artistEditType","Artist type",profile.artist_type)}${artistEditField("artistEditGenres","Genres (comma separated)",(profile.genres||[]).join(", "))}<div class="muzeArtistImageCreditFields">${artistEditField("artistImageSource","Image source page URL",profile.image_source_url,"url")}${artistEditField("artistImageAuthor","Image author / credit",profile.image_author)}${artistEditField("artistImageLicense","Image license",profile.image_license)}${artistEditField("artistImageLicenseUrl","Image license URL",profile.image_license_url,"url")}${artistEditField("artistImageAttribution","Image attribution text",profile.image_attribution)}</div>${artistEditField("artistEditFormed","Formed year",profile.formed_year,"number")}${artistEditField("artistEditDisbanded","Disbanded year",profile.disbanded_year,"number")}${artistEditField("artistEditBirth","Birth date",profile.birth_date,"date")}${artistEditField("artistEditDeath","Death date",profile.death_date,"date")}<div class="muzeArtistAdminBio">${artistEditField("artistEditBio","Muze biography",profile.bio,"textarea")}<div class="muzeArtistBioTools"><button id="artistBioDraftButton" type="button" onclick="generateArtistBioDraft()">Generate Bio Draft</button><span id="artistBioDraftStatus">Researches structured facts and returns an unpublished draft.</span></div><div class="muzeArtistBioSources"><strong>Sources consulted</strong><div id="artistBioSourcesList">${artistBioSourcesMarkup(sources)}</div></div></div></div><button class="muzeArtistAdminSave" type="button" onclick="saveArtistProfile()">Save artist</button></section>`
+  const imageActions=profile.image_url?`<div class="muzeArtistImageTools"><button type="button" onclick="clearArtistManualGalleryPhoto()">Remove gallery photo</button><span id="artistImageStatus">This photo appears in the gallery and does not replace the hero.</span></div>`:`<div class="muzeArtistImageTools"><span id="artistImageStatus">Add an HTTPS image and its credit details to the photo gallery.</span></div>`;
+  return `<section class="muzeArtistAdmin"><header><div><span>Admin editing</span><h2>Edit artist</h2></div><button type="button" onclick="cancelArtistEdit()">Cancel</button></header><div class="muzeArtistAdminGrid">${artistEditField("artistEditName","Artist name",profile.name)}<div class="muzeArtistImageField">${artistEditField("artistEditImage","Gallery photo URL",profile.image_url,"url")}${imageActions}</div>${artistEditField("artistEditCountry","Country",profile.country)}${artistEditField("artistEditType","Artist type",profile.artist_type)}${artistEditField("artistEditGenres","Genres (comma separated)",(profile.genres||[]).join(", "))}<div class="muzeArtistImageCreditFields">${artistEditField("artistImageSource","Image source page URL",profile.image_source_url,"url")}${artistEditField("artistImageAuthor","Image author / credit",profile.image_author)}${artistEditField("artistImageLicense","Image license",profile.image_license)}${artistEditField("artistImageLicenseUrl","Image license URL",profile.image_license_url,"url")}${artistEditField("artistImageAttribution","Image attribution text",profile.image_attribution)}</div>${artistEditField("artistEditFormed","Formed year",profile.formed_year,"number")}${artistEditField("artistEditDisbanded","Disbanded year",profile.disbanded_year,"number")}${artistEditField("artistEditBirth","Birth date",profile.birth_date,"date")}${artistEditField("artistEditDeath","Death date",profile.death_date,"date")}<div class="muzeArtistAdminBio">${artistEditField("artistEditBio","Muze biography",profile.bio,"textarea")}<div class="muzeArtistBioTools"><button id="artistBioDraftButton" type="button" onclick="generateArtistBioDraft()">Generate Bio Draft</button><span id="artistBioDraftStatus">Researches structured facts and returns an unpublished draft.</span></div><div class="muzeArtistBioSources"><strong>Sources consulted</strong><div id="artistBioSourcesList">${artistBioSourcesMarkup(sources)}</div></div></div></div><button class="muzeArtistAdminSave" type="button" onclick="saveArtistProfile()">Save artist</button></section>`
 }
+window.clearArtistManualGalleryPhoto=function(){["#artistEditImage","#artistImageSource","#artistImageAuthor","#artistImageLicense","#artistImageLicenseUrl","#artistImageAttribution"].forEach(id=>{const input=$(id);if(input)input.value=""});const status=$("#artistImageStatus");if(status)status.textContent="Save artist to remove this photo from the gallery."};
 function artistProfilePage(){
   if(state.artistProfileLoading)return `<section class="muzeArtistState"><span class="muzeArtistLoader" aria-hidden="true"></span><h2>Loading artist</h2></section>`;
   const profile=state.artistProfile;
   if(!profile)return `<section class="muzeArtistState"><p class="eyebrow">Muze artists</p><h2>Artist not found</h2><p>${escapeHtml(state.artistProfileError||"This artist does not have a Muze page yet.")}</p><button onclick="navigateToView('artists')">Back to Muze artists</button></section>`;
   const albums=dedupeArtistDiscography(state.artistProfileAlbums||[]).sort((a,b)=>(Number(b.year)||0)-(Number(a.year)||0)||String(a.title||"").localeCompare(String(b.title||"")));
   const meta=artistProfileMeta(profile);
-  const image=artistProfilePortraitMarkup(profile);
   const adminButton=isAdminUnlocked()?`<button class="muzeArtistEditButton" onclick="editArtistProfile()">Edit Artist</button>`:"";
   const activeRange=profile.formed_year?`${profile.formed_year} - ${profile.disbanded_year||"Present"}`:"";
   const heroMeta=[profile.country,(profile.genres||[])[0],activeRange?`Active ${activeRange}`:""].filter(Boolean);
   const hasBiography=Boolean(String(profile.bio||"").trim());
   const biography=hasBiography?artistBiographyMarkup(profile.bio):`<p class="muzeArtistHeroBioEmpty">No Muze biography has been written yet.</p>`;
   const contributionAction=!hasBiography?`<button type="button" class="artist-bio-contribute" onclick="openArtistBioContribution()"><span aria-hidden="true">&#10022;</span> Write Artist Bio</button>`:"";
-  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero${image?" hasPortrait":" noPortrait"}">${image}<div class="muzeArtistHeroCopy"><p class="eyebrow">Artist</p><h1>${escapeHtml(profile.name)}</h1>${heroMeta.length?`<p class="muzeArtistHeroMeta">${heroMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:meta.length?`<p class="muzeArtistHeroMeta">${meta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i>${biography}${contributionAction}${adminButton}</div></section>${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"}</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
+  const identityMeta=heroMeta.length?heroMeta:meta;
+  const portrait=artistProfilePortraitMarkup(profile);
+  return `<div class="muzeArtistPage"><section class="muzeArtistProfileHero noPortrait"><div class="muzeArtistHeroCopy"><p class="eyebrow">Artist</p><h1>${escapeHtml(profile.name)}</h1>${identityMeta.length?`<p class="muzeArtistHeroMeta">${identityMeta.map(escapeHtml).join(" <b>&middot;</b> ")}</p>`:""}<i aria-hidden="true"></i></div></section><section class="muzeArtistProfileBody${portrait?" hasPortrait":""}">${portrait}<div class="muzeArtistProfileDescription">${biography}${contributionAction}${adminButton}</div></section>${artistAdminEditor(profile)}<section class="muzeArtistDiscography"><header><div><p class="eyebrow">Discography</p><h2>Albums</h2></div><span>${albums.length} album${albums.length===1?"":"s"}</span></header><div class="muzeArtistAlbumGrid">${albums.length?artistDiscographyCards(albums):'<div class="muzeArtistNoAlbums">No Muze albums are linked to this artist yet.</div>'}</div></section></div>`
 }
 window.closeArtistBioContribution=function(){document.getElementById("artistBioContributionModal")?.remove()};
 window.openArtistBioContribution=async function(){
@@ -11877,8 +12664,10 @@ async function loadArtistProfile(slug){
             overviewResult.data.forEach(row=>{if(row?.album_key)extras.overviews[row.album_key]=row});
             indexOverviewRows();
           }
-          const portraitsResult=await artistDb.from("album_credits").select("album_id,person_name,person_wikidata_id,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_status,image_approved,credit_type,role,sort_order").in("album_id",ids).eq("credit_type","performer").eq("image_approved",true).not("image_url","is",null);
+          const portraitsResult=await artistDb.from("album_credits").select("album_id,person_id,person_name,person_wikidata_id,image_url,image_source_url,image_author,image_license,image_license_url,image_attribution,image_status,image_approved,credit_type,role,sort_order").in("album_id",ids).eq("credit_type","performer").eq("image_approved",true).not("image_url","is",null);
           if(!portraitsResult.error)state.artistProfilePortraits=portraitsResult.data||[];
+          const identitiesResult=await artistDb.from("album_credits").select("album_id,person_id,person_name,credit_type,role,sort_order").in("album_id",ids).eq("credit_type","performer");
+          if(!identitiesResult.error)state.artistProfilePortraits=[...state.artistProfilePortraits,...(identitiesResult.data||[])];
         }
       }
     }catch(error){
@@ -12010,12 +12799,8 @@ window.saveArtistProfile=async function(){
   const value=id=>String($(id)?.value||"").trim();
   const imageFields={image_url:value("#artistEditImage"),image_source_url:value("#artistImageSource"),image_author:value("#artistImageAuthor"),image_license:value("#artistImageLicense"),image_license_url:value("#artistImageLicenseUrl"),image_attribution:value("#artistImageAttribution")};
   const rejectedImages=new Set(artistRejectedImageUrls(state.artistProfile));
-  if(Object.values(imageFields).every(field=>!field)){
-    [state.artistProfile.image_url,state.artistProfile.image_source_url,...(state.artistProfilePortraits||[]).flatMap(row=>[row.image_url,row.image_source_url])].map(item=>String(item||"").trim()).filter(Boolean).forEach(item=>rejectedImages.add(item));
-  }else{
-    if(imageFields.image_url)rejectedImages.delete(imageFields.image_url);
-    if(imageFields.image_source_url)rejectedImages.delete(imageFields.image_source_url);
-  }
+  if(imageFields.image_url)rejectedImages.delete(imageFields.image_url);
+  if(imageFields.image_source_url)rejectedImages.delete(imageFields.image_source_url);
   const payload={action:"save_artist",slug:state.artistProfile.slug,name:value("#artistEditName"),...imageFields,image_rejected_urls:[...rejectedImages],country:value("#artistEditCountry"),artist_type:value("#artistEditType"),genres:value("#artistEditGenres").split(",").map(item=>item.trim()).filter(Boolean),formed_year:value("#artistEditFormed"),disbanded_year:value("#artistEditDisbanded"),birth_date:value("#artistEditBirth"),death_date:value("#artistEditDeath"),bio:value("#artistEditBio"),bio_sources:state.artistBioDraftSources.length?state.artistBioDraftSources:artistBioSources(state.artistProfile.bio_sources),bio_generated_at:state.artistBioDraftedAt||state.artistProfile.bio_generated_at||null,bio_generation_model:state.artistBioDraftModel||state.artistProfile.bio_generation_model||""};
   const result=await adminOverviewRequest(payload);if(!result?.ok)return;
   if((result.stripped_columns||[]).some(column=>column.startsWith("bio_")))alert("The biography was saved, but its research provenance could not be stored because the live artists table needs supabase/migrations/202608150002_artist_biography_sources.sql.");
@@ -12152,7 +12937,7 @@ async function loadAlbumForRoute(id){
   }catch(error){console.warn("[Muze routes] Album route lookup failed",error)}
   return null;
 }
-function albumOpenRequest(promise,fallback,label,timeoutMs=4000){
+function albumOpenRequest(promise,fallback,label,timeoutMs=900){
   let timer=0;
   const timeout=new Promise(resolve=>{
     timer=setTimeout(()=>{
@@ -12166,15 +12951,45 @@ function albumOpenRequest(promise,fallback,label,timeoutMs=4000){
   });
   return Promise.race([guarded,timeout]).finally(()=>clearTimeout(timer));
 }
+function syncAlbumPageHeaderHeight(){
+  if(!document.body.classList.contains("albumPageView"))return;
+  const topbar=document.querySelector(".app>.topbar");
+  if(!topbar)return;
+  document.body.style.setProperty("--album-page-header-height",`${Math.ceil(topbar.getBoundingClientRect().bottom)}px`);
+}
+function setAlbumPageMode(active){
+  const albumModal=$("#albumModal");
+  const desktopActive=Boolean(active)&&window.matchMedia("(min-width: 851px)").matches;
+  const appShell=document.querySelector(".app");
+  const topbar=appShell?.querySelector(":scope>.topbar");
+  const sideNav=appShell?.querySelector(":scope>#sideNav");
+  const navOverlay=appShell?.querySelector(":scope>#navOverlay");
+  const albumPageControls=new Set([topbar,sideNav,navOverlay].filter(Boolean));
+  const backgroundSections=appShell?[...appShell.children].filter(section=>!albumPageControls.has(section)):[];
+  albumModal?.classList.toggle("albumPageMode",desktopActive);
+  document.body.classList.toggle("albumPageView",desktopActive);
+  if(desktopActive){
+    backgroundSections.forEach(section=>{section.inert=true;section.setAttribute("aria-hidden","true")});
+    albumModal?.setAttribute("role","main");
+    albumModal?.setAttribute("aria-label","Album page");
+    requestAnimationFrame(syncAlbumPageHeaderHeight);
+  }else{
+    backgroundSections.forEach(section=>{section.inert=false;section.removeAttribute("aria-hidden")});
+    document.body.style.removeProperty("--album-page-header-height");
+    albumModal?.removeAttribute("role");
+    albumModal?.removeAttribute("aria-label");
+  }
+}
 window.openAlbum=async function(id,routeOptions={}){
   const albumModal=$("#albumModal");
   const albumModalContent=$("#albumModalContent");
   if(albumModalContent)delete albumModalContent.dataset.openError;
   albumModal?.classList.remove("libraryDetailModal");
+  setAlbumPageMode(true);
   try{
     let a=state.albums.find(x=>String(x.id)===String(id))||(String(state.homeTopAlbum?.id||"")===String(id)?state.homeTopAlbum:null);
     if(!a)a=await albumOpenRequest(loadAlbumForRoute(id),null,"album route",5000);
-    if(!a)return;
+    if(!a){setAlbumPageMode(false);return}
     if(routeOptions.route!==false)writeAlbumRoute(a,routeOptions);
   const verifiedYear=albumReleaseYear(a);
   if(verifiedYear&&Number(a.year)!==Number(verifiedYear))a={...a,year:verifiedYear};
@@ -12184,7 +12999,7 @@ window.openAlbum=async function(id,routeOptions={}){
     albumOpenRequest(loadCommunityAlbumReview(a),{approved:null,pending:null,adminQueue:[]},"listener review")
   ]);
   a=detail||a;
-  await albumOpenRequest(fetchAlbumMoodScore(a),null,"mood score");
+  albumOpenRequest(fetchAlbumMoodScore(a),null,"mood score",900);
   extras.currentAlbumId=albumRef(a.id);
   const albumScore=displayScore(a);
   const total=count(a).toLocaleString();
@@ -12324,6 +13139,7 @@ window.openAlbum=async function(id,routeOptions={}){
   applyAlbumPerimeterContrast($("#albumModal"),albumCoverUrl(a),a);
   $("#albumModal").classList.remove("hidden");
   applyBackCoverHero(a);
+  loadAlbumArtistBackground(a);
   requestAnimationFrame(()=>{updateAlbumSeeMorePlacement();syncAlbumHeroDescriptionToggle()});
   setTimeout(()=>{updateAlbumSeeMorePlacement();syncAlbumHeroDescriptionToggle()},180);
   const cachedAlbumInfo=extras.albumInfo[albumRef(a.id)];
@@ -12432,7 +13248,7 @@ window.deleteAlbum=async function(albumId){
     Object.keys(trackComments).forEach(key=>{if(key.startsWith(ref+"::"))delete trackComments[key]});
     saveLocalTrackComments(trackComments);
   }
-  stopTrackPreview();$("#albumModal").classList.add("hidden");
+  stopTrackPreview();$("#albumModal").classList.add("hidden");setAlbumPageMode(false);
   await loadData();
   navigateToView("rankings",{replace:true,path:"/"});
   refreshNotifications();
@@ -12869,20 +13685,25 @@ window.addSpotifyAlbum=async function(a,button){
     delete extras.spotifyAddLocks[lockKey];
   }
 };
-function openNav(){$("#sideNav").classList.add("open");$("#navOverlay").classList.remove("hidden")}function closeNav(){$("#sideNav").classList.remove("open");$("#navOverlay").classList.add("hidden")}
+function openNav(){const drawer=$("#sideNav"),overlay=$("#navOverlay"),trigger=$("#menuBtn");drawer?.classList.add("open");overlay?.classList.remove("hidden");trigger?.setAttribute("aria-expanded","true")}function closeNav(){const drawer=$("#sideNav"),overlay=$("#navOverlay"),trigger=$("#menuBtn");drawer?.classList.remove("open");overlay?.classList.add("hidden");trigger?.setAttribute("aria-expanded","false");hideDrawerMuzeSearchResults()}
 function closeTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");if(panel){panel.classList.remove("keyboardOpen");panel.classList.add("hidden")}if(button&&!document.body.classList.contains("chatView")){button.classList.remove("active");button.setAttribute("aria-expanded","false")}}
 async function openTopbarChat(){const panel=$("#topbarChatPanel");const button=$("#topbarChatButton");const panelContent=$("#topbarChatContent");if(!panel||!panelContent)return;$("#notificationPanel")?.classList.add("hidden");panel.classList.remove("hidden");installMobileChatViewportSync();syncMobileChatViewport();if(button){button.classList.add("active");button.setAttribute("aria-expanded","true")}try{await Promise.all([loadLibraries(),loadChatMessages(),loadChatSelfStats(),loadUserPresence()])}catch(error){console.warn("Unable to refresh chat people",error)}chatView(panelContent);closeNav()}
 function toggleTopbarChat(){const panel=$("#topbarChatPanel");if(panel&&!panel.classList.contains("hidden"))closeTopbarChat();else openTopbarChat()}
-updateNavUsername();$("#topbarChatButton").onclick=e=>{e.stopPropagation();toggleTopbarChat()};$("#topbarChatPanel").onclick=e=>{if(e.target&&e.target.id==="topbarChatPanel")closeTopbarChat();else e.stopPropagation()};$("#notificationBell").onclick=async e=>{e.stopPropagation();closeTopbarChat();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadNotificationCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));await markNotificationsRead();renderNotifications()}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>{$("#notificationPanel")?.classList.add("hidden");closeTopbarChat()});$("#navSetUsername").onclick=openNavProfileMenu;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;$("#closeNav").onclick=closeNav;$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");$("#navAddAlbum").onclick=()=>{openSpotifyAdd("musica");closeNav()};$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authGoogleLogin").onclick=()=>startOAuthSignup("google");$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueGoogleSignup").onclick=()=>startOAuthSignup("google");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=handleAvatarPhotoSelected;const saveUsernameButton=$("#saveUsernameButton");if(saveUsernameButton){saveUsernameButton.onclick=handleSaveUsernameAction;saveUsernameButton.addEventListener("pointerup",handleSaveUsernameAction);saveUsernameButton.addEventListener("touchend",handleSaveUsernameAction,{passive:false})}$("#profileUsernameInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")handleSaveUsernameAction(e)});avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};const saveAvatarButton=$("#saveAvatarButton");if(saveAvatarButton){saveAvatarButton.onclick=handleSaveAvatarAction;saveAvatarButton.addEventListener("pointerup",handleSaveAvatarAction);saveAvatarButton.addEventListener("touchend",handleSaveAvatarAction,{passive:false})}$("#skipAvatarButton").onclick=hideAvatarSetup;
+updateNavUsername();$("#topbarChatButton").onclick=e=>{e.stopPropagation();toggleTopbarChat()};$("#topbarChatPanel").onclick=e=>{if(e.target&&e.target.id==="topbarChatPanel")closeTopbarChat();else e.stopPropagation()};$("#notificationBell").onclick=async e=>{e.stopPropagation();closeTopbarChat();const panel=$("#notificationPanel");panel.classList.toggle("hidden");await refreshNotifications();if(panel&&!panel.classList.contains("hidden")&&unreadNotificationCount()>0){const library=myPublishedLibrary();localStorage.setItem(followerSeenKey(),String(Number(library?.followers_count||0)));await markNotificationsRead();renderNotifications()}};$("#notificationPanel").onclick=e=>e.stopPropagation();document.addEventListener("click",()=>{$("#notificationPanel")?.classList.add("hidden");closeTopbarChat()});$("#navSetUsername").onclick=openNavProfileMenu;$("#adminOverviewUnlock").onclick=unlockOverviewAdmin;syncAdminUnlockButton();$("#menuBtn").onclick=openNav;const drawerCloseButton=$("#closeNav");if(drawerCloseButton)drawerCloseButton.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();closeNav()});$("#navOverlay").onclick=closeNav;$("#addAlbumBtn").onclick=()=>openSpotifyAdd("musica");const drawerMuzeSearchForm=$("#drawerMuzeSearchForm"),drawerMuzeSearchInput=$("#drawerMuzeSearchInput");if(drawerMuzeSearchForm)drawerMuzeSearchForm.addEventListener("submit",submitDrawerMuzeSearch);if(drawerMuzeSearchInput){drawerMuzeSearchInput.addEventListener("input",scheduleDrawerMuzeSearchResults);drawerMuzeSearchInput.addEventListener("focus",scheduleDrawerMuzeSearchResults);drawerMuzeSearchInput.addEventListener("keydown",event=>{if(event.key==="Escape")hideDrawerMuzeSearchResults()})}$("#spotifySearchBtn").onclick=searchSpotify;$("#spotifyQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchSpotify()});$("#authButton").onclick=()=>openAuthModal(loggedInUser()?"Manage your Muze session.":"Log in to join the conversation.");$("#authLoginMode").onclick=()=>showAuthEmailForm("login");$("#authSignupMode").onclick=()=>showAuthEmailForm("signup");$("#libraryAccessLogin").onclick=()=>showLibraryAccessAuthForm("login");$("#libraryAccessSignup").onclick=()=>showLibraryAccessAuthForm("signup");$("#authEmailContinue").onclick=continueAuthEmail;$("#authSpotifyLogin").onclick=()=>startOAuthSignup("spotify");$("#authFacebookLogin").onclick=()=>startOAuthSignup("facebook");$("#continueEmailSignup").onclick=()=>showAuthEmailForm("signup");$("#continueSpotifySignup").onclick=()=>startOAuthSignup("spotify");$("#continueFacebookSignup").onclick=()=>startOAuthSignup("facebook");$("#authForm").onsubmit=submitAuth;$("#authLogout").onclick=logoutAuth;$("#editAvatarButton").onclick=()=>showAvatarSetup(true);$("#avatarEditorBack").onclick=hideAvatarSetup;$("#avatarEditReveal").onclick=openAvatarEditControls;$("#avatarUploadTab").onclick=()=>setAvatarMode("upload");$("#avatarCreateTab").onclick=()=>setAvatarMode("create");document.querySelectorAll(".avatarStyleChoice").forEach(button=>button.onclick=()=>applyAvatarStyle(button.dataset.avatarStyle||"editorial"));document.querySelectorAll(".avatarColorChoice").forEach(button=>button.onclick=()=>applyAvatarSkin(button.dataset.avatarSkin||"#c98f63"));$("#avatarPhotoInput").onchange=handleAvatarPhotoSelected;const saveUsernameButton=$("#saveUsernameButton");if(saveUsernameButton){saveUsernameButton.onclick=handleSaveUsernameAction;saveUsernameButton.addEventListener("pointerup",handleSaveUsernameAction);saveUsernameButton.addEventListener("touchend",handleSaveUsernameAction,{passive:false})}$("#profileUsernameInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")handleSaveUsernameAction(e)});avatarControlFields().forEach(([id])=>{$("#"+id)?.addEventListener("input",()=>{state.avatarConfig=readAvatarControls();syncAvatarControls()})});if($("#randomizeAvatarButton"))$("#randomizeAvatarButton").onclick=()=>applyAvatarConfig(randomAvatarConfig());if($("#saveFavoriteAvatarButton"))$("#saveFavoriteAvatarButton").onclick=()=>{localStorage.setItem("muzeFavoriteAvatarConfig",JSON.stringify(readAvatarControls()));setAuthStatus("Favorite avatar look saved.","success")};if($("#loadFavoriteAvatarButton"))$("#loadFavoriteAvatarButton").onclick=()=>{try{const saved=JSON.parse(localStorage.getItem("muzeFavoriteAvatarConfig")||"null");if(saved)applyAvatarConfig(saved);else setAuthStatus("No favorite avatar look saved yet.","error")}catch(e){setAuthStatus("Favorite avatar look could not be loaded.","error")}};const saveAvatarButton=$("#saveAvatarButton");if(saveAvatarButton){saveAvatarButton.onclick=handleSaveAvatarAction;saveAvatarButton.addEventListener("pointerup",handleSaveAvatarAction);saveAvatarButton.addEventListener("touchend",handleSaveAvatarAction,{passive:false})}$("#skipAvatarButton").onclick=hideAvatarSetup;
+$("#authSpotifyLogin").onclick=()=>startOAuthSignup("apple");
+$("#continueSpotifySignup").onclick=()=>startOAuthSignup("apple");
+$("#authGoogleLogin").onclick=startGoogleCodeAuth;
+$("#continueGoogleSignup").onclick=startGoogleCodeAuth;
 if($("#avatarCategoryToggle"))$("#avatarCategoryToggle").onclick=toggleAvatarCategoryMenu;
 document.querySelectorAll("#avatarCategoryMenu [data-avatar-category]").forEach(button=>button.onclick=()=>setAvatarCategory(button.dataset.avatarCategory||"face"));
 document.addEventListener("click",e=>{if(!e.target.closest(".avatarCategoryDropdown")){$("#avatarCategoryMenu")?.classList.add("hidden");$("#avatarCategoryToggle")?.setAttribute("aria-expanded","false")}});
 document.querySelectorAll("[data-avatar-type]").forEach(button=>button.onclick=()=>applyAvatarType(button.dataset.avatarType||"androgynous"));
 $("#avatarType")?.addEventListener("change",e=>applyAvatarType(e.target.value));
 $("#spotifyPremiumConnect")?.addEventListener("click",startSpotifyPremiumAuth);
+$("#signedOutSpotifyConnect")?.addEventListener("click",startSpotifyPremiumAuth);
 $("#authLogout")?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();logoutAuth()});
 function closeAlbumPopup(options={}){
-  stopTrackPreview();stopSongScoreRealtime();$("#albumModal").classList.add("hidden");
+  stopTrackPreview();stopSongScoreRealtime();$("#albumModal").classList.add("hidden");setAlbumPageMode(false);
   const restoreRoute=options?.restoreRoute!==false;
   if(!restoreRoute||!albumRouteId())return;
   const savedReturnView=history.state?.returnView;
@@ -12890,7 +13711,7 @@ function closeAlbumPopup(options={}){
   if(history.state?.direct)navigateToView(returnView,{replace:true,path:returnView==="rankings"?"/":""});
   else history.back();
 }
-$("#closeAlbumModal").onclick=closeAlbumPopup;$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#closeAuthModal").onclick=closeAuthModal;$("#albumModal").onclick=e=>{if(e.target.id==="albumModal")closeAlbumPopup()};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};$("#authModal").onclick=e=>{if(e.target.id==="authModal")closeAuthModal()};
+$("#closeAlbumModal").onclick=closeAlbumPopup;$("#closeAddModal").onclick=()=>$("#addModal").classList.add("hidden");$("#closeAuthModal").onclick=closeAuthModal;$("#albumModal").onclick=e=>{if(e.target.id==="albumModal"&&!e.currentTarget.classList.contains("albumPageMode"))closeAlbumPopup()};$("#addModal").onclick=e=>{if(e.target.id==="addModal")$("#addModal").classList.add("hidden")};$("#authModal").onclick=e=>{if(e.target.id==="authModal")closeAuthModal()};
 function syncViewNavigation(view){
   document.querySelectorAll(".tab,.navItem[data-view]").forEach(item=>item.classList.toggle("active",item.dataset.view===view));
 }
@@ -12945,7 +13766,12 @@ function rememberSiteState(){
   history.replaceState({musica:"view",view:routedView,direct:true},"",location.href);
 }
 rememberSiteState();
-window.addEventListener("resize",()=>requestAnimationFrame(updateAlbumSeeMorePlacement));
+window.addEventListener("resize",()=>requestAnimationFrame(()=>{
+  updateAlbumSeeMorePlacement();
+  const albumModal=$("#albumModal");
+  if(albumModal&&!albumModal.classList.contains("hidden")&&!albumModal.classList.contains("libraryDetailModal"))setAlbumPageMode(true);
+  else syncAlbumPageHeaderHeight();
+}));
 $("#albumModal")?.addEventListener("scroll",()=>requestAnimationFrame(updateAlbumSeeMorePlacement),{passive:true});
 window.addEventListener("popstate",async event=>{
   if(!$("#authModal").classList.contains("hidden"))closeAuthModal();
@@ -12980,10 +13806,12 @@ function handleNavViewAction(event){
   navigateToView(view,{path:requestedPath});
 }
 document.querySelectorAll(".tab,.navItem[data-view]").forEach(t=>{t.onclick=handleNavViewAction;t.addEventListener("pointerup",handleNavViewAction);t.addEventListener("touchend",handleNavViewAction,{passive:false})});
+$("#drawerMuzeSearchButton")?.addEventListener("click",()=>{$("#drawerMuzeSearchInput")?.focus();renderDrawerMuzeSearchResults()});
+$("#drawerMuzeSearchInput")?.addEventListener("keydown",event=>{if(event.key==="Enter")event.preventDefault();if(event.key==="ArrowDown"){event.preventDefault();$("#drawerMuzeSearchResults .drawerMuzeSearchOption")?.focus()}});
 $("#searchInput").oninput=e=>{state.search=e.target.value;state.yearFilter="";scheduleMuzeSearchSuggestions();scheduleHomeSearchRender()};
 $("#searchInput")?.addEventListener("focus",scheduleMuzeSearchSuggestions);
 $("#searchInput")?.addEventListener("keydown",event=>{if(event.key==="Escape")hideMuzeSearchSuggestions()});
-document.addEventListener("pointerdown",event=>{if(!event.target.closest(".muzeSearchWrap"))hideMuzeSearchSuggestions()});
+document.addEventListener("pointerdown",event=>{if(!event.target.closest(".muzeSearchWrap"))hideMuzeSearchSuggestions();if(!event.target.closest(".drawerMuzeSearch"))hideDrawerMuzeSearchResults()});
 $("#genreFilter").onchange=e=>{state.genre=e.target.value;state.yearFilter="";requestHomepageAlbumPage({reset:true,force:true})};$("#sortSelect").onchange=e=>{state.sort=e.target.value;requestHomepageAlbumPage({reset:true,force:true})};const themeToggle=$("#themeToggle");function syncThemeToggle(){if(themeToggle)themeToggle.setAttribute("aria-label",document.body.classList.contains("light")?"Switch to dark mode":"Switch to light mode")}syncThemeToggle();themeToggle.onclick=()=>{document.body.classList.toggle("light");state.theme=document.body.classList.contains("light")?"light":"dark";localStorage.setItem("musicaThemePreference",state.theme);syncThemeToggle()};
 document.addEventListener("visibilitychange",()=>{if(document.hidden)updateOwnPresence(false);else startPresenceHeartbeat()});
 window.addEventListener("pagehide",()=>updateOwnPresence(false));
