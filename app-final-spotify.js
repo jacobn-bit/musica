@@ -11693,7 +11693,7 @@ function orderWikimediaArtistImages(profile,result){
 function enableArtistImageOrdering(profile,result,heroSourceUrl){
   if(!isAdminUnlocked()||window.matchMedia("(max-width: 850px)").matches)return;
   const hero=document.querySelector(".muzeArtistProfileHero");
-  if(hero&&heroSourceUrl){hero.dataset.artistImageSource=heroSourceUrl;hero.draggable=true;if(!hero.querySelector(".muzeArtistImageOrderHint"))hero.insertAdjacentHTML("beforeend",'<span class="muzeArtistImageOrderHint">Drag image to swap</span>')}
+  if(hero&&heroSourceUrl){hero.dataset.artistImageSource=heroSourceUrl;if(!hero.querySelector(".muzeArtistImageOrderHint"))hero.insertAdjacentHTML("beforeend",'<span class="muzeArtistImageOrderHint">Hold and drag to swap</span>')}
   const slots=[hero,...document.querySelectorAll(".muzeArtistImageRailCard")].filter(slot=>slot?.dataset?.artistImageSource);
   const swap=(source,target)=>{
     if(!source||!target||source===target)return;
@@ -11710,12 +11710,56 @@ function enableArtistImageOrdering(profile,result,heroSourceUrl){
     renderWikimediaArtistRail(profile,reordered,{excludeSourceUrl:nextHero.sourceUrl});
   };
   slots.forEach(slot=>{
-    slot.draggable=true;
-    slot.addEventListener("dragstart",event=>{event.dataTransfer.setData("text/plain",slot.dataset.artistImageSource);event.dataTransfer.effectAllowed="move";slot.classList.add("isImageDragging")});
-    slot.addEventListener("dragend",()=>{slots.forEach(item=>item.classList.remove("isImageDragging","isImageDragTarget"))});
-    slot.addEventListener("dragover",event=>{event.preventDefault();event.dataTransfer.dropEffect="move";slot.classList.add("isImageDragTarget")});
-    slot.addEventListener("dragleave",()=>slot.classList.remove("isImageDragTarget"));
-    slot.addEventListener("drop",event=>{event.preventDefault();slot.classList.remove("isImageDragTarget");swap(event.dataTransfer.getData("text/plain"),slot.dataset.artistImageSource)});
+    slot.removeAttribute("draggable");
+    slot.dataset.artistImageOrderable="true";
+    let gesture=null;
+    let suppressClick=false;
+    const clearClasses=()=>slots.forEach(item=>item.classList.remove("isImageDragArmed","isImageDragging","isImageDragTarget"));
+    const cancelHold=()=>{if(gesture?.timer)clearTimeout(gesture.timer)};
+    slot.addEventListener("pointerdown",event=>{
+      if(event.button!==0||event.target.closest(".muzeArtistPhotoRemove"))return;
+      gesture={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,armed:false,target:null,timer:null};
+      gesture.timer=setTimeout(()=>{
+        if(!gesture||gesture.pointerId!==event.pointerId)return;
+        gesture.armed=true;
+        suppressClick=true;
+        slot.classList.add("isImageDragArmed","isImageDragging");
+        slot.setPointerCapture?.(event.pointerId);
+      },280);
+    });
+    slot.addEventListener("pointermove",event=>{
+      if(!gesture||gesture.pointerId!==event.pointerId)return;
+      if(!gesture.armed){
+        if(Math.hypot(event.clientX-gesture.startX,event.clientY-gesture.startY)>8){cancelHold();gesture=null}
+        return;
+      }
+      event.preventDefault();
+      const target=document.elementFromPoint(event.clientX,event.clientY)?.closest?.('[data-artist-image-orderable="true"]');
+      slots.forEach(item=>item.classList.toggle("isImageDragTarget",item===target&&item!==slot));
+      gesture.target=target&&target!==slot?target:null;
+    });
+    const finish=event=>{
+      if(!gesture||gesture.pointerId!==event.pointerId)return;
+      cancelHold();
+      const wasArmed=gesture.armed;
+      const target=gesture.target;
+      gesture=null;
+      if(wasArmed){
+        event.preventDefault();
+        if(slot.hasPointerCapture?.(event.pointerId))slot.releasePointerCapture(event.pointerId);
+        if(target)swap(slot.dataset.artistImageSource,target.dataset.artistImageSource);
+        setTimeout(()=>{suppressClick=false},350);
+      }
+      clearClasses();
+    };
+    slot.addEventListener("pointerup",finish);
+    slot.addEventListener("pointercancel",finish);
+    slot.addEventListener("click",event=>{
+      if(!suppressClick)return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressClick=false;
+    },true);
   });
 }
 function artistPhotoLightboxImage(){
