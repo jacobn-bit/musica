@@ -402,7 +402,7 @@ exports.handler = async function(event) {
         name: artistName,
         name_key: artistKey,
         slug: artistSlug,
-        image_url: artistKey === "prince" ? null : cleanText(body.image_url) || null,
+        image_url: cleanText(body.image_url) || null,
         image_source_url: cleanText(body.image_source_url) || null,
         image_author: cleanText(body.image_author) || null,
         image_license: cleanText(body.image_license) || null,
@@ -443,6 +443,24 @@ exports.handler = async function(event) {
       }
       if (!rows) throw new Error("Could not save the artist after checking the live artist schema.");
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows?.[0] || nextPayload, stripped_columns: strippedColumns }) };
+    }
+
+    if (action === "reject_artist_gallery_image") {
+      const artistId = cleanText(body.artist_id);
+      const artistSlug = cleanText(body.slug);
+      const sourceUrl = cleanText(body.source_url);
+      const imageUrl = cleanText(body.image_url);
+      if ((!artistId && !artistSlug) || (!sourceUrl && !imageUrl)) return { statusCode: 400, headers, body: JSON.stringify({ error: "Artist and image are required." }) };
+      const artistRows = await api(`artists?${artistId ? `id=eq.${encodeURIComponent(artistId)}` : `slug=eq.${encodeURIComponent(artistSlug)}`}&select=*`);
+      const artistRow = artistRows?.[0] || null;
+      if (!artistRow) return { statusCode: 404, headers, body: JSON.stringify({ error: "Artist profile was not found." }) };
+      const rejectedUrls = [...new Set(stringArray(artistRow.image_rejected_urls).concat([sourceUrl, imageUrl]).map(cleanText).filter(Boolean))];
+      const rows = await api(`artists?id=eq.${encodeURIComponent(artistRow.id)}`, {
+        method: "PATCH",
+        headers: { "Prefer": "return=representation" },
+        body: JSON.stringify({ image_rejected_urls: rejectedUrls, updated_at: new Date().toISOString() })
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, row: rows?.[0] || { ...artistRow, image_rejected_urls: rejectedUrls } }) };
     }
 
     if (action === "reject_artist_image") {
